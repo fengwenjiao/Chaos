@@ -1,0 +1,3 @@
+[submodule "ps-lite-elastic"]
+	path = ps-lite-elastic
+	url = git@github.com:yezhizi/ps-lite-elastic.git
