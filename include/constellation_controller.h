@@ -33,9 +33,24 @@ class ConstelController {
    * \brief Controller handle for signal from scheduler
    */
   void SchedulerSignalHandle(const ps::SimpleData& recved, ps::SimpleApp* app);
-
-
+  /**
+   * \brief Controller send topo to strategy layer and get new transtopo
+   */
+  std::unordered_map<:int,std::pair<int,std::vector<int>>> SetTranstopo(std::unordered_map<int,std::pair<int,std::vector<int>>>);
+  /**
+   * \brief Controller return a proper future timestamp
+   */
+  int GetFutureTimtestamp();
+  /**
+   * \brief send message to all trainers
+   */
+  void SendToALLTrainers();
+  
+  int timestamp_ = 0;
+  int future_timestamp_ = 0;
   ps::KVServer<char>* ps_scheduler_;
+  set<int> ready_nodes_;//zzh: set stores the node in ready
+  int addnode_stage_ = 0//zzh: 0 denotes sync add,1 denotes async add
 };
 
 }  // namespace constellation
