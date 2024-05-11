@@ -33,21 +33,15 @@ void ConstelController::SchedulerSignalHandle(const ps::SimpleData& recved, ps::
                     //NOTE: Ensure whether it works(get environment variable)
                     if(ready_nodes.size()==atoi(CHECK_NOTNULL(Environment::Get()->find("DMLC_PS_ROOT_PORT")))){
                         //Set Trans topo means report the overlay and stategy layter return transtopo
-                        std::unordered_map<int, pair<std::int, std::vector<int>>> new_topo_ = SetTranstopo(Postoffice::Get()->GetOverlay());
+                        std::unordered_map<int, std::pair<int, std::vector<int>>> new_topo_  = SetTranstopo(GetReadyOverlay());
                         if(new_topo_.size() != 0){
                             for(const auto& entry :new_topo_){
                                 int node_id_ = entry.first;
-                                int topo_ = entry.second;//NOTE how to transfer the topo？
-                                Message msg;
-                                msg.meta.app_id = obj_->app_id();
-                                msg.meta.customer_id = obj_->customer_id();
-                                msg.meta.body = ;//insert the encoeded transtoopo
-                                msg.meta.request     = true;//NOTE: not sure
-                                msg.meta.head        = cmd; //NOTE head define
-                                msg.meta.future_timestamp   = GetFutureTimtestamp();
-                                msg.meta.sender      = kscheduler;//NOTE:controller as sender 
-                                msg.meta.recver      = node_id_;
-                                Postoffice::Get()->van()->Send(msg);
+                                int topo_ = entry.second;
+                                int head = UPDATETRANSTOPOSIGNAL;//TODO define the signal
+                                int future_timestamp = GetFutureTimtestamp();
+                                int body = SerializeTransTopo(future_timestamp, topo_);
+                                SendToTrainer(head, body, node_id_);
                             }
                         }
                         addnode_stage_ = 1;
@@ -58,20 +52,15 @@ void ConstelController::SchedulerSignalHandle(const ps::SimpleData& recved, ps::
             if(addnode_stage_ == 1){
                 //when new node ready, report
                 if(!ready_nodes_.count(ready_node_id))ready_nodes_.insert(ready_node_id);
-                std::unordered_map<int, std::pair<int, std::vector<int>>> new_topo_  = SetTranstopo(Postoffice::Get()->GetOverlay());
+                std::unordered_map<int, std::pair<int, std::vector<int>>> new_topo_  = SetTranstopo(GetReadyOverlay());
                 if(new_topo_.size() != 0){
                     for(const auto& entry :new_topo_){
                         int node_id_ = entry.first;
-                        int topo_ = entry.second;//NOTE how to transfer the topo？
-                        Message msg;
-                        msg.meta.app_id = obj_->app_id();
-                        msg.meta.customer_id = obj_->customer_id();
-                        msg.meta.request     = true;//NOTE: not sure
-                        msg.meta.head        = cmd; //NOTE head define
-                        msg.meta.future_timestamp   = GetFutureTimtestamp();
-                        msg.meta.sender      = kscheduler;//NOTE:controller as sender 
-                        msg.meta.recver      = node_id_;
-                        Postoffice::Get()->van()->Send(msg);
+                        int topo_ = entry.second;
+                        int head = UPDATETRANSTOPOSIGNAL;//TODO define the signal
+                        int future_timestamp = GetFutureTimtestamp();
+                        int body = SerializeTransTopo(future_timestamp, topo_);
+                        SendToTrainer(head, body, node_id_);
                     }
                 }
             }
@@ -81,7 +70,45 @@ void ConstelController::SchedulerSignalHandle(const ps::SimpleData& recved, ps::
     }
 }
 
-std::unordered_map<int,std::pair<int,std::vector<int>>> ConstelController::SetTranstopo(std::unordered_map<int,std::pair<int,std::vector<int>>> overlay){
+std::unordered_map<int,std::pair<int,std::vector<int>>> ConstelController::SetTranstopo(std::unordered_map<int, std::vector<int>> overlay){
+    std::unordered_map<int, std::pair<int, std::vector<int>>> transtopo_;
+    if (overlay.empty()) {
+        return transtopo_;
+    }
+    std::queue<int> q;
+    std::unordered_map<int, bool> visited;
+
+    int root = overlay.begin()->first;
+    q.push(root);
+    visited[root] = true;
+    transtopo_[root] = { -1, std::vector<int>() };
+
+    while (!q.empty()) {
+        int current = q.front();
+        q.pop();
+        for (int neighbor : overlay[current]) {
+            if (!visited[neighbor]) {
+                visited[neighbor] = true;
+                q.push(neighbor);
+                transtopo_[current].second.push_back(neighbor);
+                transtopo_[neighbor] = { current, std::vector<int>() };
+            }
+        }
+    }
+
+    global_transtopo = transtopo_;
+    return transtopo_;
+}
+
+int ConstelController::GetReadyOverlay(){
+    overlay = Postoffice::Get()->GetOverlay();
+    for (auto it = overlay.begin(); it != overlay.end();) {
+        if (!ready_nodes_.count(node->first)) {
+            it = overlay.erase(it); 
+        } else {
+            ++it;
+        }
+    }
     return overlay;
 }
 
@@ -89,8 +116,49 @@ int ConstelController::GetFutureTimtestamp(){
     future_timestamp_ = timestamp_ + 5;
     return future_timestamp_;
 }
-Void sendtosingletrainer//NOTE
-void ConstelController::SendToALLTrainers(cmd,string){
+void ConstelController::SendToTrainer(int head, const std::string& body, int recv_id){
+    Message msg;
+    msg.meta.app_id = obj_->app_id();
+    msg.meta.customer_id = obj_->customer_id();
+    msg.meta.request     = true;
+    msg.meta.head        = head; 
+    msg.meta.sender      = kscheduler;
+    msg.meta.recver      = recv_id;
+    Postoffice::Get()->van()->Send(msg);
+}
 
+void ConstelController::SendToALLTrainers(int head, const std::string& body){
+    for(const auto & ready_node_ : ready_nodes_){
+        SendToTrainer(head,body,ready_node_);
     }
+}
+
+std::string ConstelController::SerializeTransTopo(int timestamp, const std::pair<int, std::vector<int>>& data) {
+    std::ostringstream oss;
+    oss << timestamp << "|" << data.first << ":";
+    for (size_t i = 0; i < data.second.size(); ++i) {
+        oss << data.second[i];
+        if (i < data.second.size() - 1) {
+            oss << ",";
+        }
+    }
+    return oss.str();
+}
+bool ConstelController::DeserializeTransTopo(const std::string& serialized, int& timestamp, std::pair<int, std::vector<int>>& data) {
+    std::istringstream iss(serialized);
+    std::string temp;
+    
+    if (!std::getline(iss, temp, '|')) return false;
+    timestamp = std::stoi(temp);
+
+    if (!std::getline(iss, temp, ':')) return false;
+    data.first = std::stoi(temp);
+
+    data.second.clear();
+    while (std::getline(iss, temp, ',')) {
+        data.second.push_back(std::stoi(temp));
+    }
+    
+    return true;
+}
 }  // namespace constellation

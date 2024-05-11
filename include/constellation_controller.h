@@ -36,7 +36,7 @@ class ConstelController {
   /**
    * \brief Controller send topo to strategy layer and get new transtopo
    */
-  std::unordered_map<:int,std::pair<int,std::vector<int>>> SetTranstopo(std::unordered_map<int,std::pair<int,std::vector<int>>>);
+  std::unordered_map<:int,std::pair<int,std::vector<int>>> SetTranstopo(std::unordered_map<int, std::vector<int>> overlay);
   /**
    * \brief Controller return a proper future timestamp
    */
@@ -44,11 +44,23 @@ class ConstelController {
   /**
    * \brief send message to all trainers
    */
-  void SendToALLTrainers();
-  
+  void SendToALLTrainers(int head, const std::string& body);
+  /**
+   * \brief send message to some trainer
+   */
+  void ConstelController::SendToTrainer(int head, const std::string& body, int recv_id);
+  /**
+   * \brief serialze timestamp and transtopo into a string
+   */
+  std::string ConstelController::SerializeTransTopo(int timestamp, const std::pair<int, std::vector<int>>& data);
+  /**
+   * \brief deserialze  a string into timestamp and transtopo
+   */
+  bool ConstelController::DeserializeTransTopo(const std::string& serialized, int& timestamp, std::pair<int, std::vector<int>>& data);
   int timestamp_ = 0;
   int future_timestamp_ = 0;
   ps::KVServer<char>* ps_scheduler_;
+  std::unordered_map<:int,std::pair<int,std::vector<int>>> global_transtopo;
   set<int> ready_nodes_;//zzh: set stores the node in ready
   int addnode_stage_ = 0//zzh: 0 denotes sync add,1 denotes async add
 };
