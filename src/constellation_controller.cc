@@ -4,39 +4,6 @@
 
 namespace constellation {
 
-class ReadyNodeOverlayManager {
- public:
-  ReadyNodeOverlayManager() = default;
-  ~ReadyNodeOverlayManager() = default;
-  bool HandleNodeReady(int node_id) {
-    auto& connected_nodes = ps::Postoffice::Get()->GetOverlayNeighbour(node_id);
-    if (!ready_nodes_.AddNode(node_id)) {
-      // the node is already in the ready_nodes_
-      return false;
-    }
-    bool is_add_edge = false;
-    for (auto& node : connected_nodes) {
-      if (ready_nodes_.HasNode(node)) {
-        // the nerghbour is ready, then add edge
-        if (ready_nodes_.AddEdge(node_id, node)) {
-          is_add_edge = true;
-        }
-      }
-    }
-    CHECK(is_add_edge) << "Node " << node_id << " is ready, but no edge is added";
-    // check if node number is enough
-    if (ready_nodes_.NumNodes() == ps::Postoffice::Get()->init_num_trainers()) {
-      addnode_stage_++;
-    }
-    return true;
-  }
-  bool isAsyncJoinStage() { return addnode_stage_ == 1; }
-
- private:
-  TopoGraph<int> ready_nodes_;
-  int addnode_stage_ = 0;  // 0: sync join stage, 1: async join stage
-};
-
 void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleApp* app) {
   int sender = recved.sender;
   // request from schduler
@@ -54,122 +21,49 @@ void ConstelController::SchedulerSignalHandle(const ps::SimpleData& recved, ps::
   switch (signal) {
     // case : kControllerSignal::xxxx:
     //     break;
+    case kControllerSignal::kNodeReadySignal: {
+      int ready_node_id = stoi(body);
+      if (!node_manager_.HandleNodeReady(ready_node_id)) {
+        // duplicated node ready signal
+        break;
+      }
+      if (!node_manager_.ShouldGetNewTransTopo()) {
+        break;
+      }
+      // get new transtopo
+      // TODO: now it is just a simple version, need to be improved
+      // TODO: if need remote thinker, here should just send, can not get the result immediately
+      AdjacencyList overlay = node_manager_.GetReadyOverlayStr();
+      GlobalTransTopo transtopo = this->thinker_->SendOverlay(overlay);
+      // Decide a new future timestamp
+      int future_timestamp = GetFutureTimtestamp();
 
-    // NOTE:
-    case kControllerSignal::kNodeReadySignal:
-      int ready_node_id = stoi(body);  // NOTE body should be the new ndoe id
-      if (addnode_stage_ == 0) {
-        // sync join stage
-        if (!ready_nodes_.count(ready_node_id)) {  // whether it is a new node
-          ready_nodes_.insert(ready_node_id);
-          // whether sync nodes all ready
-          // NOTE: Ensure whether it works(get environment variable)
-          if (ready_nodes.size() ==
-              atoi(CHECK_NOTNULL(Environment::Get()->find("DMLC_PS_ROOT_PORT")))) {
-            // Set Trans topo means report the overlay and stategy layter return transtopo
-            std::unordered_map<int, std::pair<int, std::vector<int>>> new_topo_ =
-                SetTranstopo(GetReadyOverlay());
-            if (new_topo_.size() != 0) {
-              for (const auto& entry : new_topo_) {
-                int node_id_ = entry.first;
-                int topo_ = entry.second;
-                int head = UPDATETRANSTOPOSIGNAL;  // TODO define the signal
-                int future_timestamp = GetFutureTimtestamp();
-                int body = SerializeTransTopo(future_timestamp, topo_);
-                SendToTrainer(head, body, node_id_);
-              }
-            }
-            addnode_stage_ = 1;
-          }
-        }
+      std::unordered_map<int, std::string> data;
+      for (const auto& entry : transtopo) {
+        int node_id = entry.first;
+        data[node_id] = entry.second.Encode();
       }
-      // async join stage
-      if (addnode_stage_ == 1) {
-        // when new node ready, report
-        if (!ready_nodes_.count(ready_node_id))
-          ready_nodes_.insert(ready_node_id);
-        std::unordered_map<int, std::pair<int, std::vector<int>>> new_topo_ =
-            SetTranstopo(GetReadyOverlay());
-        if (new_topo_.size() != 0) {
-          for (const auto& entry : new_topo_) {
-            int node_id_ = entry.first;
-            int topo_ = entry.second;
-            int head = UPDATETRANSTOPOSIGNAL;  // TODO define the signal
-            int future_timestamp = GetFutureTimtestamp();
-            int body = SerializeTransTopo(future_timestamp, topo_);
-            SendToTrainer(head, body, node_id_);
-          }
-        }
-      }
+      int head = static_cast<int>(kControllerSignal::kUpdateTransTopoAnouce);
+      // send to all trainers and wait for response
+      app->Wait(app->Request(head, data));
+      // TODO:update the transtopo, modify tick to contain global topo instead of node topoF
+      break;
+    }
 
     default:
       LOG(WARNING) << "Controller received unknown signal from scheduler";
+      break;
+
+      
   }
-}
-
-std::unordered_map<int, std::pair<int, std::vector<int>>> ConstelController::SetTranstopo(
-    std::unordered_map<int, std::vector<int>> overlay) {
-  std::unordered_map<int, std::pair<int, std::vector<int>>> transtopo_;
-  if (overlay.empty()) {
-    return transtopo_;
-  }
-  std::queue<int> q;
-  std::unordered_map<int, bool> visited;
-
-  int root = overlay.begin()->first;
-  q.push(root);
-  visited[root] = true;
-  transtopo_[root] = {-1, std::vector<int>()};
-
-  while (!q.empty()) {
-    int current = q.front();
-    q.pop();
-    for (int neighbor : overlay[current]) {
-      if (!visited[neighbor]) {
-        visited[neighbor] = true;
-        q.push(neighbor);
-        transtopo_[current].second.push_back(neighbor);
-        transtopo_[neighbor] = {current, std::vector<int>()};
-      }
-    }
-  }
-
-  global_transtopo = transtopo_;
-  return transtopo_;
-}
-
-int ConstelController::GetReadyOverlay() {
-  overlay = Postoffice::Get()->GetOverlay();
-  for (auto it = overlay.begin(); it != overlay.end();) {
-    if (!ready_nodes_.count(node->first)) {
-      it = overlay.erase(it);
-    } else {
-      ++it;
-    }
-  }
-  return overlay;
+  app->Response(recved);
 }
 
 int ConstelController::GetFutureTimtestamp() {
-  future_timestamp_ = timestamp_ + 5;
-  return future_timestamp_;
-}
-void ConstelController::SendToTrainer(int head, const std::string& body, int recv_id) {
-  Message msg;
-  msg.meta.app_id = obj_->app_id();
-  msg.meta.customer_id = obj_->customer_id();
-  msg.meta.request = true;
-  msg.meta.head = head;
-  msg.meta.sender = kscheduler;
-  msg.meta.recver = recv_id;
-  Postoffice::Get()->van()->Send(msg);
+  int future_timestamp = clock_.getLocalTimestamp();
+  return future_timestamp + 5;
 }
 
-void ConstelController::SendToALLTrainers(int head, const std::string& body) {
-  for (const auto& ready_node_ : ready_nodes_) {
-    SendToTrainer(head, body, ready_node_);
-  }
-}
 
 std::string ConstelController::SerializeTransTopo(int timestamp,
                                                   const std::pair<int, std::vector<int>>& data) {
