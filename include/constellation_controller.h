@@ -2,7 +2,8 @@
 #define _CONSTELLATION_CONTROLLER_H_
 
 #include <functional>
-
+#include "./constellation_commons.h"
+#include "./constellation_transtopothinker.h"
 #include <ps/ps.h>
 
 namespace constellation {
@@ -13,12 +14,64 @@ class ConstelController {
     ps_scheduler_ = new ps::Controller(0);
     ps_scheduler_->set_request_handle(std::bind(&ConstelController::RequestHandle, this, _1, _2));
     ps_scheduler_->set_response_handle(std::bind(&ConstelController::ResponseHandle, this, _1, _2));
+
+    thinker_ = new ConstelTransTopoThinker();
   }
-  ~ConstelController(){
+  ~ConstelController() {
     delete ps_scheduler_;
+    delete thinker_;
   }
 
  private:
+  class ReadyNodeOverlayManager {
+   public:
+    ReadyNodeOverlayManager(): addnode_stage_(0) {}
+    bool HandleNodeReady(int node_id) {
+      auto& connected_nodes = ps::Postoffice::Get()->GetOverlayNeighbour(node_id);
+      if (!ready_nodes_.AddNode(node_id)) {
+        // the node is already in the ready_nodes_
+        return false;
+      }
+      bool is_add_edge = false;
+      for (auto& node : connected_nodes) {
+        if (ready_nodes_.HasNode(node)) {
+          // the nerghbour is ready, then add edge
+          if (ready_nodes_.AddEdge(node_id, node)) {
+            is_add_edge = true;
+          }
+        }
+      }
+      CHECK(is_add_edge) << "Node " << node_id << " is ready, but no edge is added";
+      // check if node number is enough
+      if (ready_nodes_.NumNodes() == ps::Postoffice::Get()->init_num_trainers()) {
+        addnode_stage_++;
+      }
+      return true;
+    }
+    bool ShouldGetNewTransTopo() {
+      return isAsyncJoinStage() ;
+    }
+    bool isAsyncJoinStage() {
+      return addnode_stage_ == 1;
+    }
+
+    //TODO: GetReadyOverlay() is debug version, should return the string of overlay
+    AdjacencyList GetReadyOverlayStr() {
+      auto& edges = ready_nodes_.GetEdges();
+      AdjacencyList overlay;
+      for (auto& edge : edges) {
+        overlay[edge.src].push_back(edge.dst);
+        overlay[edge.dst].push_back(edge.src);
+      }
+      return overlay;
+    }
+
+
+   private:
+    TopoGraph<int> ready_nodes_;
+    int addnode_stage_ ;  // 0: sync join stage, 1: async join stage
+  };
+
   /**
    * \brief Controller handle for all received request
    */
@@ -31,10 +84,6 @@ class ConstelController {
    * \brief Controller handle for signal from scheduler
    */
   void SchedulerSignalHandle(const ps::SimpleData& recved, ps::SimpleApp* app);
-  /**
-   * \brief Controller send topo to strategy layer and get new transtopo
-   */
-  std::unordered_map<:int,std::pair<int,std::vector<int>>> SetTranstopo(std::unordered_map<int, std::vector<int>> overlay);
   /**
    * \brief Controller return a proper future timestamp
    */
@@ -55,14 +104,13 @@ class ConstelController {
    * \brief deserialze  a string into timestamp and transtopo
    */
   bool ConstelController::DeserializeTransTopo(const std::string& serialized, int& timestamp, std::pair<int, std::vector<int>>& data);
-  
-  class ReadyNodeOverlayManager;
 
-  int timestamp_ = 0;
-  int future_timestamp_ = 0;
+  ReadyNodeOverlayManager node_manager_;
+
+  ScaleClock clock_;
   ps::Controller* ps_scheduler_;
-  std::unordered_map<:int,std::pair<int,std::vector<int>>> global_transtopo;
-  set<int> ready_nodes_;//zzh: set stores the node in ready
+  ConstelTransTopoThinker * thinker_;
+
 };
 
 }  // namespace constellation

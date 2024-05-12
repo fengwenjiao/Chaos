@@ -2,6 +2,7 @@
 #define _TOPO_GRAPH_H_
 
 #include <unordered_set>
+#include <vector>
 
 template <typename T>
 class TopoGraph {
@@ -21,8 +22,10 @@ class TopoGraph {
 
     T src;
     T dst;
+    // maybe other infos, such as delay, bandwidth, etc.
+    // ...
   };
-
+  TopoGraph() : src(T()), dst(T()) {}
   bool AddNode(const T& node) {
     if (nodes_.count(node) > 0) {
       return false;
@@ -89,6 +92,14 @@ class TopoGraph {
 
   int NumEdges() const {
     return edges_.size();
+  }
+
+  const std::unordered_set<Edge>& GetEdges() const {
+    return edges_;
+  }
+
+  const std::unordered_set<T>& GetNodes() const {
+    return nodes_;
   }
 
  private:
