@@ -10,11 +10,9 @@ class ConstelController {
  public:
   explicit ConstelController() {
     using namespace std::placeholders;
-    ps_scheduler_ = new ps::KVServer<char>(0);
-    static_cast<ps::SimpleApp*>(ps_scheduler_)
-        ->set_request_handle(std::bind(&ConstelController::RequestHandle, this, _1, _2));
-    static_cast<ps::SimpleApp*>(ps_scheduler_)
-        ->set_response_handle(std::bind(&ConstelController::ResponseHandle, this, _1, _2));
+    ps_scheduler_ = new ps::Controller(0);
+    ps_scheduler_->set_request_handle(std::bind(&ConstelController::RequestHandle, this, _1, _2));
+    ps_scheduler_->set_response_handle(std::bind(&ConstelController::ResponseHandle, this, _1, _2));
   }
   ~ConstelController(){
     delete ps_scheduler_;
@@ -57,12 +55,14 @@ class ConstelController {
    * \brief deserialze  a string into timestamp and transtopo
    */
   bool ConstelController::DeserializeTransTopo(const std::string& serialized, int& timestamp, std::pair<int, std::vector<int>>& data);
+  
+  class ReadyNodeOverlayManager;
+
   int timestamp_ = 0;
   int future_timestamp_ = 0;
-  ps::KVServer<char>* ps_scheduler_;
+  ps::Controller* ps_scheduler_;
   std::unordered_map<:int,std::pair<int,std::vector<int>>> global_transtopo;
   set<int> ready_nodes_;//zzh: set stores the node in ready
-  int addnode_stage_ = 0//zzh: 0 denotes sync add,1 denotes async add
 };
 
 }  // namespace constellation
