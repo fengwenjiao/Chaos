@@ -13,9 +13,9 @@ int generate_random_number(int min, int max) {
 int main(int argc, char* argv[]) {
   // start van and postoffice layer
   ps::StartAsync(0, "constellation\0");
-  if (!ps::Postoffice::Get()->is_scale() && !ps::Postoffice::Get()->is_recovery()) {
-    ps::Postoffice::Get()->Barrier(0, ps::kWorkerGroup + ps::kServerGroup + ps::kScheduler);
-  }
+  // if (!ps::Postoffice::Get()->is_scale() && !ps::Postoffice::Get()->is_recovery()) {
+  //   ps::Postoffice::Get()->Barrier(0, ps::kWorkerGroup + ps::kServerGroup + ps::kScheduler);
+  // }
 
   bool is_scheduler = ps::IsScheduler();
   if (is_scheduler) {

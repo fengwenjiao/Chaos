@@ -8,24 +8,26 @@ template <typename T>
 class TopoGraph {
  public:
   struct Edge {
+    Edge() {}
     Edge(const Edge& other) : src(other.src), dst(other.dst) {}
-    Edge(const T& src, const T& dst) {
-      auto& min = std::min(src, dst);
-      auto& max = std::max(src, dst);
-      src = min;
-      dst = max;
-    }
+    Edge(const T& src, const T& dst) : src(src < dst ? src : dst), dst(src < dst ? dst : src) {}
 
-    operator==(const Edge & other) const {
-      return src == other.src && dst == other.dst;
+    bool operator==(const Edge& other) const {
+      return this->src == other.src && this->dst == other.dst;
     }
 
     T src;
     T dst;
     // maybe other infos, such as delay, bandwidth, etc.
     // ...
+
+    struct Hash {
+      std::size_t operator()(const Edge& edge) const {
+        return std::hash<T>()(edge.src) ^ std::hash<T>()(edge.dst);
+      }
+    };
   };
-  TopoGraph() : src(T()), dst(T()) {}
+  TopoGraph() {}
   bool AddNode(const T& node) {
     if (nodes_.count(node) > 0) {
       return false;
@@ -40,12 +42,7 @@ class TopoGraph {
       edges_.insert({src, dst});
       return true;
     }
-    if (edges_.count({src, dst}) > 0) {
-      // Edge already exists
-      return false;
-    }
-    edges_.insert({src, dst});
-    return true;
+    return edges_.insert(Edge(src, dst)).second;
   }
 
   bool RemoveNode(const T& node) {
@@ -54,6 +51,7 @@ class TopoGraph {
     }
     nodes_.erase(node);
     std::vector<Edge> to_remove;
+    // may use a map record node->edge to speed up
     for (const auto& edge : edges_) {
       if (edge.src == node || edge.dst == node) {
         to_remove.push_back(edge);
@@ -66,11 +64,7 @@ class TopoGraph {
   }
 
   bool RemoveEdge(const T& src, const T& dst) {
-    if (edges_.count({src, dst}) == 0) {
-      return false;
-    }
-    edges_.erase({src, dst});
-    return true;
+    return edges_.erase(Edge(src, dst)) > 0;
   }
 
   void Clear() {
@@ -94,7 +88,7 @@ class TopoGraph {
     return edges_.size();
   }
 
-  const std::unordered_set<Edge>& GetEdges() const {
+  const std::unordered_set<Edge, typename Edge::Hash>& GetEdges() const {
     return edges_;
   }
 
@@ -103,7 +97,7 @@ class TopoGraph {
   }
 
  private:
-  std::unordered_set<Edge> edges_;
+  std::unordered_set<Edge, typename Edge::Hash> edges_;
   std::unordered_set<T> nodes_;
 };
 

@@ -4,6 +4,7 @@
 #include <functional>
 #include "./constellation_commons.h"
 #include "./constellation_transtopothinker.h"
+#include "./topo_graph.hpp"
 #include <ps/ps.h>
 
 namespace constellation {
@@ -95,15 +96,15 @@ class ConstelController {
   /**
    * \brief send message to some trainer
    */
-  void ConstelController::SendToTrainer(int head, const std::string& body, int recv_id);
+  void SendToTrainer(int head, const std::string& body, int recv_id);
   /**
    * \brief serialze timestamp and transtopo into a string
    */
-  std::string ConstelController::SerializeTransTopo(int timestamp, const std::pair<int, std::vector<int>>& data);
+  std::string SerializeTransTopo(int timestamp, const std::pair<int, std::vector<int>>& data);
   /**
    * \brief deserialze  a string into timestamp and transtopo
    */
-  bool ConstelController::DeserializeTransTopo(const std::string& serialized, int& timestamp, std::pair<int, std::vector<int>>& data);
+  bool DeserializeTransTopo(const std::string& serialized, int& timestamp, std::pair<int, std::vector<int>>& data);
 
   ReadyNodeOverlayManager node_manager_;
 

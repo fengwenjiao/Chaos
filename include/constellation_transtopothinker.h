@@ -33,6 +33,7 @@ class ConstelTransTopoThinker {
         }
       }
     }
+    return transtopo;
   }
   // Send the overlay to the thinker
   //TODO:void SendOverlaytoThinker(std::string), now it is debug version

@@ -43,6 +43,7 @@ class NodeTransTopo {
     type_ = other.type_;
     parent_ = other.parent_;
     children_ = other.children_;
+    return *this;
   }
   NodeTransTopo& operator=(NodeTransTopo&& other) {
     if (this == &other) {
@@ -51,6 +52,7 @@ class NodeTransTopo {
     type_ = other.type_;
     parent_ = other.parent_;
     children_ = std::move(other.children_);
+    return *this;
   }
 
   void setParent(int parent) {
@@ -134,10 +136,12 @@ class ScaleClock {
     Tick& operator= (const Tick& other) {
       timestamp = other.timestamp;
       transtopo = other.transtopo;
+      return *this;
     }
     Tick& operator= (Tick&& other) {
       timestamp = other.timestamp;
       transtopo = std::move(other.transtopo);
+      return *this;
     }
     uint32_t timestamp;
     NodeTransTopo transtopo;
