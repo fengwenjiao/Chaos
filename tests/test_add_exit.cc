@@ -10,15 +10,19 @@ int generate_random_number(int min, int max) {
   return distrib(gen);
 }
 
-int main(int argc, char* argv[]) {
-  // start van and postoffice layer
-  ps::StartAsync(0, "constellation\0");
-  // if (!ps::Postoffice::Get()->is_scale() && !ps::Postoffice::Get()->is_recovery()) {
-  //   ps::Postoffice::Get()->Barrier(0, ps::kWorkerGroup + ps::kServerGroup + ps::kScheduler);
-  // }
+/**
+ * \return whether or not this process is a worker node.
+ *
+ * Always returns true when type == "local"
+ */
+static bool IsTrainer() {
+  const char* role_str = ps::Environment::Get()->find("DMLC_ROLE");
+  return (role_str == nullptr) || (!strcmp(role_str, "trainer"));
+}
 
-  bool is_scheduler = ps::IsScheduler();
-  if (is_scheduler) {
+int main(int argc, char* argv[]) {
+  bool is_trainer = IsTrainer();
+  if (!is_trainer) {
     // start Controller: kvapp layer, process datamsg
     constellation::ConstelController controller;
     while (true) {
@@ -26,10 +30,13 @@ int main(int argc, char* argv[]) {
     }
   } else {
     // for other nodes
+    constellation::ConstelTrainer trainer;
+    //simulate the process of ctx prepare
     int sleep_time = generate_random_number(10, 20);
     std::this_thread::sleep_for(std::chrono::seconds(sleep_time));
+
+    trainer.Init(0, nullptr); // send ready signal to controller
   }
 
-  ps::Finalize(0, false);
   return 0;
 }
