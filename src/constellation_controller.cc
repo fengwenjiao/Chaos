@@ -5,17 +5,6 @@
 namespace constellation {
 
 void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleApp* app) {
-  int sender = recved.sender;
-  // request from schduler
-  if (sender == ps::kScheduler) {
-    SchedulerSignalHandle(recved, app);
-    return;
-  }
-}
-
-void ConstelController::ResponseHandle(const ps::SimpleData& recved, ps::SimpleApp* app) {}
-
-void ConstelController::SchedulerSignalHandle(const ps::SimpleData& recved, ps::SimpleApp* app) {
   kControllerSignal signal = static_cast<kControllerSignal>(recved.head);
   const std::string& body = recved.body;
   switch (signal) {
@@ -36,34 +25,46 @@ void ConstelController::SchedulerSignalHandle(const ps::SimpleData& recved, ps::
       AdjacencyList overlay = node_manager_.GetReadyOverlayStr();
       GlobalTransTopo transtopo = this->thinker_->SendOverlay(overlay);
       // Decide a new future timestamp
-      int future_timestamp = GetFutureTimtestamp();
+      uint32_t future_timestamp = GetFutureTimtestamp();
 
       std::unordered_map<int, std::string> data;
+      ScaleClock::Tick tick;
+      tick.timestamp = future_timestamp;
+      GlobalTransTopo topo;
       for (const auto& entry : transtopo) {
-        int node_id = entry.first;
-        data[node_id] = entry.second.Encode();
+        // send to all trainers in the topo
+        // TODO: may need to notify the trainer that is not in the topo
+        topo.clear();
+        topo[entry.first] = entry.second;  // only one node in the topo
+        tick.transtopo = std::move(topo);
+        std::string str;
+        tick.Encode(&str);
+        data[entry.first] = str;
       }
       int head = static_cast<int>(kControllerSignal::kUpdateTransTopoAnouce);
       // send to all trainers and wait for response
       app->Wait(app->Request(head, data));
-      // TODO:update the transtopo, modify tick to contain global topo instead of node topoF
+      // set alarm for the new future timestamp
+      tick.transtopo = std::move(transtopo);
+      clock_.setAlarm(std::move(tick));
       break;
     }
 
     default:
       LOG(WARNING) << "Controller received unknown signal from scheduler";
       break;
-
-      
   }
   app->Response(recved);
 }
 
-int ConstelController::GetFutureTimtestamp() {
-  int future_timestamp = clock_.getLocalTimestamp();
+void ConstelController::ResponseHandle(const ps::SimpleData& recved, ps::SimpleApp* app) {}
+
+void ConstelController::SchedulerSignalHandle(const ps::SimpleData& recved, ps::SimpleApp* app) {}
+
+uint32_t ConstelController::GetFutureTimtestamp() {
+  uint32_t future_timestamp = clock_.getLocalTimestamp();
   return future_timestamp + 5;
 }
-
 
 std::string ConstelController::SerializeTransTopo(int timestamp,
                                                   const std::pair<int, std::vector<int>>& data) {

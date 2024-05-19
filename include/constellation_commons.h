@@ -55,6 +55,22 @@ class NodeTransTopo {
     return *this;
   }
 
+  const int getParent() const {
+    return parent_;
+  }
+
+  const std::vector<int>& getChildren() const {
+    return children_;
+  }
+
+  bool setoRoot() {
+    if (this->parent_ == 0) {
+      this->type_ = Type::kRoot;
+      return true;
+    }
+    return false;
+  }
+
   void setParent(int parent) {
     CHECK_GE(parent, ps::kMinTrainerID);
     parent_ = parent;
@@ -104,7 +120,6 @@ using GlobalTransTopo = std::unordered_map<int, NodeTransTopo>;
  * @param `str`: the string to store the encoded result
  */
 static void EncodeGlobalTransTopo(const GlobalTransTopo& transtopo, std::string* str) {
-  str->clear();
   for (const auto& kv : transtopo) {
     *str += std::to_string(kv.first) + " " + kv.second.Encode() + " ";
   }
@@ -131,27 +146,30 @@ class ScaleClock {
  public:
   struct Tick {
     Tick() : timestamp(0) {}
-    Tick(uint32_t ts, const NodeTransTopo& topo) : timestamp(ts), transtopo(topo) {}
-    Tick(uint32_t ts, NodeTransTopo&& topo) : timestamp(ts), transtopo(std::move(topo)) {}
-    Tick& operator= (const Tick& other) {
+    Tick(uint32_t ts, const GlobalTransTopo& topo) : timestamp(ts), transtopo(topo) {}
+    Tick(uint32_t ts, GlobalTransTopo&& topo) : timestamp(ts), transtopo(std::move(topo)) {}
+    Tick& operator=(const Tick& other) {
       timestamp = other.timestamp;
       transtopo = other.transtopo;
       return *this;
     }
-    Tick& operator= (Tick&& other) {
+    Tick& operator=(Tick&& other) {
       timestamp = other.timestamp;
       transtopo = std::move(other.transtopo);
       return *this;
     }
     uint32_t timestamp;
-    NodeTransTopo transtopo;
+    GlobalTransTopo transtopo;
+
     void Encode(std::string* str) const {
-      *str = std::to_string(timestamp) + " " + transtopo.Encode();
+      // timestamp GlobalTransTopo1{target_node_id NodeTransTopo{type parent [children]}}
+      *str += std::to_string(timestamp) + " ";
+      EncodeGlobalTransTopo(transtopo, str);
     }
     void Decode(const std::string& str) {
       size_t pos = 0;
       timestamp = std::stoi(str, &pos);
-      transtopo.Decode(str.substr(pos));
+      DecodeGlobalTransTopo(str.substr(pos), &transtopo);
     }
   };
 
@@ -170,12 +188,12 @@ class ScaleClock {
     // TODO:check if there is any alarm
   }
 
-  unsigned int getLocalTimestamp() const {
+  uint32_t getLocalTimestamp() const {
     return local_timestamp_;
   }
 
  private:
-  uint32_t local_timestamp_;
+  uint32_t local_timestamp_ = 0;
   std::unordered_map<uint32_t, Tick> ticks_;
 };
 

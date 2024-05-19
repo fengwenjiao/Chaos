@@ -38,6 +38,14 @@ class ConstelTransTopoThinker {
   // Send the overlay to the thinker
   //TODO:void SendOverlaytoThinker(std::string), now it is debug version
   GlobalTransTopo SendOverlay(AdjacencyList& overlay){
+    if(overlay.size()==1){
+      GlobalTransTopo transtopo;
+      NodeTransTopo topo;
+      topo.setoRoot();
+      int node_id = overlay.begin()->first;
+      transtopo[node_id] = topo;
+      return transtopo;
+    }
     return decideNewTransTopo(overlay);
   }
 

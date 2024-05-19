@@ -11,6 +11,7 @@ namespace constellation {
 class ConstelController {
  public:
   explicit ConstelController() {
+    ps::StartAsync(0, "ConstelController\0");
     using namespace std::placeholders;
     ps_scheduler_ = new ps::Controller(0);
     ps_scheduler_->set_request_handle(std::bind(&ConstelController::RequestHandle, this, _1, _2));
@@ -19,6 +20,7 @@ class ConstelController {
     thinker_ = new ConstelTransTopoThinker();
   }
   ~ConstelController() {
+    ps::Finalize(0, false);
     delete ps_scheduler_;
     delete thinker_;
   }
@@ -26,7 +28,7 @@ class ConstelController {
  private:
   class ReadyNodeOverlayManager {
    public:
-    ReadyNodeOverlayManager(): addnode_stage_(0) {}
+    ReadyNodeOverlayManager(): is_asycn_add_(false) {}
     bool HandleNodeReady(int node_id) {
       auto& connected_nodes = ps::Postoffice::Get()->GetOverlayNeighbour(node_id);
       if (!ready_nodes_.AddNode(node_id)) {
@@ -42,10 +44,12 @@ class ConstelController {
           }
         }
       }
-      CHECK(is_add_edge) << "Node " << node_id << " is ready, but no edge is added";
+      if(!is_add_edge && ready_nodes_.NumNodes() >=2) {
+        LOG(WARNING) << "Node " << node_id << " is ready, but no edge is added";
+      }
       // check if node number is enough
       if (ready_nodes_.NumNodes() == ps::Postoffice::Get()->init_num_trainers()) {
-        addnode_stage_++;
+        is_asycn_add_ = true;
       }
       return true;
     }
@@ -53,7 +57,7 @@ class ConstelController {
       return isAsyncJoinStage() ;
     }
     bool isAsyncJoinStage() {
-      return addnode_stage_ == 1;
+      return is_asycn_add_;
     }
 
     //TODO: GetReadyOverlay() is debug version, should return the string of overlay
@@ -64,13 +68,19 @@ class ConstelController {
         overlay[edge.src].push_back(edge.dst);
         overlay[edge.dst].push_back(edge.src);
       }
+      if(overlay.empty()){
+        auto& nodes = ready_nodes_.GetNodes();
+        CHECK_EQ(nodes.size(), 1);
+        auto& node = *nodes.begin();
+        overlay[node] = std::vector<int>();
+      }
       return overlay;
     }
 
 
    private:
     TopoGraph<int> ready_nodes_;
-    int addnode_stage_ ;  // 0: sync join stage, 1: async join stage
+    bool is_asycn_add_ ;  // 0: sync join stage, 1: async join stage
   };
 
   /**
@@ -86,9 +96,9 @@ class ConstelController {
    */
   void SchedulerSignalHandle(const ps::SimpleData& recved, ps::SimpleApp* app);
   /**
-   * \brief Controller return a proper future timestamp
+   * \brief Controller return a proper future timsestamp
    */
-  int GetFutureTimtestamp();
+  uint32_t GetFutureTimtestamp();
   /**
    * \brief send message to all trainers
    */
