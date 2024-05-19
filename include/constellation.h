@@ -3,5 +3,6 @@
 #include "ps/ps.h"
 
 #include "./constellation_controller.h"
+#include "./constellation_trainer.h"
 
 #endif // _CONSTELLATION_H_
