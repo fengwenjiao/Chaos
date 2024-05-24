@@ -5,3 +5,11 @@
 
 目前本仓库完成：
 - 基本的项目工程结构
+
+编译：
+```bash
+mkdir build
+cd build
+cmake ..
+cmake --build .
+```
