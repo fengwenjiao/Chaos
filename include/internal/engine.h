@@ -35,6 +35,7 @@ class ConstelAggEngine {
   using MessureFunc = std::function<int(int, Data)>;
 
   void set_data_handle(const DataHandle& handle) {
+    CHECK(handle);
     this->datahandle_ = handle;
   }
 
@@ -58,12 +59,19 @@ class ConstelAggEngine {
     callback.engine_ = this;
     using namespace std::placeholders;
     callback.return_handle_ = std::bind(&ConstelAggEngine::CallBackReturnHandle, this, _1, _2, _3);
+    callback.id = id;
+    return callback;
   }
 
   void CallBackReturnHandle(ConstelAggEngine* engine, const int id, const ResType& res) {
-    auto it = std::find(engine->expected_ids_.begin(), engine->expected_ids_.end(), id);
-    if (it != engine->expected_ids_.end()) {
-      engine->ret_[id] = res;
+    std::unique_lock<std::mutex> lock(engine->return_mu_);
+    if (engine->expected_ids_.count(id) != 0) {
+      (*(engine->ret_ptr_))[id] = res;
+      num_ready_++;
+      if (num_ready_ == expected_ids_.size()) {
+        lock.unlock();
+        engine->return_cv_.notify_all();
+      }
     }
   }
 
@@ -95,25 +103,33 @@ class ConstelAggEngine {
   }
   void PushAndWait(std::vector<int>&& ids,
                    std::vector<Data>&& data,
-                   std::unordered_map<int, Data>* res) {
+                   std::shared_ptr<std::unordered_map<int, Data>> ret) {
+    CHECK(is_running_);
     expected_ids_ = std::unordered_set<int>(ids.begin(), ids.end());
-    res->clear();
+    ret_ptr_ = ret;
     for (auto i : expected_ids_) {
-      res[i] = Data();
+      ret_ptr_->emplace(i, Data());
     }
 
-    ret_ = res;
-    CHECK_EQ(ret_->size(), expected_ids_.size());
+    num_ready_ = 0;
 
     PushAsync(std::move(ids), std::move(data));
+    std::unique_lock<std::mutex> return_mu(return_mu_);
+    return_cv_.wait(return_mu, [this]() { return num_ready_ == expected_ids_.size(); });
+    ret_ptr_.reset();
+    expected_ids_.clear();
   }
   void PushAsync(std::vector<int>&& ids, std::vector<Data>&& data) {
+    CHECK(is_running_);
     CHECK_EQ(ids.size(), data.size());
     for (size_t i = 0; i < ids.size(); ++i) {
       int id = ids[i];
       auto d = std::make_shared<Data>(std::move(data[i]));
-      size_t tid = GetWorkerId(id, &d);
-      queues_[tid]->Push([this, d, id]() { this->datahandle_(id, *d); });
+      size_t tid = GetWorkerId(id, d.get());
+      queues_[tid]->Push([this, d, id]() {
+        ReturnOnAgg callback = this->CreateReturnCallBack(id);
+        this->datahandle_(id, *d, callback);
+      });
     }
   }
 
@@ -156,9 +172,11 @@ class ConstelAggEngine {
   std::unordered_map<int, size_t> thread_id_map_;
   std::unordered_map<size_t, int> load_map_;
 
-  std::unordered_map<int, Data>* ret_;
-
+  std::mutex return_mu_;
+  std::condition_variable return_cv_;
   std::unordered_set<int> expected_ids_;
+  std::shared_ptr<std::unordered_map<int, Data>> ret_ptr_;
+  int num_ready_ = 0;
 
   bool is_running_;
   size_t num_threads_;
