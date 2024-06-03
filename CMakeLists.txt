@@ -1,7 +1,7 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.4)
 
 project(constellation C CXX)
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 
@@ -27,9 +27,9 @@ add_library(constellation)
 add_subdirectory("ps-lite-elastic")
 list(APPEND constellation_LINKER_LIBS pslite)
 
-file(GLOB_RECURSE SOURCE "src/*.cc" "src/*.h")
+file(GLOB_RECURSE SOURCE "src/*.cc")
 
-target_include_directories(constellation PUBLIC "${PROJECT_SOURCE_DIR}/include")
+target_include_directories(constellation PUBLIC "${PROJECT_SOURCE_DIR}/include/")
 target_link_libraries(constellation PUBLIC ${constellation_LINKER_LIBS})
 target_sources(constellation PRIVATE ${SOURCE})
 
