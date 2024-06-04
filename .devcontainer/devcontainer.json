@@ -11,7 +11,9 @@
         "codespaces": {
             "repositories": {
                 "yezhizi/ps-lite-elastic":{
-                    "permissions": "write-all"
+                    "permissions": {
+                        "contents": "write"
+                    }
                 }
             }
         }
