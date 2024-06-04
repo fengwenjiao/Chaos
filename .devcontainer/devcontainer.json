@@ -1,0 +1,19 @@
+{
+    "name": "Constellation C++",
+    "dockerFile": "Dockerfile",
+    "forwardPorts": [],
+    "postCreateCommand": "git submodule update --init --recursive",
+    "customizations": {
+        "vscode": {
+            "extensions": ["ms-vscode.cpptools", "github.codespaces", "github.copilot",
+        "ms-vscode.cmake-tools", "xaver.clang-format"]
+        },
+        "codespaces": {
+            "repositories": {
+                "yezhizi/ps-lite-elastic":{
+                    "permissions": "write-all"
+                }
+            }
+        }
+    }
+}
