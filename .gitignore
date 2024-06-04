@@ -5,4 +5,5 @@ build/
 cmake-build-debug/
 
 tests/test_*
+tests/constellation_unit_tests
 !tests/test_*.cc
