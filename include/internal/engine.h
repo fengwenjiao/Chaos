@@ -30,7 +30,7 @@ class ConstelAggEngine {
     std::function<void(ConstelAggEngine*, const int, const ResType)> return_handle_;
   };
 
-  using DataHandle = std::function<void(int, Data, ReturnOnAgg)>;
+  using DataHandle = std::function<void(const int, const Data&, ReturnOnAgg&)>;
 
   using MessureFunc = std::function<int(int, Data)>;
 
@@ -103,12 +103,12 @@ class ConstelAggEngine {
   }
   void PushAndWait(std::vector<int>&& ids,
                    std::vector<Data>&& data,
-                   std::shared_ptr<std::unordered_map<int, Data>> ret) {
+                   std::shared_ptr<std::unordered_map<int, ResType>> ret) {
     CHECK(is_running_);
     expected_ids_ = std::unordered_set<int>(ids.begin(), ids.end());
     ret_ptr_ = ret;
     for (auto i : expected_ids_) {
-      ret_ptr_->emplace(i, Data());
+      ret_ptr_->emplace(i, ResType());
     }
 
     num_ready_ = 0;
@@ -175,7 +175,7 @@ class ConstelAggEngine {
   std::mutex return_mu_;
   std::condition_variable return_cv_;
   std::unordered_set<int> expected_ids_;
-  std::shared_ptr<std::unordered_map<int, Data>> ret_ptr_;
+  std::shared_ptr<std::unordered_map<int, ResType>> ret_ptr_;
   int num_ready_ = 0;
 
   bool is_running_;
