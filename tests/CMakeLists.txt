@@ -39,7 +39,7 @@ if(GTEST_FOUND)
     endif()
 
     add_executable(${PROJECT_NAME}_unit_tests ${UNIT_TEST_SOURCE}
-            unit_tests/engine_test.cc)
+            unit_tests/unit_test_main.cc)
 
     set_property(TARGET ${PROJECT_NAME}_unit_tests
             PROPERTY RUNTIME_OUTPUT_DIRECTORY ${PRIVATE_RUNTIME_DIR})
