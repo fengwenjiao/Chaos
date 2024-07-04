@@ -40,15 +40,17 @@ class ConstelAggEngine {
   }
 
   void set_messure_func(const MessureFunc& func) {
+    CHECK(func);
     this->messure_func_ = func;
   }
 
   explicit ConstelAggEngine(size_t num_threads = 2)
-      : num_threads_(num_threads), is_running_(false) {}
+      : num_threads_(num_threads), is_running_(false),res_ptr_(nullptr) {}
   ConstelAggEngine(const ConstelAggEngine&) = delete;
   ConstelAggEngine(ConstelAggEngine&&) = delete;
 
   ConstelAggEngine& operator=(const ConstelAggEngine&) = delete;
+  ConstelAggEngine& operator=(ConstelAggEngine&&) = delete;
 
   ~ConstelAggEngine() {
     if (is_running_)
@@ -66,7 +68,9 @@ class ConstelAggEngine {
   void CallBackReturnHandle(ConstelAggEngine* engine, const int id, const ResType& res) {
     std::unique_lock<std::mutex> lock(engine->return_mu_);
     if (engine->expected_ids_.count(id) != 0) {
-      (*(engine->ret_ptr_))[id] = res;
+      CHECK(engine->res_ptr_);
+      auto& container = *(engine->res_ptr_);
+      container[id] = res;
       num_ready_++;
       if (num_ready_ == expected_ids_.size()) {
         lock.unlock();
@@ -103,21 +107,21 @@ class ConstelAggEngine {
   }
   void PushAndWait(std::vector<int>&& ids,
                    std::vector<Data>&& data,
-                   std::shared_ptr<std::unordered_map<int, ResType>> ret) {
+                   std::unordered_map<int, ResType>& ret) {
     CHECK(is_running_);
     expected_ids_ = std::unordered_set<int>(ids.begin(), ids.end());
-    ret_ptr_ = ret;
+    // the data not pushed yet, so other thread will execute the return callback
+    // so we can 
+    res_ptr_ = &ret;
     for (auto i : expected_ids_) {
-      ret_ptr_->emplace(i, ResType());
+      res_ptr_->emplace(i, ResType());
     }
-
-    num_ready_ = 0;
 
     PushAsync(std::move(ids), std::move(data));
     std::unique_lock<std::mutex> return_mu(return_mu_);
     return_cv_.wait(return_mu, [this]() { return num_ready_ == expected_ids_.size(); });
-    ret_ptr_.reset();
     expected_ids_.clear();
+    num_ready_ = 0;
   }
   void PushAsync(std::vector<int>&& ids, std::vector<Data>&& data) {
     CHECK(is_running_);
@@ -175,7 +179,7 @@ class ConstelAggEngine {
   std::mutex return_mu_;
   std::condition_variable return_cv_;
   std::unordered_set<int> expected_ids_;
-  std::shared_ptr<std::unordered_map<int, ResType>> ret_ptr_;
+  std::unordered_map<int, ResType>* res_ptr_;
   int num_ready_ = 0;
 
   bool is_running_;
