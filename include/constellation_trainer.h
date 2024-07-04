@@ -57,26 +57,56 @@ struct CArray {
   enum class ConstelDateType {
     CONSTEL_FLOAT32 = 0,
   };
-  char* data;
-  int dtype;
-  size_t size;
-  bool is_owner;
-  explicit CArray() : data(nullptr), size(0), is_owner(false) {}
-  explicit CArray(size_t size) : data(new char[size]), size(size), is_owner(true) {}
-  CArray(char* data, size_t size, bool is_owner = false)
-      : data(data), size(size), is_owner(is_owner) {}
-  ~CArray() {
-    if (is_owner) {
-      delete[] data;
+  struct DataTrunk {
+    char* dptr_;
+    size_t size_{0};
+
+    DataTrunk(size_t size=0) : size_(size) {
+      if (size == 0) {
+        dptr_ = nullptr;
+        return;
+      }
+      dptr_ = new char[size];
+      CHECK(dptr_);
     }
+    ~DataTrunk() {
+      if (dptr_) {
+        delete[] dptr_;
+        dptr_ = nullptr;
+      }
+    }
+    DataTrunk(DataTrunk&&) = delete;
+    DataTrunk(const DataTrunk&) = delete;
+    DataTrunk& operator=(DataTrunk&&) = delete;
+    DataTrunk& operator=(const DataTrunk&) = delete;
+  };
+
+  std::shared_ptr<DataTrunk> sptr_;
+  int dtype;
+
+  explicit CArray() : dtype(0), sptr_(std::make_shared<DataTrunk>()) {}
+  explicit CArray(size_t size) : dtype(0), sptr_(std::make_shared<DataTrunk>(size)) {}
+  CArray(CArray&& other) = default;
+  CArray(const CArray& other) = default;
+  CArray& operator=(CArray&& other) = default;
+  CArray& operator=(const CArray& other) = default;
+
+  inline char* data() const {
+    return sptr_->dptr_;
   }
+  inline size_t size() const {
+    return sptr_->size_;
+  }
+
   void CopyFrom(const CArray& other) {
-    CHECK(this->is_owner);
-    CHECK(this->size == other.size);
+    CHECK_EQ(this->size(), other.size());
     // TODO:use OMP to accelerate
-    memcpy(this->data, other.data, other.size);
-    this->size = other.size;
+    memcpy(this->data(), other.data(), other.size());
     this->dtype = other.dtype;
+  }
+  void CopyFrom(const void* data, size_t size) {
+    CHECK_EQ(this->size(), size);
+    memcpy(this->data(), data, size);
   }
 };
 
