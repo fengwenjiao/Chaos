@@ -61,7 +61,7 @@ struct CArray {
     char* dptr_;
     size_t size_{0};
 
-    DataTrunk(size_t size=0) : size_(size) {
+    DataTrunk(size_t size = 0) : size_(size) {
       if (size == 0) {
         dptr_ = nullptr;
         return;
@@ -99,14 +99,20 @@ struct CArray {
   }
 
   void CopyFrom(const CArray& other) {
-    CHECK_EQ(this->size(), other.size());
     // TODO:use OMP to accelerate
-    memcpy(this->data(), other.data(), other.size());
-    this->dtype = other.dtype;
+    if (other.data() && other.size()) {
+      this->sptr_ = std::make_shared<DataTrunk>(other.size());
+      memcpy(this->data(), other.data(), other.size());
+      this->dtype = other.dtype;
+    }
   }
   void CopyFrom(const void* data, size_t size) {
-    CHECK_EQ(this->size(), size);
-    memcpy(this->data(), data, size);
+    if (this->size() != size) {
+      throw "CArray::CopyFrom: size not match";
+    }
+    if (data && size) {
+      memcpy(this->data(), data, size);
+    }
   }
 };
 

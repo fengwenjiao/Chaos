@@ -30,6 +30,15 @@ TEST_F(CArrayTest, CopyFromOtherCArray) {
 
   EXPECT_EQ(destination.size(), source.size());
   EXPECT_EQ(memcmp(destination.data(), source.data(), size), 0);
+
+  CArray destination2;
+  destination2.CopyFrom(destination);
+  EXPECT_EQ(destination2.size(), destination.size());
+  EXPECT_EQ(memcmp(destination2.data(), destination.data(), size), 0);
+
+  for (size_t i = 0; i < size; ++i) {
+    EXPECT_EQ(destination2.data()[i], 'a');
+  }
 }
 
 TEST_F(CArrayTest, CopyFromRawData) {
@@ -43,14 +52,12 @@ TEST_F(CArrayTest, CopyFromRawData) {
   EXPECT_EQ(memcmp(array.data(), data, size), 0);
 }
 
-TEST_F(CArrayTest, CopyFromDifferentSize) {
+TEST_F(CArrayTest, CopyFromRawPointer){
   CArray source(5);
-  CArray destination(10);
-
-  // This should fail due to size mismatch, assuming CHECK_EQ is similar to an assert or throws an exception.
-  // In real testing, you would need to handle this differently, depending on how CHECK_EQ is implemented.
-  // Here, we're just demonstrating what a test might look like.
-  EXPECT_ANY_THROW(destination.CopyFrom(source));
+  memset(source.data(), 'a', source.size());
+  char data[] = {'b', 'b', 'b', 'b', 'b'};
+  // This should fail due to size mismatch
+  EXPECT_ANY_THROW(source.CopyFrom(data, 4));
 }
 
 TEST_F(CArrayTest, InitializesCorrectly) {

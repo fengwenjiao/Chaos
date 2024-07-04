@@ -33,11 +33,13 @@ void ConstelTrainer::PushPull(std::vector<int>& keys,
     updt.merged = vals_push[i];
   }
   engine_->PushAndWait(std::move(keys), std::move(vals), res_map);
+  // TODO: for root node, no need to Wait
   for (auto& it : res_map) {
     trainer_->Wait(it.second);
-    //1. 对于所有的meta 还有没记录, 是在recive的时候记录的
-    //2. 用记录的meta去回复子节点，带上pull回来的数据
+    // 1. 对于所有的meta 还有没记录, 是在recive的时候记录的
+    // 2. 用记录的meta去回复子节点，带上pull回来的数据
   }
+  // TODO: refer to update_buf, get the meta and send the aggregated value to the son node
 }
 
 int ConstelTrainer::SimplePushPullDefault(int key, const CArray& val) {
@@ -82,7 +84,8 @@ void ConstelTrainer::ProcessPushData(const int key,
     auto len_t = static_cast<int>(update_buf->merged.size());
     ps::SArray<int> lens(&len_t, 1, false);
     int cmd = GetCommandType(RequestType::kDefaultPushPull, update_buf->merged.dtype);
-    // TODO: add pull calback
+    // TODO: for root node, no need to send, just rt(0)
+    // TODO: add pull callback(refactor the return impl in engine)
     int ts = trainer_->ZPush(keys, vals, lens, cmd);
     rt(ts);
   }
