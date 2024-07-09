@@ -20,25 +20,40 @@ void ConstelTrainer::Init(int key, const CArray* val) {
 void ConstelTrainer::PushPull(std::vector<int>& keys,
                               std::vector<CArray>& vals_push,
                               std::vector<CArray*>& vals_pull) {
-  std::vector<int> ts_arr;
   int size = keys.size();
+  CHECK_EQ(vals_push.size(), size);
+  CHECK_EQ(vals_pull.size(), size);
   std::unordered_map<int, int> res_map;
   std::vector<UpdateBuf> vals(size);
   // TODO: need consider merge the key-value if there more than one gpus
   for (size_t i = 0; i < size; i++) {
-    int key = keys[i];
     // submit the key-value, and get the timestamp which the corresponding merged value is pushed to
     // the father node
-    auto& updt = vals[i];
-    updt.merged = vals_push[i];
+    auto& update = vals[i];
+    update.merged = vals_push[i];
   }
-  engine_->PushAndWait(std::move(keys), std::move(vals), res_map);
+  engine_->PushAndWait(keys, std::move(vals), res_map);
   // TODO: for root node, no need to Wait
   for (auto& it : res_map) {
+    int key = it.first;
+    auto key_it = std::find_if(keys.begin(), keys.end(), [key](int k) { return k == key; });
+    CHECK_NE(key_it, keys.end());
+    int i = std::distance(keys.begin(), key_it);
     trainer_->Wait(it.second);
-    // 1. 对于所有的meta 还有没记录, 是在recive的时候记录的
+    // put pullback data to vals_pull from the update buf
+    auto* buf = GetUpdateBuf(key);
+    vals_pull[i]->CopyFrom(buf->merged);
     // 2. 用记录的meta去回复子节点，带上pull回来的数据
+    for (const auto& meta : buf->request_meta) {
+      ps::KVPairs<char> pairs;
+      pairs.keys.push_back(key);
+      pairs.vals = ps::SArray<char>(buf->merged);
+      auto len = static_cast<int>(buf->merged.size());  // bytes
+      pairs.lens = {len};
+      trainer_->Response(meta, pairs);
+    }
   }
+
   // TODO: refer to update_buf, get the meta and send the aggregated value to the son node
 }
 
@@ -56,37 +71,43 @@ void ConstelTrainer::InitEngine(size_t num_thread = 2) {
 void ConstelTrainer::ProcessPushData(const int key,
                                      const UpdateBuf& data,
                                      Engine::ReturnOnAgg& rt) {
+  auto& update = data;
   auto update_buf = GetUpdateBuf(key);
   if (update_buf->num == 0) {
     // copy the val into merged
-    update_buf->merged.CopyFrom(data.merged);
+    update_buf->merged.CopyFrom(update.merged);
     update_buf->num++;
   } else {
     // TODO: Use Template to replace this
     auto dst = reinterpret_cast<float*>(update_buf->merged.data());
     auto src = reinterpret_cast<float*>(update_buf->merged.data());
     // TODO: Use omp
-    CHECK_EQ(update_buf->merged.size(), data.merged.size());
+    CHECK_EQ(update_buf->merged.size(), update.merged.size());
     for (size_t i = 0; i < update_buf->merged.size() / sizeof(float); i++) {
       dst[i] += src[i];
     }
   }
   update_buf->num++;
-  if (!data.request_meta.empty()) {
-    update_buf->request_meta.push_back(data.request_meta[0]);
+  if (!update.request_meta.empty()) {
+    update_buf->request_meta.push_back(update.request_meta[0]);
   }
   if (update_buf->num == ps::Postoffice::Get()->GetMyChildren().size() + 1) {
     // send to father
     // TODO: int dtype = what...
-    ps::SArray<char> vals(update_buf->merged.data(), update_buf->merged.size(), false);
+
+    // ps::SArray vals's initialization will create the shared_ptr from the data ptr,
+    // and CArray also hold the shared_ptr of the data, So here `deletable` must be false.
+    // or may cause double free
+    auto vals = new ps::SArray<char>(update_buf->merged);
     auto key_t = static_cast<ps::Key>(key);
-    ps::SArray<ps::Key> keys(&key_t, 1, false);
+    ps::SArray<ps::Key> keys({key_t});
     auto len_t = static_cast<int>(update_buf->merged.size());
-    ps::SArray<int> lens(&len_t, 1, false);
+    ps::SArray<int> lens({len_t});
     int cmd = GetCommandType(RequestType::kDefaultPushPull, update_buf->merged.dtype);
     // TODO: for root node, no need to send, just rt(0)
     // TODO: add pull callback(refactor the return impl in engine)
-    int ts = trainer_->ZPush(keys, vals, lens, cmd);
+    //    int ts = trainer_->ZPush(keys, vals, lens, cmd);
+    int ts = trainer_->ZPushPull(keys, *vals, vals, &lens, cmd, [vals]() { delete vals; });
     rt(ts);
   }
 }
@@ -138,10 +159,9 @@ void ConstelTrainer::DataHandle(const ps::KVMeta& req_meta,
     case RequestType::kDefaultPushPull:
       updt.request_meta.push_back(req_meta);
       updt.merged = CArray(req_data.lens[0]);
-      // 先数据拷贝一份，有优化空间
+      // TODO: 先数据拷贝一份，有优化空间
       updt.merged.CopyFrom((void*)req_data.vals.data(), req_data.lens[0]);
-      // 收的逻辑还没有写
-      // 存meta，meta的管理（还没想好）
+      engine_->PushAsync({static_cast<int>(req_data.keys[0])}, {updt});
       break;
     default:
       LOG(FATAL) << "Unkown request type";

@@ -98,6 +98,10 @@ struct CArray {
     return sptr_->size_;
   }
 
+  inline const std::shared_ptr<DataTrunk>& ptr() const {
+    return sptr_;
+  }
+
   void CopyFrom(const CArray& other) {
     // TODO:use OMP to accelerate
     if (other.data() && other.size()) {

@@ -105,7 +105,7 @@ class ConstelAggEngine {
         thread.join();
     }
   }
-  void PushAndWait(std::vector<int>&& ids,
+  void PushAndWait(const std::vector<int>& ids,
                    std::vector<Data>&& data,
                    std::unordered_map<int, ResType>& ret) {
     CHECK(is_running_);
@@ -117,13 +117,13 @@ class ConstelAggEngine {
       res_ptr_->emplace(i, ResType());
     }
 
-    PushAsync(std::move(ids), std::move(data));
+    PushAsync(ids, std::move(data));
     std::unique_lock<std::mutex> return_mu(return_mu_);
     return_cv_.wait(return_mu, [this]() { return num_ready_ == expected_ids_.size(); });
     expected_ids_.clear();
     num_ready_ = 0;
   }
-  void PushAsync(std::vector<int>&& ids, std::vector<Data>&& data) {
+  void PushAsync(const std::vector<int>& ids, std::vector<Data>&& data) {
     CHECK(is_running_);
     CHECK_EQ(ids.size(), data.size());
     for (size_t i = 0; i < ids.size(); ++i) {
