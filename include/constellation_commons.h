@@ -55,7 +55,11 @@ class NodeTransTopo {
     return *this;
   }
 
-  const int getParent() const {
+  Type getType() const {
+    return type_;
+  }
+
+  int getParent() const {
     return parent_;
   }
 

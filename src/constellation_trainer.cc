@@ -3,17 +3,19 @@
 
 namespace constellation {
 
-void ConstelTrainer::Init(int key, const CArray* val) {
+void ConstelTrainer::Init(std::vector<int>& keys, std::vector<CArray*>& vals_init) {
   // send ready signal to controller
   int head = static_cast<int>(kControllerSignal::kNodeReadySignal);
   int my_id = ps::Postoffice::Get()->GetMyID();
   std::string body = std::to_string(my_id);
   trainer_->Wait(trainer_->Request(head, body, ps::kScheduler));
   // wait until receive the transtopo from controller
+  // TODO: use notify
   while (!is_ctx_ready_.load()) {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
   // TODO :model init
+
   // TODO: init pushpull_buf_
 }
 
@@ -33,13 +35,15 @@ void ConstelTrainer::PushPull(std::vector<int>& keys,
     update.merged = vals_push[i];
   }
   engine_->PushAndWait(keys, std::move(vals), res_map);
-  // TODO: for root node, no need to Wait
   for (auto& it : res_map) {
     int key = it.first;
     auto key_it = std::find_if(keys.begin(), keys.end(), [key](int k) { return k == key; });
     CHECK_NE(key_it, keys.end());
     int i = std::distance(keys.begin(), key_it);
-    trainer_->Wait(it.second);
+    if (it.second > 0) {
+      // for root node,  no need to Wait
+      trainer_->Wait(it.second);
+    }
     // put pullback data to vals_pull from the update buf
     auto* buf = GetUpdateBuf(key);
     vals_pull[i]->CopyFrom(buf->merged);
@@ -54,7 +58,6 @@ void ConstelTrainer::PushPull(std::vector<int>& keys,
     }
   }
 
-  // TODO: refer to update_buf, get the meta and send the aggregated value to the son node
 }
 
 int ConstelTrainer::SimplePushPullDefault(int key, const CArray& val) {
@@ -80,7 +83,7 @@ void ConstelTrainer::ProcessPushData(const int key,
   } else {
     // TODO: Use Template to replace this
     auto dst = reinterpret_cast<float*>(update_buf->merged.data());
-    auto src = reinterpret_cast<float*>(update_buf->merged.data());
+    auto src = reinterpret_cast<float*>(update.merged.data());
     // TODO: Use omp
     CHECK_EQ(update_buf->merged.size(), update.merged.size());
     for (size_t i = 0; i < update_buf->merged.size() / sizeof(float); i++) {
@@ -95,20 +98,22 @@ void ConstelTrainer::ProcessPushData(const int key,
     // send to father
     // TODO: int dtype = what...
 
-    // ps::SArray vals's initialization will create the shared_ptr from the data ptr,
-    // and CArray also hold the shared_ptr of the data, So here `deletable` must be false.
-    // or may cause double free
-    auto vals = new ps::SArray<char>(update_buf->merged);
-    auto key_t = static_cast<ps::Key>(key);
-    ps::SArray<ps::Key> keys({key_t});
-    auto len_t = static_cast<int>(update_buf->merged.size());
-    ps::SArray<int> lens({len_t});
-    int cmd = GetCommandType(RequestType::kDefaultPushPull, update_buf->merged.dtype);
-    // TODO: for root node, no need to send, just rt(0)
-    // TODO: add pull callback(refactor the return impl in engine)
-    //    int ts = trainer_->ZPush(keys, vals, lens, cmd);
-    int ts = trainer_->ZPushPull(keys, *vals, vals, &lens, cmd, [vals]() { delete vals; });
-    rt(ts);
+    if (isRootNode()) {
+      // for root node, no need to send, just rt(0)
+      rt(0);
+    } else {
+      // ps::SArray vals's initialization will create the shared_ptr from the data ptr,
+      // and CArray also hold the shared_ptr of the data, So here `deletable` must be false.
+      // or may cause double free
+      auto vals = new ps::SArray<char>(update_buf->merged);
+      auto key_t = static_cast<ps::Key>(key);
+      ps::SArray<ps::Key> keys({key_t});
+      auto len_t = static_cast<int>(update_buf->merged.size());
+      ps::SArray<int> lens({len_t});
+      int cmd = GetCommandType(RequestType::kDefaultPushPull, update_buf->merged.dtype);
+      int ts = trainer_->ZPushPull(keys, *vals, vals, &lens, cmd, [vals]() { delete vals; });
+      rt(ts);
+    }
   }
 }
 
@@ -134,6 +139,8 @@ void ConstelTrainer::RequestHandle(const ps::SimpleData& recved, ps::SimpleApp* 
         auto& local_transtopo = it->second;
         ps::Postoffice::Get()->UpdateLocalTrans(local_transtopo.getParent(),
                                                 local_transtopo.getChildren());
+        auto& topo = GetNodeTransTopo();
+        topo = local_transtopo;
         this->is_scale_ = false;
         // notify main thread
         this->is_ctx_ready_.store(true);

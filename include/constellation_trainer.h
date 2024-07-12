@@ -135,7 +135,7 @@ class ConstelTrainer {
     delete this->trainer_;
     this->trainer_ = nullptr;
   }
-  void Init(int key, const CArray* val);
+  void Init(std::vector<int>& keys, std::vector<CArray*>& vals_init);
 
   void PushPull(std::vector<int>& keys,
                 std::vector<CArray>& vals_push,
@@ -161,19 +161,44 @@ class ConstelTrainer {
   using Engine = ConstelAggEngine<UpdateBuf, int>;
 
   ScaleClock clock_;
+
+  NodeTransTopo trans_topo_;
+
   ps::KVTrainer<char>* trainer_;
 
   std::atomic<bool> is_ctx_ready_{false};
 
   bool is_scale_ = true;
 
-  std::mutex update_buf_mu_;
+  mutable std::mutex update_buf_mu_;
+
+  mutable std::mutex trans_topo_mu_;
 
   Engine* engine_;
 
   UpdateBuf* GetUpdateBuf(int key) {
     std::lock_guard<std::mutex> lock(update_buf_mu_);
     return &update_buf_[key];
+  }
+  inline auto& GetNodeTransTopo()  {
+    std::unique_lock<std::mutex> lock(trans_topo_mu_);
+    return trans_topo_;
+  }
+  inline auto GetNodeType() const {
+    std::unique_lock<std::mutex> lock(trans_topo_mu_);
+    auto type = trans_topo_.getType();
+    return type;
+  }
+
+  inline bool isRootNode() const {
+    auto type = GetNodeType();
+    CHECK(type != NodeTransTopo::Type::kUnset);
+    return type == NodeTransTopo::Type::kRoot;
+  }
+  inline bool isLeafNode() const {
+    auto type = GetNodeType();
+    CHECK(type != NodeTransTopo::Type::kUnset);
+    return type == NodeTransTopo::Type::kLeaf;
   }
 
   int SimplePushPullDefault(int key, const CArray& val);
