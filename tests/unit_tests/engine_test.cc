@@ -52,7 +52,7 @@ class ConstelAggEngineTest : public ::testing::Test {
 TEST_F(ConstelAggEngineTest, PushAndWaitTest) {
   std::thread t([this]() { engine->PushAsync({1, 2, 3}, {10, 20, 30}); });
 
-  engine->PushAndWait({1, 2, 3}, {10, 20, 30}, res);
+  engine->PushAndWait({1, 2, 3}, {10, 20, 30}, &res);
 
   std::unordered_map<int, int> expected_results;
   expected_results[1] = 20;  // 10 + 10
@@ -70,7 +70,7 @@ TEST_F(ConstelAggEngineTest, PushAndWaitTest) {
 TEST_F(ConstelAggEngineTest, PushAsyncTest) {
   std::thread t([this]() { engine->PushAsync({1, 2, 3, 4}, {10, 20, 30, 40}); });
 
-  engine->PushAndWait({1, 2, 3}, {10, 20, 30}, res);
+  engine->PushAndWait({1, 2, 3}, {10, 20, 30}, &res);
 
   std::unordered_map<int, int> expected_results;
   expected_results[1] = 20;  // 10 + 10
@@ -82,7 +82,7 @@ TEST_F(ConstelAggEngineTest, PushAsyncTest) {
     EXPECT_EQ(pair.second, res[pair.first]);
   }
 
-  engine->PushAndWait({4}, {40}, res);
+  engine->PushAndWait({4}, {40}, &res);
   expected_results[4] = 80;  // 40 + 40
   for (const auto& pair : expected_results) {
     EXPECT_EQ(pair.second, res[pair.first]);
@@ -137,7 +137,7 @@ TEST_F(ConstelAggEngineTest, PushTestConcurrent) {
   std::unique_lock<std::mutex> lock(mu, std::defer_lock);
   for (int i = 0; i < count; i++) {
     // lock.unlock();
-    engine->PushAndWait({1, 2, 3, 4}, std::move(vals2[i]), res);
+    engine->PushAndWait({1, 2, 3, 4}, std::move(vals2[i]), &res);
     for (int j = 0; j < 4; j++) {
       EXPECT_EQ(expected_results[i][j], res[j + 1]);
     }

@@ -29,7 +29,6 @@ class ConstelAggEngine {
     ConstelAggEngine* engine_;
     std::function<void(ConstelAggEngine*, const int, const ResType)> return_handle_;
   };
-
   using DataHandle = std::function<void(const int, const Data&, ReturnOnAgg&)>;
 
   using MessureFunc = std::function<int(int, Data)>;
@@ -68,9 +67,10 @@ class ConstelAggEngine {
   void CallBackReturnHandle(ConstelAggEngine* engine, const int id, const ResType& res) {
     std::unique_lock<std::mutex> lock(engine->return_mu_);
     if (engine->expected_ids_.count(id) != 0) {
-      CHECK(engine->res_ptr_);
-      auto& container = *(engine->res_ptr_);
-      container[id] = res;
+      if(engine->res_ptr_){
+        auto& container = *(engine->res_ptr_);
+        container[id] = res;
+      }
       num_ready_++;
       if (num_ready_ == expected_ids_.size()) {
         lock.unlock();
@@ -107,12 +107,12 @@ class ConstelAggEngine {
   }
   void PushAndWait(const std::vector<int>& ids,
                    std::vector<Data>&& data,
-                   std::unordered_map<int, ResType>& ret) {
+                   std::unordered_map<int, ResType>* ret) {
     CHECK(is_running_);
     expected_ids_ = std::unordered_set<int>(ids.begin(), ids.end());
     // the data not pushed yet, so other thread will execute the return callback
     // so we can 
-    res_ptr_ = &ret;
+    res_ptr_ = ret;
     for (auto i : expected_ids_) {
       res_ptr_->emplace(i, ResType());
     }
@@ -168,7 +168,6 @@ class ConstelAggEngine {
     thread_id_map_[id] = min_load_id;
     return min_load_id;
   }
-
   DataHandle datahandle_;
   MessureFunc messure_func_;
 
