@@ -3,20 +3,37 @@
 
 namespace constellation {
 
-void ConstelTrainer::Init(std::vector<int>& keys, std::vector<CArray*>& vals_init) {
+void ConstelTrainer::NotifyReady() {
   // send ready signal to controller
   int head = static_cast<int>(kControllerSignal::kNodeReadySignal);
   int my_id = ps::Postoffice::Get()->GetMyID();
   std::string body = std::to_string(my_id);
   trainer_->Wait(trainer_->Request(head, body, ps::kScheduler));
-  // wait until receive the transtopo from controller
-  // TODO: use notify
-  while (!is_ctx_ready_.load()) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  }
-  // TODO :model init
+}
 
-  // TODO: init pushpull_buf_
+void ConstelTrainer::Init(std::vector<int>& keys, std::vector<CArray*>& vals_init) {
+  if (!is_ctx_ready_.load()) {
+    // wait until receive the transtopo from controller
+    NotifyReady();
+    // TODO: use notify
+    while (!is_ctx_ready_.load()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+  }
+  int size = keys.size();
+  CHECK_EQ(vals_init.size(), size);
+
+  // TODO :model init
+  std::vector<EngineTaskData> vals;
+  if (isRootNode()) {
+    vals.resize(size, {UpdateBuf(), TaskTypeEnum::kInitDefault, true});
+  } else {
+    vals.resize(size, {UpdateBuf(), TaskTypeEnum::kInitDefault, false});
+  }
+  for (size_t i = 0; i < size; i++) {
+    vals[i].update_buf.merged = *vals_init[i];
+  }
+  engine_->PushAndWait(keys, std::move(vals), nullptr);
 }
 
 void ConstelTrainer::PushPull(std::vector<int>& keys,
@@ -26,15 +43,15 @@ void ConstelTrainer::PushPull(std::vector<int>& keys,
   CHECK_EQ(vals_push.size(), size);
   CHECK_EQ(vals_pull.size(), size);
   std::unordered_map<int, int> res_map;
-  std::vector<UpdateBuf> vals(size);
+  std::vector<EngineTaskData> vals(size, {UpdateBuf(), TaskTypeEnum::kPushPull, true});
   // TODO: need consider merge the key-value if there more than one gpus
   for (size_t i = 0; i < size; i++) {
     // submit the key-value, and get the timestamp which the corresponding merged value is pushed to
     // the father node
-    auto& update = vals[i];
+    auto& update = vals[i].update_buf;
     update.merged = vals_push[i];
   }
-  engine_->PushAndWait(keys, std::move(vals), res_map);
+  engine_->PushAndWait(keys, std::move(vals), &res_map);
   for (auto& it : res_map) {
     int key = it.first;
     auto key_it = std::find_if(keys.begin(), keys.end(), [key](int k) { return k == key; });
@@ -57,7 +74,6 @@ void ConstelTrainer::PushPull(std::vector<int>& keys,
       trainer_->Response(meta, pairs);
     }
   }
-
 }
 
 int ConstelTrainer::SimplePushPullDefault(int key, const CArray& val) {
@@ -72,48 +88,104 @@ void ConstelTrainer::InitEngine(size_t num_thread = 2) {
 }
 
 void ConstelTrainer::ProcessPushData(const int key,
-                                     const UpdateBuf& data,
+                                     const EngineTaskData& data,
                                      Engine::ReturnOnAgg& rt) {
-  auto& update = data;
+  auto& update = data.update_buf;
   auto update_buf = GetUpdateBuf(key);
-  if (update_buf->num == 0) {
-    // copy the val into merged
-    update_buf->merged.CopyFrom(update.merged);
-    update_buf->num++;
-  } else {
-    // TODO: Use Template to replace this
-    auto dst = reinterpret_cast<float*>(update_buf->merged.data());
-    auto src = reinterpret_cast<float*>(update.merged.data());
-    // TODO: Use omp
-    CHECK_EQ(update_buf->merged.size(), update.merged.size());
-    for (size_t i = 0; i < update_buf->merged.size() / sizeof(float); i++) {
-      dst[i] += src[i];
-    }
-  }
+  int all_recved = ps::Postoffice::Get()->GetMyChildren().size() + 1;
+  auto& tasktype = data.type;
+  if(update_buf->shouldReset) update_buf->ResetUpdateBuf();
   update_buf->num++;
   if (!update.request_meta.empty()) {
     update_buf->request_meta.push_back(update.request_meta[0]);
   }
-  if (update_buf->num == ps::Postoffice::Get()->GetMyChildren().size() + 1) {
-    // send to father
-    // TODO: int dtype = what...
+  switch (tasktype) {
+    case TaskTypeEnum::kInitDefault: {
+      if (!update.merged.isNone()) {
+        // init request from myself
+        update_buf->merged = CArray(update.merged.size());  // alloc the space
+        if (data.isFromRoot) {
+          std::lock_guard<std::mutex> lock(init_waiting_ts_mu_);
+          init_waiting_ts_[key] = -1;
+        } else {
+          // pull request to father
+          auto key_t = ps::SArray<ps::Key>({static_cast<ps::Key>(key)});
+          auto len_t = ps::SArray<int>({static_cast<int>(update_buf->merged.size())});
+          // TODO: use another buff to recv
+          ps::SArray<char>* vals = new ps::SArray<char>(update_buf->merged);
+          int cmd = GetCommandType(RequestType::kDefaultInit, update.merged.dtype);
+          int ts = trainer_->ZPull(key_t, vals, &len_t, cmd, [vals]() { delete vals; });
 
-    if (isRootNode()) {
-      // for root node, no need to send, just rt(0)
-      rt(0);
-    } else {
-      // ps::SArray vals's initialization will create the shared_ptr from the data ptr,
-      // and CArray also hold the shared_ptr of the data, So here `deletable` must be false.
-      // or may cause double free
-      auto vals = new ps::SArray<char>(update_buf->merged);
-      auto key_t = static_cast<ps::Key>(key);
-      ps::SArray<ps::Key> keys({key_t});
-      auto len_t = static_cast<int>(update_buf->merged.size());
-      ps::SArray<int> lens({len_t});
-      int cmd = GetCommandType(RequestType::kDefaultPushPull, update_buf->merged.dtype);
-      int ts = trainer_->ZPushPull(keys, *vals, vals, &lens, cmd, [vals]() { delete vals; });
-      rt(ts);
+          {
+            std::lock_guard<std::mutex> lock(init_waiting_ts_mu_);
+            init_waiting_ts_[key] = ts;
+          }
+        }
+      } else {
+        // init request from sons
+      }
+      if (update_buf->num == all_recved) {
+        update_buf->shouldReset = true;
+        int ts;
+        {
+          std::lock_guard<std::mutex> lock(init_waiting_ts_mu_);
+          ts = init_waiting_ts_[key];
+        }
+        if (ts != -1) {
+          trainer_->Wait(init_waiting_ts_[key]);
+        }
+        // response
+        for (const auto& meta : update_buf->request_meta) {
+          ps::KVPairs<char> pairs;
+          pairs.keys.push_back(key);
+          pairs.vals = ps::SArray<char>(update_buf->merged);
+          trainer_->Response(meta, pairs);
+        }
+        rt(0);
+      }
+      break;
     }
+    case TaskTypeEnum::kPushPull: {
+      if (update_buf->num == 1) {
+        // copy the val into merged
+        update_buf->merged.CopyFrom(update.merged);
+      } else {
+        // TODO: Use Template to replace this
+        auto dst = reinterpret_cast<float*>(update_buf->merged.data());
+        auto src = reinterpret_cast<float*>(update.merged.data());
+        // TODO: Use omp
+        CHECK_EQ(update_buf->merged.size(), update.merged.size());
+        for (size_t i = 0; i < update_buf->merged.size() / sizeof(float); i++) {
+          dst[i] += src[i];
+        }
+      }
+
+      if (update_buf->num == all_recved) {
+        update_buf->shouldReset = true;
+        // send to father
+        // TODO: int dtype = what...
+        if (isRootNode()) {
+          // for root node, no need to send, just rt(0)
+          rt(0);
+        } else {
+          // ps::SArray vals's initialization will create the shared_ptr from the data ptr,
+          // and CArray also hold the shared_ptr of the data, So here `deletable` must be false.
+          // or may cause double free
+          // TODO: use another buff to recv
+          auto vals = new ps::SArray<char>(update_buf->merged);
+          auto key_t = static_cast<ps::Key>(key);
+          ps::SArray<ps::Key> keys({key_t});
+          auto len_t = static_cast<int>(update_buf->merged.size());
+          ps::SArray<int> lens({len_t});
+          int cmd = GetCommandType(RequestType::kDefaultPushPull, update_buf->merged.dtype);
+          int ts = trainer_->ZPushPull(keys, *vals, vals, &lens, cmd, [vals]() { delete vals; });
+          rt(ts);
+        }
+      }
+      break;
+    }
+    default:
+      LOG(FATAL) << "unsupported task type";
   }
 }
 
@@ -161,17 +233,24 @@ void ConstelTrainer::DataHandle(const ps::KVMeta& req_meta,
                                 const ps::KVPairs<char>& req_data,
                                 ps::KVTrainer<char>* trainer) {
   DataHandleType type = DepairDataHandleType(req_meta.cmd);
-  UpdateBuf updt;
+  EngineTaskData data{UpdateBuf(), TaskTypeEnum::kPushPull};
+  auto& updt = data.update_buf;
   switch (type.requestType) {
     case RequestType::kDefaultPushPull:
       updt.request_meta.push_back(req_meta);
       updt.merged = CArray(req_data.lens[0]);
       // TODO: 先数据拷贝一份，有优化空间
       updt.merged.CopyFrom((void*)req_data.vals.data(), req_data.lens[0]);
-      engine_->PushAsync({static_cast<int>(req_data.keys[0])}, {updt});
+      engine_->PushAsync({static_cast<int>(req_data.keys[0])}, {data});
+      break;
+    case RequestType::kDefaultInit:
+      updt.request_meta.push_back(req_meta);
+      //      updt.merged = CArray(req_data.lens[0]);
+      //      updt.merged.CopyFrom((void*)req_data.vals.data(), req_data.lens[0]);
+      engine_->PushAsync({static_cast<int>(req_data.keys[0])}, {data});
       break;
     default:
-      LOG(FATAL) << "Unkown request type";
+      LOG(FATAL) << "Unknown request type";
   }
 }
 

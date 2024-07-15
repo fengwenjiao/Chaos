@@ -60,6 +60,11 @@ TEST_F(CArrayTest, CopyFromRawPointer){
   EXPECT_ANY_THROW(source.CopyFrom(data, 4));
 }
 
+TEST_F(CArrayTest, IsNone) {
+  CArray array;
+  EXPECT_TRUE(array.isNone());
+}
+
 TEST_F(CArrayTest, InitializesCorrectly) {
   size_t size = 100;
   {

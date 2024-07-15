@@ -10,7 +10,7 @@
 namespace constellation {
 
 // TODO: now only support default push pull
-enum class RequestType { kDefaultPushPull, kRowSparsePushPull, kCompressedPushPull };
+enum class RequestType { kDefaultPushPull, kDefaultInit, kRowSparsePushPull, kCompressedPushPull };
 
 struct DataHandleType {
   RequestType requestType;
@@ -84,13 +84,16 @@ struct CArray {
   std::shared_ptr<DataTrunk> sptr_;
   int dtype;
 
-  explicit CArray() : dtype(0), sptr_(std::make_shared<DataTrunk>()) {}
+  explicit CArray() : dtype(0), sptr_(nullptr) {}
   explicit CArray(size_t size) : dtype(0), sptr_(std::make_shared<DataTrunk>(size)) {}
   CArray(CArray&& other) = default;
   CArray(const CArray& other) = default;
   CArray& operator=(CArray&& other) = default;
   CArray& operator=(const CArray& other) = default;
 
+  bool isNone() const {
+    return sptr_ == nullptr || sptr_->dptr_ == nullptr || sptr_->size_ == 0;
+  }
   inline char* data() const {
     return sptr_->dptr_;
   }
@@ -135,6 +138,9 @@ class ConstelTrainer {
     delete this->trainer_;
     this->trainer_ = nullptr;
   }
+
+  void NotifyReady();
+
   void Init(std::vector<int>& keys, std::vector<CArray*>& vals_init);
 
   void PushPull(std::vector<int>& keys,
@@ -150,6 +156,25 @@ class ConstelTrainer {
     std::vector<ps::KVMeta> request_meta;
     CArray merged;
     size_t num = 0;
+    bool shouldReset = false;
+    void ResetUpdateBuf() {
+      if(shouldReset){
+        request_meta.clear();
+        num = 0;
+        shouldReset = false;
+      }
+    }
+  };
+
+  enum class TaskTypeEnum {
+    kPushPull,
+    kInitDefault,
+  };
+
+  struct EngineTaskData {
+    UpdateBuf update_buf;
+    TaskTypeEnum type;
+    bool isFromRoot = false;
   };
 
   /**
@@ -158,7 +183,9 @@ class ConstelTrainer {
    */
   std::unordered_map<int, UpdateBuf> update_buf_;
 
-  using Engine = ConstelAggEngine<UpdateBuf, int>;
+  std::unordered_map<int, int> init_waiting_ts_;
+
+  using Engine = ConstelAggEngine<EngineTaskData, int>;
 
   ScaleClock clock_;
 
@@ -174,13 +201,15 @@ class ConstelTrainer {
 
   mutable std::mutex trans_topo_mu_;
 
+  mutable std::mutex init_waiting_ts_mu_;
+
   Engine* engine_;
 
   UpdateBuf* GetUpdateBuf(int key) {
     std::lock_guard<std::mutex> lock(update_buf_mu_);
     return &update_buf_[key];
   }
-  inline auto& GetNodeTransTopo()  {
+  inline auto& GetNodeTransTopo() {
     std::unique_lock<std::mutex> lock(trans_topo_mu_);
     return trans_topo_;
   }
@@ -205,7 +234,7 @@ class ConstelTrainer {
 
   void InitEngine(size_t num_thread);
 
-  void ProcessPushData(int key, const UpdateBuf& data, Engine::ReturnOnAgg& rt);
+  void ProcessPushData(int key, const EngineTaskData& data, Engine::ReturnOnAgg& rt);
 
   void RequestHandle(const ps::SimpleData& recved, ps::SimpleApp* app);
 
