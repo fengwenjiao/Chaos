@@ -1,6 +1,5 @@
 #include "constellation_controller.h"
 #include "dmlc/logging.h"
-#include "./topo_graph.hpp"
 
 namespace constellation {
 
