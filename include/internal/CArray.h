@@ -1,16 +1,16 @@
-//
-// Created by DeEMO on 2024/7/15.
-//
-
 #ifndef CONSTELLATION_CARRAY_H
 #define CONSTELLATION_CARRAY_H
 
+#include <memory>
+
+namespace constellation {
+// reffer to byteps: https://github.com/bytedance/byteps/blob/master/byteps/common/common.h
+// TODO: Add more data type
+enum class ConstelDataType {
+  CONSTEL_FLOAT32 = 0,
+};
+
 struct CArray {
-  // reffer to byteps: https://github.com/bytedance/byteps/blob/master/byteps/common/common.h
-  // TODO: Add more data type
-  enum class ConstelDateType {
-    CONSTEL_FLOAT32 = 0,
-  };
   struct DataTrunk {
     char* dptr_;
     size_t size_{0};
@@ -21,7 +21,9 @@ struct CArray {
         return;
       }
       dptr_ = new char[size];
-      CHECK(dptr_);
+      if(!dptr_) {
+        std::runtime_error("CArray: out of memory");
+      }
     }
     ~DataTrunk() {
       if (dptr_) {
@@ -69,12 +71,14 @@ struct CArray {
   }
   void CopyFrom(const void* data, size_t size) {
     if (this->size() != size) {
-      throw "CArray::CopyFrom: size not match";
+      std::runtime_error("CArray: size mismatch");
     }
     if (data && size) {
       memcpy(this->data(), data, size);
     }
   }
 };
+
+}  // namespace constellation
 
 #endif  // CONSTELLATION_CARRAY_H
