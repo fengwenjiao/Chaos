@@ -2,6 +2,7 @@
 #define CONSTELLATION_TEST_PUSH_PULL_UTILS_H
 
 #include "test_utils.h"
+#include "test_debug_utils.h"
 #include "../include/internal/CArray.h"
 #include "../ps-lite-elastic/include/ps/base.h"
 
@@ -23,8 +24,10 @@ inline bool IsTrainer() {
  * This function generates a collection of random sizes corresponding to a given number of keys.
  * Each value size is randomly set between 1 and 100.
  *
- * @param key_num The number of keys for which value sizes need to be generated. This parameter determines the length of the vector.
- * @return Returns a vector containing the random sizes of the values. Each element represents the size of a value corresponding to a key.
+ * @param key_num The number of keys for which value sizes need to be generated. This parameter
+ * determines the length of the vector.
+ * @return Returns a vector containing the random sizes of the values. Each element represents the
+ * size of a value corresponding to a key.
  */
 std::vector<int> value_sizes_generator(int key_num) {
   std::vector<int> value_sizes;
@@ -33,7 +36,6 @@ std::vector<int> value_sizes_generator(int key_num) {
   }
   return value_sizes;
 }
-
 
 /**
  * @brief A mock structure for simulating parameter collections.
@@ -44,24 +46,73 @@ std::vector<int> value_sizes_generator(int key_num) {
  * parameter values, useful for testing purposes.
  */
 struct ParameterMock {
-  int _size; /**< The size of the parameter collection, i.e., the number of ids. */
+  int _size;             /**< The size of the parameter collection, i.e., the number of ids. */
   std::vector<int> _ids; /**< Vector storing the ids of the parameters. */
-  std::vector<int> _value_sizes; /**< Vector storing the sizes of each parameter value. */
+  std::vector<int> _value_sizes;   /**< Vector storing the sizes of each parameter value. */
   std::vector<CArray> _parameters; /**< Vector storing the parameter values. */
+  std::vector<CArray*> _pointers;  /**< Vector storing pointers to the parameter values. */
 
   /**
    * @brief Constructor, initializes the parameter mock.
    *
    * @param num The number of the parameters collection.
    */
-  ParameterMock(int num) {
+  explicit ParameterMock(int num) {
     _size = num;
     _value_sizes = value_sizes_generator(num);
+    _parameters.resize(num);
+    _ids.resize(num);
+    _pointers.resize(num);
     for (int i = 0; i < _size; ++i) {
-      _parameters.push_back(CArray(_value_sizes[i] * sizeof(float)));
-      _ids.push_back(i);
+      _parameters[i] = CArray(_value_sizes[i] * sizeof(float));
+      _ids[i] = i;
+      _pointers[i] = &_parameters[i];
     }
   }
+
+
+/**
+ * Copy constructor for the ParameterMock class.
+ * Creates a copy of a ParameterMock object with identical content.
+ *
+ * @param other The ParameterMock object to be copied.
+ */
+ParameterMock(const ParameterMock& other) {
+  _size = other._size;
+  _value_sizes = other._value_sizes;
+  _parameters.resize(_size);
+  _pointers.resize(_size);
+  _ids = other._ids;
+  for (int i = 0; i < _size; ++i) {
+    _parameters[i] = CArray(other._parameters[i].size());
+    _parameters[i].CopyFrom(other._parameters[i]);
+    _pointers[i] = &_parameters[i];
+  }
+}
+
+/**
+ * Overloaded assignment operator for the ParameterMock class.
+ * Assigns the contents of one ParameterMock object to another, implementing deep copy.
+ *
+ * @param other The ParameterMock object whose contents are to be assigned.
+ */
+ParameterMock& operator=(const ParameterMock& other) {
+  if (this == &other) {
+    return *this;
+  }
+  _size = other._size;
+  _value_sizes = other._value_sizes;
+  _parameters.resize(_size);
+  _pointers.resize(_size);
+  _ids = other._ids;
+  for (int i = 0; i < _size; ++i) {
+    _parameters[i] = CArray(other._parameters[i].size());
+    _parameters[i].CopyFrom(other._parameters[i]);
+    _pointers[i] = &_parameters[i];
+  }
+  return *this;
+}
+
 
   /**
    * @brief Destructor, cleans up parameter resources.
@@ -69,6 +120,7 @@ struct ParameterMock {
   ~ParameterMock() {
     _parameters.clear();
     _ids.clear();
+    _pointers.clear();
   }
 
   /**
@@ -76,7 +128,7 @@ struct ParameterMock {
    *
    * @return const std::vector<int>& Reference to the vector of keys.
    */
-  const std::vector<int>& keys()const {
+  const std::vector<int>& keys() const {
     return _ids;
   }
 
@@ -87,6 +139,10 @@ struct ParameterMock {
    */
   std::vector<CArray>& values() {
     return _parameters;
+  }
+
+  std::vector<CArray*>& pointers() {
+    return _pointers;
   }
 
   /**
@@ -101,17 +157,28 @@ struct ParameterMock {
    * are uninitialized parameters, a runtime error will be thrown.
    */
   void fill(int rank = 0, int ts = 0) {
-    if(_parameters.size() != _size || _parameters[_size - 1].isNone()) {
+    if (_parameters.size() != _size || _parameters[_size - 1].isNone()) {
       throw std::runtime_error("ParameterMock::fill() called with invalid parameters");
     }
     for (int key = 0; key < _size; ++key) {
-      float* data = (float*)_parameters[key].data();
+      auto* data = (float*)_parameters[key].data();
       for (int i = 0; i < _value_sizes[key]; ++i) {
-        data[i] = rank * 2.3 + ts * 3.7 + i * 7.3 + key * 98.1;
+        data[i] = rank * 2.3f + ts * 3.7f + i * 7.3f + key * 98.1f;
       }
     }
   }
 
+  ParameterMock expected_values(int num, int ts = 0) {
+    int total_rank = (num * (num - 1)) / 2;
+    ParameterMock expected = *this;
+    expected.fill(total_rank, ts);
+    return expected;
+  }
+
+  /**
+   * @brief Overloads the output stream operator for the ParameterMock class.
+   */
+  friend std::ostream& operator<<(std::ostream& os, const ParameterMock& mock);
   /**
    * @brief Accesses a parameter value by id.
    *
@@ -122,6 +189,13 @@ struct ParameterMock {
     return _parameters[id];
   }
 };
+
+/**
+ * @brief Overloaded output stream operator for ParameterMock class.
+ */
+std::ostream& operator<<(std::ostream& os, const constellation::test::ParameterMock& mock) {
+  os << mock._parameters;
+}
 
 
 }  // namespace test
