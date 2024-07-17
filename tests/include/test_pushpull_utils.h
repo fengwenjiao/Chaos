@@ -30,7 +30,7 @@ inline bool IsTrainer() {
  * size of a value corresponding to a key.
  */
 std::vector<int> value_sizes_generator(int key_num) {
-  std::vector<int> value_sizes;
+  std::vector<int> value_sizes(key_num);
   for (int i = 0; i < key_num; ++i) {
     value_sizes.push_back(RandomUtils::generate_random_number(1, 100));
   }
@@ -70,49 +70,47 @@ struct ParameterMock {
     }
   }
 
-
-/**
- * Copy constructor for the ParameterMock class.
- * Creates a copy of a ParameterMock object with identical content.
- *
- * @param other The ParameterMock object to be copied.
- */
-ParameterMock(const ParameterMock& other) {
-  _size = other._size;
-  _value_sizes = other._value_sizes;
-  _parameters.resize(_size);
-  _pointers.resize(_size);
-  _ids = other._ids;
-  for (int i = 0; i < _size; ++i) {
-    _parameters[i] = CArray(other._parameters[i].size());
-    _parameters[i].CopyFrom(other._parameters[i]);
-    _pointers[i] = &_parameters[i];
+  /**
+   * Copy constructor for the ParameterMock class.
+   * Creates a copy of a ParameterMock object with identical content.
+   *
+   * @param other The ParameterMock object to be copied.
+   */
+  ParameterMock(const ParameterMock& other) {
+    _size = other._size;
+    _value_sizes = other._value_sizes;
+    _parameters.resize(_size);
+    _pointers.resize(_size);
+    _ids = other._ids;
+    for (int i = 0; i < _size; ++i) {
+      _parameters[i] = CArray(other._parameters[i].size());
+      _parameters[i].CopyFrom(other._parameters[i]);
+      _pointers[i] = &_parameters[i];
+    }
   }
-}
 
-/**
- * Overloaded assignment operator for the ParameterMock class.
- * Assigns the contents of one ParameterMock object to another, implementing deep copy.
- *
- * @param other The ParameterMock object whose contents are to be assigned.
- */
-ParameterMock& operator=(const ParameterMock& other) {
-  if (this == &other) {
+  /**
+   * Overloaded assignment operator for the ParameterMock class.
+   * Assigns the contents of one ParameterMock object to another, implementing deep copy.
+   *
+   * @param other The ParameterMock object whose contents are to be assigned.
+   */
+  ParameterMock& operator=(const ParameterMock& other) {
+    if (this == &other) {
+      return *this;
+    }
+    _size = other._size;
+    _value_sizes = other._value_sizes;
+    _parameters.resize(_size);
+    _pointers.resize(_size);
+    _ids = other._ids;
+    for (int i = 0; i < _size; ++i) {
+      _parameters[i] = CArray(other._parameters[i].size());
+      _parameters[i].CopyFrom(other._parameters[i]);
+      _pointers[i] = &_parameters[i];
+    }
     return *this;
   }
-  _size = other._size;
-  _value_sizes = other._value_sizes;
-  _parameters.resize(_size);
-  _pointers.resize(_size);
-  _ids = other._ids;
-  for (int i = 0; i < _size; ++i) {
-    _parameters[i] = CArray(other._parameters[i].size());
-    _parameters[i].CopyFrom(other._parameters[i]);
-    _pointers[i] = &_parameters[i];
-  }
-  return *this;
-}
-
 
   /**
    * @brief Destructor, cleans up parameter resources.
@@ -141,6 +139,10 @@ ParameterMock& operator=(const ParameterMock& other) {
     return _parameters;
   }
 
+  /**
+   * Retrieves the collection of pointers to CArray objects.
+   * @return A reference to a std::vector containing pointers to CArray objects.
+   */
   std::vector<CArray*>& pointers() {
     return _pointers;
   }
@@ -168,6 +170,20 @@ ParameterMock& operator=(const ParameterMock& other) {
     }
   }
 
+  /**
+   * Constructs a parameter mock object with preset values for testing purposes.
+   *
+   * This function is primarily used in tests to create a parameter mock object
+   * with predefined values that can be compared against the results of actual function calls.
+   * By calculating the total possible ranks and populating these ranks,
+   * the mock object behaves predictably in specific test scenarios.
+   *
+   * @param num The number of ranks, which determines the total rank calculation and the size of the
+   * mock object.
+   * @param ts An optional timestamp parameter used to further customize how the mock object is
+   * populated.
+   * @return Returns a parameter mock object filled with expected values.
+   */
   ParameterMock expected_values(int num, int ts = 0) {
     int total_rank = (num * (num - 1)) / 2;
     ParameterMock expected = *this;
@@ -195,8 +211,8 @@ ParameterMock& operator=(const ParameterMock& other) {
  */
 std::ostream& operator<<(std::ostream& os, const constellation::test::ParameterMock& mock) {
   os << mock._parameters;
+  return os;
 }
-
 
 }  // namespace test
 }  // namespace constellation
