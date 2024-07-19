@@ -10,6 +10,7 @@ namespace constellation {
 class ConstelTransTopoThinker {
  public:
   GlobalTransTopo decideNewTransTopo(AdjacencyList& overlay);
+  GlobalTransTopo decideNewTransTopo(AdjacencyList& overlay, int);
   GlobalTransTopo SendOverlay(AdjacencyList& overlay);
 
  private:
