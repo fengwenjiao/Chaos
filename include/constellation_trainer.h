@@ -61,11 +61,32 @@ class ConstelTrainer {
     static_cast<ps::SimpleApp*>(this->trainer_)
         ->set_request_handle(std::bind(&ConstelTrainer::RequestHandle, this, _1, _2));
     this->trainer_->set_request_handle(std::bind(&ConstelTrainer::DataHandle, this, _1, _2, _3));
+    InitEngine(2);
   }
   ~ConstelTrainer() {
     ps::Finalize(0, false);
     delete this->trainer_;
     this->trainer_ = nullptr;
+    engine_->Stop();
+    delete engine_;
+  }
+  inline bool isRootNode() const {
+    auto type = GetNodeType();
+    CHECK(type != NodeTransTopo::Type::kUnset);
+    return type == NodeTransTopo::Type::kRoot;
+  }
+  inline bool isLeafNode() const {
+    auto type = GetNodeType();
+    CHECK(type != NodeTransTopo::Type::kUnset);
+    return type == NodeTransTopo::Type::kLeaf;
+  }
+
+  inline int NumTrainers() const {
+    return ps::Postoffice::Get()->num_trainers();
+  }
+
+  inline int myRank() const {
+    return ps::Postoffice::Get()->myRank();
   }
 
   void NotifyReady();
@@ -87,7 +108,7 @@ class ConstelTrainer {
     size_t num = 0;
     bool shouldReset = false;
     void ResetUpdateBuf() {
-      if(shouldReset){
+      if (shouldReset) {
         request_meta.clear();
         num = 0;
         shouldReset = false;
@@ -142,21 +163,10 @@ class ConstelTrainer {
     std::unique_lock<std::mutex> lock(trans_topo_mu_);
     return trans_topo_;
   }
-  inline auto GetNodeType() const {
+  inline NodeTransTopo::Type GetNodeType() const {
     std::unique_lock<std::mutex> lock(trans_topo_mu_);
     auto type = trans_topo_.getType();
     return type;
-  }
-
-  inline bool isRootNode() const {
-    auto type = GetNodeType();
-    CHECK(type != NodeTransTopo::Type::kUnset);
-    return type == NodeTransTopo::Type::kRoot;
-  }
-  inline bool isLeafNode() const {
-    auto type = GetNodeType();
-    CHECK(type != NodeTransTopo::Type::kUnset);
-    return type == NodeTransTopo::Type::kLeaf;
   }
 
   int SimplePushPullDefault(int key, const CArray& val);

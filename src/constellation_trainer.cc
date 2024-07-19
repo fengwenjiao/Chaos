@@ -8,7 +8,8 @@ void ConstelTrainer::NotifyReady() {
   int head = static_cast<int>(kControllerSignal::kNodeReadySignal);
   int my_id = ps::Postoffice::Get()->GetMyID();
   std::string body = std::to_string(my_id);
-  trainer_->Wait(trainer_->Request(head, body, ps::kScheduler));
+  // no need wait
+  trainer_->Request(head, body, ps::kScheduler);
 }
 
 void ConstelTrainer::Init(std::vector<int>& keys, std::vector<CArray*>& vals_init) {
@@ -34,6 +35,12 @@ void ConstelTrainer::Init(std::vector<int>& keys, std::vector<CArray*>& vals_ini
     vals[i].update_buf.merged = *vals_init[i];
   }
   engine_->PushAndWait(keys, std::move(vals), nullptr);
+
+  // copy the update buf to vals
+  for (size_t i = 0; i < size; i++) {
+    int key = keys[i];
+    vals_init[i]->CopyFrom(GetUpdateBuf(key)->merged);
+  }
 }
 
 void ConstelTrainer::PushPull(std::vector<int>& keys,
@@ -85,6 +92,7 @@ void ConstelTrainer::InitEngine(size_t num_thread = 2) {
   using namespace std::placeholders;
   engine_->set_data_handle(std::bind(&ConstelTrainer::ProcessPushData, this, _1, _2, _3));
   //  engine_->set_messure_func();
+  engine_->Start();
 }
 
 void ConstelTrainer::ProcessPushData(const int key,
@@ -94,7 +102,8 @@ void ConstelTrainer::ProcessPushData(const int key,
   auto update_buf = GetUpdateBuf(key);
   int all_recved = ps::Postoffice::Get()->GetMyChildren().size() + 1;
   auto& tasktype = data.type;
-  if(update_buf->shouldReset) update_buf->ResetUpdateBuf();
+  if (update_buf->shouldReset)
+    update_buf->ResetUpdateBuf();
   update_buf->num++;
   if (!update.request_meta.empty()) {
     update_buf->request_meta.push_back(update.request_meta[0]);
@@ -105,16 +114,20 @@ void ConstelTrainer::ProcessPushData(const int key,
         // init request from myself
         update_buf->merged = CArray(update.merged.size());  // alloc the space
         if (data.isFromRoot) {
+          update_buf->merged.CopyFrom(update.merged);
           std::lock_guard<std::mutex> lock(init_waiting_ts_mu_);
           init_waiting_ts_[key] = -1;
         } else {
           // pull request to father
           auto key_t = ps::SArray<ps::Key>({static_cast<ps::Key>(key)});
-          auto len_t = ps::SArray<int>({static_cast<int>(update_buf->merged.size())});
+          auto* len_t = new ps::SArray<int>({static_cast<int>(update_buf->merged.size())});
           // TODO: use another buff to recv
-          ps::SArray<char>* vals = new ps::SArray<char>(update_buf->merged);
+          auto* vals = new ps::SArray<char>(update_buf->merged);
           int cmd = GetCommandType(RequestType::kDefaultInit, update.merged.dtype);
-          int ts = trainer_->ZPull(key_t, vals, &len_t, cmd, [vals]() { delete vals; });
+          int ts = trainer_->ZPull(key_t, vals, len_t, cmd, [vals, len_t]() {
+            delete vals;
+            delete len_t;
+          });
 
           {
             std::lock_guard<std::mutex> lock(init_waiting_ts_mu_);
@@ -139,8 +152,10 @@ void ConstelTrainer::ProcessPushData(const int key,
           ps::KVPairs<char> pairs;
           pairs.keys.push_back(key);
           pairs.vals = ps::SArray<char>(update_buf->merged);
+          pairs.lens.push_back(static_cast<int>(update_buf->merged.size()));
           trainer_->Response(meta, pairs);
         }
+
         rt(0);
       }
       break;
@@ -176,9 +191,13 @@ void ConstelTrainer::ProcessPushData(const int key,
           auto key_t = static_cast<ps::Key>(key);
           ps::SArray<ps::Key> keys({key_t});
           auto len_t = static_cast<int>(update_buf->merged.size());
-          ps::SArray<int> lens({len_t});
+          auto lens = new ps::SArray<int>;
+          lens->push_back(len_t);
           int cmd = GetCommandType(RequestType::kDefaultPushPull, update_buf->merged.dtype);
-          int ts = trainer_->ZPushPull(keys, *vals, vals, &lens, cmd, [vals]() { delete vals; });
+          int ts = trainer_->ZPushPull(keys, *vals, vals, lens, cmd, [vals, lens]() {
+            delete vals;
+            delete lens;
+          });
           rt(ts);
         }
       }
@@ -245,6 +264,7 @@ void ConstelTrainer::DataHandle(const ps::KVMeta& req_meta,
       break;
     case RequestType::kDefaultInit:
       updt.request_meta.push_back(req_meta);
+      data.type = TaskTypeEnum::kInitDefault;
       //      updt.merged = CArray(req_data.lens[0]);
       //      updt.merged.CopyFrom((void*)req_data.vals.data(), req_data.lens[0]);
       engine_->PushAsync({static_cast<int>(req_data.keys[0])}, {data});

@@ -123,6 +123,7 @@ class ConstelController {
   ps::Controller* ps_scheduler_;
   ConstelTransTopoThinker * thinker_;
 
+  bool is_sycn_add_finished_ = false;
 };
 
 }  // namespace constellation

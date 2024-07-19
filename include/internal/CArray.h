@@ -21,7 +21,7 @@ struct CArray {
         return;
       }
       dptr_ = new char[size];
-      if(!dptr_) {
+      if (!dptr_) {
         std::runtime_error("CArray: out of memory");
       }
     }
@@ -64,14 +64,15 @@ struct CArray {
   void CopyFrom(const CArray& other) {
     // TODO:use OMP to accelerate
     if (other.data() && other.size()) {
-      this->sptr_ = std::make_shared<DataTrunk>(other.size());
+      if (this->size() != other.size())
+        throw std::runtime_error("CArray: size mismatch");
       memcpy(this->data(), other.data(), other.size());
       this->dtype = other.dtype;
     }
   }
-  void CopyFrom(const void* data, size_t size) {
+  void CopyFrom(const void* data, size_t size) const {
     if (this->size() != size) {
-      std::runtime_error("CArray: size mismatch");
+      throw std::runtime_error("CArray: size mismatch");
     }
     if (data && size) {
       memcpy(this->data(), data, size);

@@ -44,7 +44,7 @@ class ConstelAggEngine {
   }
 
   explicit ConstelAggEngine(size_t num_threads = 2)
-      : num_threads_(num_threads), is_running_(false),res_ptr_(nullptr) {}
+      : num_threads_(num_threads), is_running_(false), res_ptr_(nullptr) {}
   ConstelAggEngine(const ConstelAggEngine&) = delete;
   ConstelAggEngine(ConstelAggEngine&&) = delete;
 
@@ -67,7 +67,7 @@ class ConstelAggEngine {
   void CallBackReturnHandle(ConstelAggEngine* engine, const int id, const ResType& res) {
     std::unique_lock<std::mutex> lock(engine->return_mu_);
     if (engine->expected_ids_.count(id) != 0) {
-      if(engine->res_ptr_){
+      if (engine->res_ptr_) {
         auto& container = *(engine->res_ptr_);
         container[id] = res;
       }
@@ -111,10 +111,12 @@ class ConstelAggEngine {
     CHECK(is_running_);
     expected_ids_ = std::unordered_set<int>(ids.begin(), ids.end());
     // the data not pushed yet, so other thread will execute the return callback
-    // so we can 
+    // so we can
     res_ptr_ = ret;
-    for (auto i : expected_ids_) {
-      res_ptr_->emplace(i, ResType());
+    if (res_ptr_) {
+      for (auto i : expected_ids_) {
+        res_ptr_->emplace(i, ResType());
+      }
     }
 
     PushAsync(ids, std::move(data));

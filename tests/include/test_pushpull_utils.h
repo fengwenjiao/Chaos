@@ -29,10 +29,17 @@ inline bool IsTrainer() {
  * @return Returns a vector containing the random sizes of the values. Each element represents the
  * size of a value corresponding to a key.
  */
-std::vector<int> value_sizes_generator(int key_num) {
-  std::vector<int> value_sizes(key_num);
+std::vector<int> value_sizes_generator(int key_num, int down, int up) {
+  if (down > up) {
+    int c;
+    c = down;
+    down = c;
+    up = c;
+  }
+  std::vector<int> value_sizes;
+  value_sizes.reserve(key_num);
   for (int i = 0; i < key_num; ++i) {
-    value_sizes.push_back(RandomUtils::generate_random_number(1, 100));
+    value_sizes.push_back(RandomUtils::generate_random_number(down, up));
   }
   return value_sizes;
 }
@@ -56,10 +63,12 @@ struct ParameterMock {
    * @brief Constructor, initializes the parameter mock.
    *
    * @param num The number of the parameters collection.
+   * @param paramsize_down The lower bound for the random size of each parameter value.
+   * @param paramsize_up The upper bound for the random size of each parameter value.
    */
-  explicit ParameterMock(int num) {
+  explicit ParameterMock(int num, int paramsize_down = 10, int paramsize_up = 100) {
     _size = num;
-    _value_sizes = value_sizes_generator(num);
+    _value_sizes = value_sizes_generator(num, paramsize_down, paramsize_up);
     _parameters.resize(num);
     _ids.resize(num);
     _pointers.resize(num);
@@ -165,7 +174,7 @@ struct ParameterMock {
     for (int key = 0; key < _size; ++key) {
       auto* data = (float*)_parameters[key].data();
       for (int i = 0; i < _value_sizes[key]; ++i) {
-        data[i] = rank * 2.3f + ts * 3.7f + i * 7.3f + key * 98.1f;
+        data[i] = rank * 2.3f + ts * 0.7f + i * 0.006f + key * 0.045f;
       }
     }
   }
@@ -185,9 +194,14 @@ struct ParameterMock {
    * @return Returns a parameter mock object filled with expected values.
    */
   ParameterMock expected_values(int num, int ts = 0) {
-    int total_rank = (num * (num - 1)) / 2;
+    int total_rank = ((num - 1) * (num)) / 2;
     ParameterMock expected = *this;
-    expected.fill(total_rank, ts);
+    for (int key = 0; key < _size; ++key) {
+      auto* data = reinterpret_cast<float*>(expected._parameters[key].data());
+      for (int i = 0; i < _value_sizes[key]; ++i) {
+        data[i] = total_rank * 2.3f + (ts * 0.7f + i * 0.006f + key * 0.045f) * num;
+      }
+    }
     return expected;
   }
 
