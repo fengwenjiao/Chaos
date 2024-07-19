@@ -30,6 +30,25 @@ GlobalTransTopo ConstelTransTopoThinker::decideNewTransTopo(AdjacencyList& overl
   return transtopo;
 }
 
+GlobalTransTopo ConstelTransTopoThinker::decideNewTransTopo(AdjacencyList& overlay,int) {
+  std::unordered_map<int, NodeTransTopo> transtopo;
+  if (overlay.empty()) {
+    return transtopo;
+  }
+  int prvs=-1;
+  for(const auto& it:overlay){
+    auto id = it.first;
+    if(prvs!=-1){
+      transtopo[id].setParent(prvs);
+      transtopo[prvs].addChildren(id);
+    }
+    prvs = id;
+  }
+
+  return transtopo;
+}
+
+
 GlobalTransTopo ConstelTransTopoThinker::SendOverlay(AdjacencyList& overlay) {
   if (overlay.size() == 1) {
     GlobalTransTopo transtopo;
@@ -39,7 +58,7 @@ GlobalTransTopo ConstelTransTopoThinker::SendOverlay(AdjacencyList& overlay) {
     transtopo[node_id] = topo;
     return transtopo;
   }
-  return decideNewTransTopo(overlay);
+  return decideNewTransTopo(overlay,1);
 }
 
 }  // namespace constellation
