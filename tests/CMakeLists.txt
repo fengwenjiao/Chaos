@@ -39,7 +39,7 @@ if(GTEST_FOUND)
     endif()
 
     add_executable(${PROJECT_NAME}_unit_tests ${UNIT_TEST_SOURCE}
-            unit_tests/engine_test.cc)
+            unit_tests/unit_test_main.cc)
 
     set_property(TARGET ${PROJECT_NAME}_unit_tests
             PROPERTY RUNTIME_OUTPUT_DIRECTORY ${PRIVATE_RUNTIME_DIR})
@@ -58,6 +58,10 @@ endif ()
 add_executable(test_add_exit test_add_exit.cc)
 list(APPEND TEST_OUTPUT test_add_exit)
 target_link_libraries(test_add_exit constellation)
+
+add_executable(test_pushpull test_pushpull.cc)
+list(APPEND TEST_OUTPUT test_pushpull)
+target_link_libraries(test_pushpull constellation)
 
 # foreach(test_exec ${TEST_OUTPUT})
 #     set_target_properties(${test_exec} PROPERTIES

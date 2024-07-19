@@ -4,10 +4,68 @@
 #include <functional>
 #include "./constellation_commons.h"
 #include "./constellation_transtopothinker.h"
-#include "./topo_graph.hpp"
+#include "internal/topo_graph.hpp"
 #include <ps/ps.h>
 
 namespace constellation {
+
+class ReadyNodeOverlayManager {
+ public:
+  ReadyNodeOverlayManager(): is_asycn_add_(false) {}
+  bool HandleNodeReady(int node_id) {
+    auto& connected_nodes = ps::Postoffice::Get()->GetOverlayNeighbour(node_id);
+    if (!ready_nodes_.AddNode(node_id)) {
+      // the node is already in the ready_nodes_
+      return false;
+    }
+    bool is_add_edge = false;
+    for (auto& node : connected_nodes) {
+      if (ready_nodes_.HasNode(node)) {
+        // the nerghbour is ready, then add edge
+        if (ready_nodes_.AddEdge(node_id, node)) {
+          is_add_edge = true;
+        }
+      }
+    }
+    if(!is_add_edge && ready_nodes_.NumNodes() >=2) {
+      LOG(WARNING) << "Node " << node_id << " is ready, but no edge is added";
+    }
+    // check if node number is enough
+    if (ready_nodes_.NumNodes() == ps::Postoffice::Get()->init_num_trainers()) {
+      is_asycn_add_ = true;
+    }
+    return true;
+  }
+  bool ShouldGetNewTransTopo() {
+    return isAsyncJoinStage() ;
+  }
+  bool isAsyncJoinStage() {
+    return is_asycn_add_;
+  }
+
+  //TODO: GetReadyOverlay() is debug version, should return the string of overlay
+  AdjacencyList GetReadyOverlayStr() {
+    auto& edges = ready_nodes_.GetEdges();
+    AdjacencyList overlay;
+    for (auto& edge : edges) {
+      overlay[edge.src].push_back(edge.dst);
+      overlay[edge.dst].push_back(edge.src);
+    }
+    if(overlay.empty()){
+      auto& nodes = ready_nodes_.GetNodes();
+      CHECK_EQ(nodes.size(), 1);
+      auto& node = *nodes.begin();
+      overlay[node] = std::vector<int>();
+    }
+    return overlay;
+  }
+
+
+ private:
+  TopoGraph<int> ready_nodes_;
+  bool is_asycn_add_ ;  // 0: sync join stage, 1: async join stage
+};
+
 class ConstelController {
  public:
   explicit ConstelController() {
@@ -26,63 +84,6 @@ class ConstelController {
   }
 
  private:
-  class ReadyNodeOverlayManager {
-   public:
-    ReadyNodeOverlayManager(): is_asycn_add_(false) {}
-    bool HandleNodeReady(int node_id) {
-      auto& connected_nodes = ps::Postoffice::Get()->GetOverlayNeighbour(node_id);
-      if (!ready_nodes_.AddNode(node_id)) {
-        // the node is already in the ready_nodes_
-        return false;
-      }
-      bool is_add_edge = false;
-      for (auto& node : connected_nodes) {
-        if (ready_nodes_.HasNode(node)) {
-          // the nerghbour is ready, then add edge
-          if (ready_nodes_.AddEdge(node_id, node)) {
-            is_add_edge = true;
-          }
-        }
-      }
-      if(!is_add_edge && ready_nodes_.NumNodes() >=2) {
-        LOG(WARNING) << "Node " << node_id << " is ready, but no edge is added";
-      }
-      // check if node number is enough
-      if (ready_nodes_.NumNodes() == ps::Postoffice::Get()->init_num_trainers()) {
-        is_asycn_add_ = true;
-      }
-      return true;
-    }
-    bool ShouldGetNewTransTopo() {
-      return isAsyncJoinStage() ;
-    }
-    bool isAsyncJoinStage() {
-      return is_asycn_add_;
-    }
-
-    //TODO: GetReadyOverlay() is debug version, should return the string of overlay
-    AdjacencyList GetReadyOverlayStr() {
-      auto& edges = ready_nodes_.GetEdges();
-      AdjacencyList overlay;
-      for (auto& edge : edges) {
-        overlay[edge.src].push_back(edge.dst);
-        overlay[edge.dst].push_back(edge.src);
-      }
-      if(overlay.empty()){
-        auto& nodes = ready_nodes_.GetNodes();
-        CHECK_EQ(nodes.size(), 1);
-        auto& node = *nodes.begin();
-        overlay[node] = std::vector<int>();
-      }
-      return overlay;
-    }
-
-
-   private:
-    TopoGraph<int> ready_nodes_;
-    bool is_asycn_add_ ;  // 0: sync join stage, 1: async join stage
-  };
-
   /**
    * \brief Controller handle for all received request
    */
@@ -122,6 +123,7 @@ class ConstelController {
   ps::Controller* ps_scheduler_;
   ConstelTransTopoThinker * thinker_;
 
+  bool is_sycn_add_finished_ = false;
 };
 
 }  // namespace constellation

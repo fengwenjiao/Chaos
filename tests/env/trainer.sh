@@ -4,4 +4,4 @@ export DMLC_PS_ROOT_PORT=8000
 export DMLC_ROLE='trainer'
 
 export DEBUG_OVERLAY=1
-export PS_VERBOSE=3
+export PS_VERBOSE=1

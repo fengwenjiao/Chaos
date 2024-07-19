@@ -1,9 +1,12 @@
 #ifndef _CONSTELLATION_COMMONS_H_
 #define _CONSTELLATION_COMMONS_H_
 
+#include "ps/base.h"
+#include "./internal/utils.h"
+
 #include <unordered_map>
 #include <vector>
-#include "ps/base.h"
+
 
 namespace constellation {
 
@@ -31,7 +34,7 @@ class NodeTransTopo {
     parent_ = other.parent_;
     children_ = other.children_;
   }
-  NodeTransTopo(NodeTransTopo&& other) {
+  NodeTransTopo(NodeTransTopo&& other) noexcept {
     type_ = other.type_;
     parent_ = other.parent_;
     children_ = std::move(other.children_);
@@ -45,7 +48,7 @@ class NodeTransTopo {
     children_ = other.children_;
     return *this;
   }
-  NodeTransTopo& operator=(NodeTransTopo&& other) {
+  NodeTransTopo& operator=(NodeTransTopo&& other) noexcept {
     if (this == &other) {
       return *this;
     }
@@ -55,7 +58,11 @@ class NodeTransTopo {
     return *this;
   }
 
-  const int getParent() const {
+  Type getType() const {
+    return type_;
+  }
+
+  int getParent() const {
     return parent_;
   }
 
@@ -84,23 +91,25 @@ class NodeTransTopo {
   }
 
   std::string Encode() const {
-    std::string str = std::to_string(static_cast<int>(type_)) + " ";
-    str += std::to_string(parent_) + " ";
-    for (int child : children_) {
-      str += std::to_string(child) + " ";
+    std::ostringstream oss;
+    oss << static_cast<int>(type_) << " " << parent_<<" ";
+    oss << children_.size()<<" ";
+    for (const auto& child : children_) {
+      oss << child << " ";
     }
-    return str;
+    return oss.str();
   }
 
-  void Decode(const std::string& str) {
-    if (str.empty())
-      return;
-    size_t pos = 0;
-    type_ = static_cast<Type>(std::stoi(str, &pos));
-    parent_ = std::stoi(str.substr(pos), &pos);
+  void Decode(std::istringstream& iss) {
     children_.clear();
-    while (pos < str.size()) {
-      children_.push_back(std::stoi(str.substr(pos), &pos));
+    int temp;
+    iss >> temp;
+    type_ = static_cast<Type>(temp);
+    iss >> parent_;
+    iss >> temp;
+    children_.resize(temp);
+    for (int i = 0; i < temp; ++i) {
+      iss >> children_[i];
     }
   }
 
@@ -119,27 +128,33 @@ using GlobalTransTopo = std::unordered_map<int, NodeTransTopo>;
  * @param `transtopo`: the global transport topology
  * @param `str`: the string to store the encoded result
  */
-static void EncodeGlobalTransTopo(const GlobalTransTopo& transtopo, std::string* str) {
-  for (const auto& kv : transtopo) {
-    *str += std::to_string(kv.first) + " " + kv.second.Encode() + " ";
+inline void EncodeGlobalTransTopo(const GlobalTransTopo& transtopo, std::string* str) {
+  std::ostringstream oss;
+  oss<<transtopo.size()<<" ";
+  for (const auto& pair : transtopo) {
+    oss << pair.first << " ";
+    oss << pair.second.Encode() << " ";
   }
+  *str = oss.str();
 }
 
 /** @brief Decode the global transport topology from string
+ *
  * @param `str`: the string to store the encoded result
  * @param `transtopo`: the global transport topology
  */
-static void DecodeGlobalTransTopo(const std::string& str, GlobalTransTopo* transtopo) {
+inline void DecodeGlobalTransTopo(std::istringstream& iss, GlobalTransTopo* transtopo) {
   transtopo->clear();
-  if (str.empty())
-    return;
-  size_t pos = 0;
-  while (pos < str.size()) {
-    int node = std::stoi(str.substr(pos), &pos);
-    NodeTransTopo n;
-    n.Decode(str.substr(pos));
-    transtopo->insert({node, n});
+  int temp;
+  iss >> temp;
+  for (int i = 0; i < temp; ++i) {
+    int key;
+    iss >> key;
+    NodeTransTopo topo;
+    topo.Decode(iss);
+    transtopo->insert(std::make_pair(key, topo));
   }
+
 }
 
 class ScaleClock {
@@ -162,14 +177,18 @@ class ScaleClock {
     GlobalTransTopo transtopo;
 
     void Encode(std::string* str) const {
-      // timestamp GlobalTransTopo1{target_node_id NodeTransTopo{type parent [children]}}
-      *str += std::to_string(timestamp) + " ";
-      EncodeGlobalTransTopo(transtopo, str);
+      std::ostringstream oss;
+      oss<<timestamp<<" ";
+      std::string temp;
+      EncodeGlobalTransTopo(transtopo, &temp);
+      oss<<temp<<" ";
+      *str = oss.str();
     }
+
     void Decode(const std::string& str) {
-      size_t pos = 0;
-      timestamp = std::stoi(str, &pos);
-      DecodeGlobalTransTopo(str.substr(pos), &transtopo);
+      std::istringstream iss(str);
+      iss>>timestamp;
+      DecodeGlobalTransTopo(iss, &transtopo);
     }
   };
 

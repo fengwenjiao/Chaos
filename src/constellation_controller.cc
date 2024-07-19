@@ -1,6 +1,5 @@
 #include "constellation_controller.h"
 #include "dmlc/logging.h"
-#include "./topo_graph.hpp"
 
 namespace constellation {
 
@@ -42,8 +41,8 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
         data[entry.first] = str;
       }
       int head = static_cast<int>(kControllerSignal::kUpdateTransTopoAnouce);
-      // send to all trainers and wait for response
-      app->Wait(app->Request(head, data));
+      // send to all trainers and wait for response, should not wait!(dead lock)
+      app->Request(head, data);
       // set alarm for the new future timestamp
       tick.transtopo = std::move(transtopo);
       clock_.setAlarm(std::move(tick));
@@ -62,6 +61,10 @@ void ConstelController::ResponseHandle(const ps::SimpleData& recved, ps::SimpleA
 void ConstelController::SchedulerSignalHandle(const ps::SimpleData& recved, ps::SimpleApp* app) {}
 
 uint32_t ConstelController::GetFutureTimtestamp() {
+  if(!is_sycn_add_finished_){
+    is_sycn_add_finished_ = true;
+    return 0;
+  }
   uint32_t future_timestamp = clock_.getLocalTimestamp();
   return future_timestamp + 5;
 }
