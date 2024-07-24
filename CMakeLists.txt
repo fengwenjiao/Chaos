@@ -5,26 +5,31 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 
+option(CONSTEL_BUILD_SHARED_LIBS "Build shared libraries instead of static libraries" ON)
+
+if (UNIX)
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif ()
+
 # set Ninja as the default generator
-if(NOT CMAKE_GENERATOR)
-  set(CMAKE_GENERATOR "Ninja")
-endif()
+if (NOT CMAKE_GENERATOR)
+    set(CMAKE_GENERATOR "Ninja")
+endif ()
 
 # Set the default build type to Debug
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Debug)
-endif()
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Debug)
+endif ()
 
-if(NOT constellation_LINKER_LIBS)
-  set(constellation_LINKER_LIBS "")
-endif()
-
-add_library(constellation)
+if (NOT constellation_LINKER_LIBS)
+    set(constellation_LINKER_LIBS "")
+endif ()
 
 # Add pslite
 option(PSLITE_BUILD_TEST "Build pslite tests" OFF)
 
 add_subdirectory("ps-lite-elastic")
+#set_target_properties(pslite PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 list(APPEND constellation_LINKER_LIBS pslite)
 
 # Add gtest
@@ -36,7 +41,12 @@ set(GTEST_LIBRARY gtest)
 
 add_subdirectory(${GTEST_ROOT})
 
-# build
+if (CONSTEL_BUILD_SHARED_LIBS)
+    add_library(constellation SHARED)
+else ()
+    add_library(constellation STATIC)
+endif ()
+
 file(GLOB_RECURSE SOURCE "src/*.cc")
 
 target_include_directories(constellation PUBLIC "${PROJECT_SOURCE_DIR}/include/")

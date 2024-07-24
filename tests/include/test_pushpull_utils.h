@@ -174,7 +174,7 @@ struct ParameterMock {
     for (int key = 0; key < _size; ++key) {
       auto* data = (float*)_parameters[key].data();
       for (int i = 0; i < _value_sizes[key]; ++i) {
-        data[i] = rank * 2.3f + ts * 0.7f + i * 0.006f + key * 0.045f;
+        data[i] = rank * 2.0f + ts * 0.8f + i * 0.004f + key * 0.022f;
       }
     }
   }
@@ -199,7 +199,7 @@ struct ParameterMock {
     for (int key = 0; key < _size; ++key) {
       auto* data = reinterpret_cast<float*>(expected._parameters[key].data());
       for (int i = 0; i < _value_sizes[key]; ++i) {
-        data[i] = total_rank * 2.3f + (ts * 0.7f + i * 0.006f + key * 0.045f) * num;
+        data[i] = total_rank * 2.0f + (ts * 0.8f + i * 0.004f + key * 0.022f) * num;
       }
     }
     return expected;

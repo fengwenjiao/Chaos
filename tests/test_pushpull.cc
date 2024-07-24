@@ -7,11 +7,11 @@
 
 using namespace constellation;
 
-constexpr int KEY_NUM = 10;
+constexpr int KEY_NUM = 100;
 constexpr int TIMES = 10;
 
-constexpr int PARAMSIZE_DOWN = 100000;
-constexpr int PARAMSIZE_UP = 100000;
+constexpr int PARAMSIZE_DOWN = 1000000;
+constexpr int PARAMSIZE_UP = 1000000;
 
 int main(int argc, char* argv[]) {
   test::RandomUtils::set_seed(10);
@@ -62,16 +62,17 @@ int main(int argc, char* argv[]) {
         tot += diff;
       }
       tot /= size;
+      tot /= num;
       //      std::cout << "Test times " << i << " key " << key << " size " << size << " diff " <<
       //      tot
       //                << std::endl;
-      if (tot > 1e-3) {
+      if (tot > 1e-4) {
         std::cout << "Test times " << i << " key " << key << " size " << size << " diff " << tot
                   << std::endl;
         //                std::cout<<params;
         //                std::cout<<expected;
       }
-      CHECK_LT(tot, 1e-3);
+      CHECK_LT(tot, 1e-4);
     }
   }
   auto finish = std::chrono::high_resolution_clock::now();
