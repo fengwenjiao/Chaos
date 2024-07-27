@@ -1,1 +1,1 @@
-from . import Trainer
+from .controller import *

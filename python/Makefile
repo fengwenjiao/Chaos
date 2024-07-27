@@ -6,6 +6,9 @@ build:
 install: 
 	pip install .	
 
+install_dev:
+	pip install -e .
+
 build_dist:
 	make clean
 	python -m build
