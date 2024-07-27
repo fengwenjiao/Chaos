@@ -13,9 +13,8 @@ enum class ConstelDataType {
 struct CArray {
   struct DataTrunk {
     char* dptr_;
-    size_t size_{0};
 
-    DataTrunk(size_t size = 0) : size_(size) {
+    DataTrunk(size_t size = 0) {
       if (size == 0) {
         dptr_ = nullptr;
         return;
@@ -38,26 +37,41 @@ struct CArray {
   };
 
   std::shared_ptr<DataTrunk> sptr_;
+  size_t size_{0};
   int dtype;
 
+  // if this carray get the data ptr from other struct such as torch.tensor,
+  // just record the ptr and should not free it
+  void* borrowed_data{nullptr};
+
   explicit CArray() : dtype(0), sptr_(nullptr) {}
-  explicit CArray(size_t size) : dtype(0), sptr_(std::make_shared<DataTrunk>(size)) {}
+  explicit CArray(size_t size, int dtype = 0)
+      : dtype(dtype), size_(size), sptr_(std::make_shared<DataTrunk>(size)) {}
+  // for other AI framework, such as torch.tensor
+  explicit CArray(const void* data, size_t size, int dtype = 0)
+      : borrowed_data(const_cast<void*>(data)), size_(size), dtype(dtype), sptr_(nullptr) {}
   CArray(CArray&& other) = default;
   CArray(const CArray& other) = default;
   CArray& operator=(CArray&& other) = default;
   CArray& operator=(const CArray& other) = default;
 
   bool isNone() const {
-    return sptr_ == nullptr || sptr_->dptr_ == nullptr || sptr_->size_ == 0;
+    return (sptr_ == nullptr || sptr_->dptr_ == nullptr) && size_ == 0;
   }
   inline char* data() const {
+    if (borrowed_data) {
+      return static_cast<char*>(borrowed_data);
+    }
     return sptr_->dptr_;
   }
   inline size_t size() const {
-    return sptr_->size_;
+    return size_;
   }
 
   inline const std::shared_ptr<DataTrunk>& ptr() const {
+    if (borrowed_data) {
+      throw std::runtime_error("Could not get shared ptr when the CArray is borrowed!");
+    }
     return sptr_;
   }
 
@@ -76,6 +90,19 @@ struct CArray {
     }
     if (data && size) {
       memcpy(this->data(), data, size);
+    }
+  }
+
+  void From(const CArray& other) {
+    if (other.data() && other.size()) {
+      if (this->size() != other.size()) {
+        this->sptr_ = std::make_shared<DataTrunk>(other.size());
+        memcpy(this->data(), other.data(), other.size());
+        this->dtype = other.dtype;
+        this->size_ = other.size();
+      } else {
+        this->CopyFrom(other);
+      }
     }
   }
 };

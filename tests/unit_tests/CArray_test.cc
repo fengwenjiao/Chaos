@@ -32,7 +32,7 @@ TEST_F(CArrayTest, CopyFromOtherCArray) {
   EXPECT_EQ(memcmp(destination.data(), source.data(), size), 0);
 
   CArray destination2;
-  destination2.CopyFrom(destination);
+  destination2.From(destination);
   EXPECT_EQ(destination2.size(), destination.size());
   EXPECT_EQ(memcmp(destination2.data(), destination.data(), size), 0);
 
@@ -70,15 +70,27 @@ TEST_F(CArrayTest, InitializesCorrectly) {
   {
     CArray array(size);
     EXPECT_NE(array.sptr_, nullptr); // check sptr_ is not nullptr
-    EXPECT_EQ(array.sptr_->size_, size); // check size_ is correct
+    EXPECT_EQ(array.size(), size); // check size_ is correct
 
     CArray array2 = array;
     CArray array3(array2);
     CArray array4(std::move(array3));
 
     EXPECT_NE(array2.sptr_, nullptr); // check sptr_ is not nullptr
-    EXPECT_EQ(array2.sptr_->size_, size); // check size_ is correct
+    EXPECT_EQ(array2.size(), size); // check size_ is correct
   }
     
 }
 
+TEST_F(CArrayTest, BorrowedTest) {
+  std::string s1("123");
+  CArray array((const void*)s1.c_str(), s1.size());
+  EXPECT_EQ(array.size(), s1.size());
+  CArray array2(3);
+  const char * data = "321";
+  array2.CopyFrom(data, 3);
+  array.CopyFrom(array2);
+  EXPECT_EQ(memcmp(array.data(), data, 3), 0);
+  EXPECT_EQ(s1, "321");
+
+}

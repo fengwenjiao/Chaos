@@ -1,5 +1,7 @@
 #include "constellation_trainer.h"
+
 #include <functional>
+
 
 namespace constellation {
 

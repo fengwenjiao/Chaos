@@ -83,6 +83,12 @@ class ConstelController {
     delete thinker_;
   }
 
+  void run(){
+    while (true) {
+      std::this_thread::sleep_for(std::chrono::seconds(1000));
+    }
+  }
+
  private:
   /**
    * \brief Controller handle for all received request

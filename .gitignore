@@ -10,3 +10,4 @@ tests/constellation_unit_tests
 
 *.egg-info/
 dist/
+.run/
