@@ -1,0 +1,6 @@
+screen -S s -dm bash -c 'source ./env/scheduler.sh && python ./python/test_mxnet.py'
+screen -S ser -dm bash -c 'source ./env/server.sh && python ./python/test_mxnet.py'
+screen -S w0 -dm bash -c 'source ./env/trainer.sh && python ./python/test_mxnet.py --gpu 0'
+screen -S w1 -dm bash -c 'source ./env/trainer.sh && python ./python/test_mxnet.py --gpu 1'
+screen -S w2 -dm bash -c 'source ./env/trainer.sh && python ./python/test_mxnet.py --gpu 2'
+screen -S w3 -dm bash -c 'source ./env/trainer.sh && python ./python/test_mxnet.py --gpu 3'

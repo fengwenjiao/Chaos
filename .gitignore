@@ -11,3 +11,7 @@ tests/constellation_unit_tests
 *.egg-info/
 dist/
 .run/
+__pycache__/
+
+data/
+**/data/

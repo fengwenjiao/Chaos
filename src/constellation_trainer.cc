@@ -89,7 +89,7 @@ int ConstelTrainer::SimplePushPullDefault(int key, const CArray& val) {
   return 0;
 }
 
-void ConstelTrainer::InitEngine(size_t num_thread = 2) {
+void ConstelTrainer::InitEngine(size_t num_thread = 8) {
   engine_ = new Engine(num_thread);
   using namespace std::placeholders;
   engine_->set_data_handle(std::bind(&ConstelTrainer::ProcessPushData, this, _1, _2, _3));
