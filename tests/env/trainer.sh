@@ -1,7 +1,9 @@
-# export the environment variables for scheduler
-export DMLC_PS_ROOT_URI='127.0.0.1'
-export DMLC_PS_ROOT_PORT=8000
-export DMLC_ROLE='trainer'
+# export the environment variables for trainer
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    echo "This script must be sourced. Use 'source $0 path_to_env_file' instead of '$0 path_to_env_file'."
+    exit 1
+fi
 
-export DEBUG_OVERLAY=1
-export PS_VERBOSE=1
+file_name="trainer.env"
+
+source "$(dirname "${BASH_SOURCE[0]}")/load_env.sh" "$(dirname "${BASH_SOURCE[0]}")/$file_name"
