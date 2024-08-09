@@ -2,11 +2,12 @@
 import ctypes
 import warnings
 from array import array
+import weakref
 
 from .base import _LIB, check_call, TrainerHandle, c_str, c_array, c_array_buf, c_uint
 from .carray import CArrayBase
 
-__all__ = ['ConstelTrainer', 'create_trainer_handle', 'convert_to_carray']
+__all__ = ['ConstelTrainer', 'create_trainer_handle']
 
 
 def _c_carray_handles_array(carrays):
@@ -47,17 +48,13 @@ def check_keys_unique(keys):
     return True
 
 
-def convert_to_carray(item, cls_):
-    if isinstance(item, list):
-        return [convert_to_carray(sub_item, cls_) for sub_item in item]
-    else:
-        return cls_(item)
+
 
 
 class ConstelTrainerBase(object):
     """ An Abstract Class for Constellation Trainers."""
 
-    def init(self, keys, values):
+    def broadcast(self, keys, values):
         raise NotImplementedError
 
     def pushpull(self, keys, values, out):
@@ -91,6 +88,7 @@ class ConstelTrainer(ConstelTrainerBase):
 
     def __init__(self, handle):
         self.handle = handle
+        self._carray_cache = {}
 
     def __del__(self):
         check_call(_LIB.ConstelTrainerHandleFree(self.handle))
@@ -108,7 +106,7 @@ class ConstelTrainer(ConstelTrainerBase):
                                                      ckeys, c_uint(len(ckeys_out)), ckeys_out,
                                                      cvalues, c_values_out))
 
-    def init(self, keys, values):
+    def broadcast(self, keys, values):
         assert check_keys_unique(keys), "Have not supported multiple device yet. Keys must be unique."
 
         ckeys, cvalues = _ctype_key_value_cast(keys, values)
@@ -125,6 +123,19 @@ class ConstelTrainer(ConstelTrainerBase):
         num_trainers = ctypes.c_int()
         check_call(_LIB.ConstellationTrainerNumTrainers(self.handle, ctypes.byref(num_trainers)))
         return num_trainers.value
+
+    def _convert_to_carray(self,item, cls_):
+        if isinstance(item, list):
+            return [self._convert_to_carray(sub_item, cls_) for sub_item in item]
+        else:
+            if id(item) in self._carray_cache :
+                carray = self._carray_cache[id(item)]()
+                if carray is not None:
+                    carray.sycn_tensor()
+                    return carray
+            carray = cls_(item)
+            self._carray_cache[id(item)] = weakref.ref(carray)
+            return carray
 
 
 def create_trainer_handle(name=''):
