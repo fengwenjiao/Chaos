@@ -2,36 +2,33 @@
 
 #include <functional>
 
-
 namespace constellation {
 
-void ConstelTrainer::NotifyReady() {
+void ConstelTrainer::NotifyReadyAndWait() {
   // send ready signal to controller
-  int head = static_cast<int>(kControllerSignal::kNodeReadySignal);
-  int my_id = ps::Postoffice::Get()->GetMyID();
-  std::string body = std::to_string(my_id);
-  // no need wait
-  trainer_->Request(head, body, ps::kScheduler);
-}
-
-void ConstelTrainer::Init(std::vector<int>& keys, std::vector<CArray*>& vals_init) {
+  // should be called before other functions(e.g. pushpull, broadcast)
   if (!is_ctx_ready_.load()) {
-    // wait until receive the transtopo from controller
-    NotifyReady();
-    // TODO: use notify
+    int head = static_cast<int>(kControllerSignal::kNodeReadySignal);
+    int my_id = ps::Postoffice::Get()->GetMyID();
+    std::string body = std::to_string(my_id);
+    // no need wait
+    trainer_->Request(head, body, ps::kScheduler);
     while (!is_ctx_ready_.load()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
   }
+}
+
+void ConstelTrainer::Broadcast(std::vector<int>& keys, std::vector<CArray*>& vals_init) {
   int size = keys.size();
   CHECK_EQ(vals_init.size(), size);
 
   // TODO :model init
   std::vector<EngineTaskData> vals;
   if (isRootNode()) {
-    vals.resize(size, {UpdateBuf(), TaskTypeEnum::kInitDefault, true});
+    vals.resize(size, {UpdateBuf(), TaskTypeEnum::kBroadcastDefault, true});
   } else {
-    vals.resize(size, {UpdateBuf(), TaskTypeEnum::kInitDefault, false});
+    vals.resize(size, {UpdateBuf(), TaskTypeEnum::kBroadcastDefault, false});
   }
   for (size_t i = 0; i < size; i++) {
     vals[i].update_buf.merged = *vals_init[i];
@@ -111,7 +108,7 @@ void ConstelTrainer::ProcessPushData(const int key,
     update_buf->request_meta.push_back(update.request_meta[0]);
   }
   switch (tasktype) {
-    case TaskTypeEnum::kInitDefault: {
+    case TaskTypeEnum::kBroadcastDefault: {
       if (!update.merged.isNone()) {
         // init request from myself
         update_buf->merged = CArray(update.merged.size());  // alloc the space
@@ -266,7 +263,7 @@ void ConstelTrainer::DataHandle(const ps::KVMeta& req_meta,
       break;
     case RequestType::kDefaultInit:
       updt.request_meta.push_back(req_meta);
-      data.type = TaskTypeEnum::kInitDefault;
+      data.type = TaskTypeEnum::kBroadcastDefault;
       //      updt.merged = CArray(req_data.lens[0]);
       //      updt.merged.CopyFrom((void*)req_data.vals.data(), req_data.lens[0]);
       engine_->PushAsync({static_cast<int>(req_data.keys[0])}, {data});

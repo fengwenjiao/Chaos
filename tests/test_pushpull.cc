@@ -35,8 +35,8 @@ int main(int argc, char* argv[]) {
   params.fill(rank, 0);
   // print
   using namespace test;
-
-  trainer.Init(params._ids, params._pointers);
+  trainer.NotifyReadyAndWait();
+  trainer.Broadcast(params._ids, params._pointers);
 
   auto start = std::chrono::high_resolution_clock ::now();
   for (int i = 1; i <= TIMES; ++i) {
@@ -86,6 +86,8 @@ int main(int argc, char* argv[]) {
             << std::endl;
   std::cout << "Average time cost per epoch: " << time_cost / TIMES << "s " << std::endl;
   std::cout << "speed: " << bytes_M / time_cost << "Mb/s" << std::endl;
+  
+  // since exit logic is not implemented, we need to sleep for a while to keep the process alive
   std::this_thread::sleep_for(std::chrono::seconds(5));
 
   return 0;

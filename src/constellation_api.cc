@@ -71,8 +71,14 @@ int ConstellationTrainerInit(ConstelTrainerHandle handle,
   for (uint32_t i = 0; i < key_num; ++i) {
     values_vec[i] = static_cast<CArray*>(values[i]);
   }
-  static_cast<ConstelTrainer*>(handle)->Init(keys_in_vec, values_vec);
+  static_cast<ConstelTrainer*>(handle)->Broadcast(keys_in_vec, values_vec);
 
+  API_END();
+}
+
+int ConstelTrainerNotifyReadyAndWait(ConstelTrainerHandle handle) {
+  API_BEGIN();
+  static_cast<ConstelTrainer*>(handle)->NotifyReadyAndWait();
   API_END();
 }
 
@@ -100,13 +106,13 @@ int ConstelControllerHandleFree(ConstelControllerHandle handle) {
   API_END();
 }
 
-int ConstellationControllerRun(ConstelControllerHandle handle){
+int ConstellationControllerRun(ConstelControllerHandle handle) {
   API_BEGIN();
   static_cast<ConstelController*>(handle)->run();
   API_END();
 }
 
-int ConstellationIsTrainer(int * is_worker){
+int ConstellationIsTrainer(int* is_worker) {
   API_BEGIN();
   *is_worker = constellation::is_trainer();
   API_END();

@@ -18,7 +18,7 @@ int main(int argc, char* argv[]) {
     int sleep_time = test::RandomUtils::generate_random_number(10, 20);
     std::this_thread::sleep_for(std::chrono::seconds(sleep_time));
 
-//        trainer.Init(0, nullptr); // send ready signal to controller
+//        trainer.Broadcast(0, nullptr); // send ready signal to controller
   }
 
 }

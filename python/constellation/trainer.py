@@ -7,7 +7,7 @@ import weakref
 from .base import _LIB, check_call, TrainerHandle, c_str, c_array, c_array_buf, c_uint
 from .carray import CArrayBase
 
-__all__ = ['ConstelTrainer', 'create_trainer_handle']
+__all__ = ["ConstelTrainer", "create_trainer_handle"]
 
 
 def _c_carray_handles_array(carrays):
@@ -31,9 +31,11 @@ def _ctype_key_value_cast(keys, values):
 
         return c_keys_arr, c_values_arr
 
-    assert isinstance(keys, int), "Unsupported key type: " + str(type(keys)) + "Only support int key. "
+    assert isinstance(keys, int), (
+        "Unsupported key type: " + str(type(keys)) + "Only support int key. "
+    )
     if issubclass(values.__class__, CArrayBase):
-        c_keys_arr = c_array_buf(ctypes.c_int, array('i', [keys]))
+        c_keys_arr = c_array_buf(ctypes.c_int, array("i", [keys]))
         c_values_arr = _c_carray_handles_array([values])
         return c_keys_arr, c_values_arr
     else:
@@ -48,11 +50,8 @@ def check_keys_unique(keys):
     return True
 
 
-
-
-
 class ConstelTrainerBase(object):
-    """ An Abstract Class for Constellation Trainers."""
+    """An Abstract Class for Constellation Trainers."""
 
     def broadcast(self, keys, values):
         raise NotImplementedError
@@ -73,28 +72,43 @@ class ConstelTrainerBase(object):
     @staticmethod
     def register(klass):
         """Registers a new KVStore."""
-        assert (isinstance(klass, type))
+        assert isinstance(klass, type)
         name = klass.__name__.lower()
         if name in ConstelTrainerBase.registry:
-            warnings.warn(f'WARNING: New kvstore {klass.__module__}.{klass.__name__} is overriding '
-                          'existing kvstore '
-                          f'{ConstelTrainerBase.registry[name].__module__}.'
-                          f'{ConstelTrainerBase.registry[name].__name__}')
+            warnings.warn(
+                f"WARNING: New kvstore {klass.__module__}.{klass.__name__} is overriding "
+                "existing kvstore "
+                f"{ConstelTrainerBase.registry[name].__module__}."
+                f"{ConstelTrainerBase.registry[name].__name__}"
+            )
         ConstelTrainerBase.registry[name] = klass
         return klass
 
 
 class ConstelTrainer(ConstelTrainerBase):
+    """A Constellation Trainer."""
 
     def __init__(self, handle):
         self.handle = handle
         self._carray_cache = {}
+        self._is_ready = False
 
     def __del__(self):
+        
         check_call(_LIB.ConstelTrainerHandleFree(self.handle))
 
+    def init(self):
+        self._notify_ready()
+
+    def _notify_ready(self):
+        assert not self._is_ready, "Trainer has already been ready."
+        check_call(_LIB.ConstelTrainerNotifyReadyAndWait(self.handle))
+        self._is_ready = True
+
     def pushpull(self, keys, values, out=None):
-        assert check_keys_unique(keys), "Have not supported multiple device yet. Keys must be unique."
+        assert check_keys_unique(
+            keys
+        ), "Have not supported multiple device yet. Keys must be unique."
 
         ckeys, cvalues = _ctype_key_value_cast(keys, values)
         if out is not None:
@@ -102,15 +116,29 @@ class ConstelTrainer(ConstelTrainerBase):
         else:
             ckeys_out, c_values_out = ckeys, cvalues
 
-        check_call(_LIB.ConstellationTrainerPushPull(self.handle, c_uint(len(ckeys)),
-                                                     ckeys, c_uint(len(ckeys_out)), ckeys_out,
-                                                     cvalues, c_values_out))
+        check_call(
+            _LIB.ConstellationTrainerPushPull(
+                self.handle,
+                c_uint(len(ckeys)),
+                ckeys,
+                c_uint(len(ckeys_out)),
+                ckeys_out,
+                cvalues,
+                c_values_out,
+            )
+        )
 
     def broadcast(self, keys, values):
-        assert check_keys_unique(keys), "Have not supported multiple device yet. Keys must be unique."
+        assert check_keys_unique(
+            keys
+        ), "Have not supported multiple device yet. Keys must be unique."
 
         ckeys, cvalues = _ctype_key_value_cast(keys, values)
-        check_call(_LIB.ConstellationTrainerInit(self.handle, c_uint(len(ckeys)), ckeys, cvalues))
+        check_call(
+            _LIB.ConstellationTrainerInit(
+                self.handle, c_uint(len(ckeys)), ckeys, cvalues
+            )
+        )
 
     @property
     def rank(self):
@@ -121,14 +149,18 @@ class ConstelTrainer(ConstelTrainerBase):
     @property
     def num_trainers(self):
         num_trainers = ctypes.c_int()
-        check_call(_LIB.ConstellationTrainerNumTrainers(self.handle, ctypes.byref(num_trainers)))
+        check_call(
+            _LIB.ConstellationTrainerNumTrainers(
+                self.handle, ctypes.byref(num_trainers)
+            )
+        )
         return num_trainers.value
 
-    def _convert_to_carray(self,item, cls_):
+    def _convert_to_carray(self, item, cls_):
         if isinstance(item, list):
             return [self._convert_to_carray(sub_item, cls_) for sub_item in item]
         else:
-            if id(item) in self._carray_cache :
+            if id(item) in self._carray_cache:
                 carray = self._carray_cache[id(item)]()
                 if carray is not None:
                     carray.sycn_tensor()
@@ -138,15 +170,15 @@ class ConstelTrainer(ConstelTrainerBase):
             return carray
 
 
-def create_trainer_handle(name=''):
+def create_trainer_handle(name=""):
     handle = TrainerHandle()
     check_call(_LIB.ConstelTrainerHandleCreate(c_str(name), ctypes.byref(handle)))
     return handle
 
 
-def create(name=''):
+def create(name=""):
     if not isinstance(name, str):
-        raise TypeError('name must be a string')
+        raise TypeError("name must be a string")
     name = name.lower()
 
     if name in ConstelTrainerBase.registry:

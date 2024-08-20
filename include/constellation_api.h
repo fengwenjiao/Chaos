@@ -103,6 +103,12 @@ int ConstellationTrainerInit(ConstelTrainerHandle handle,
                              const int* keys_in,
                              ConstellationCArrayHandle* values);
 
+/** @brief send the ready signal to the trainer
+ * @param handle - the handle of the trainer
+ * @return 0 - success, -1 - failure
+ */
+int ConstelTrainerNotifyReadyAndWait(ConstelTrainerHandle handle);
+
 /** @brief get the rank of the trainer
  * @param handle - the handle of the trainer
  * @param rank - the rank of the trainer

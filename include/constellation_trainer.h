@@ -89,9 +89,9 @@ class ConstelTrainer {
     return ps::Postoffice::Get()->myRank();
   }
 
-  void NotifyReady();
+  void NotifyReadyAndWait();
 
-  void Init(std::vector<int>& keys, std::vector<CArray*>& vals_init);
+  void Broadcast(std::vector<int>& keys, std::vector<CArray*>& vals_init);
 
   void PushPull(std::vector<int>& keys,
                 std::vector<CArray>& vals_push,
@@ -118,7 +118,7 @@ class ConstelTrainer {
 
   enum class TaskTypeEnum {
     kPushPull,
-    kInitDefault,
+    kBroadcastDefault,
   };
 
   struct EngineTaskData {

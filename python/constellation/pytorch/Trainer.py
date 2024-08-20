@@ -6,11 +6,9 @@ from ..base import CArrayDataPtr, ConsDataTypeEnum, get_basic_type_byte_size
 from ..trainer import ConstelTrainer, create_trainer_handle
 from ..carray import CArrayBase, TensorMixinBase
 
-PYTORCH_TENSOR_TYPE = {
-    torch.float32: ConsDataTypeEnum.FLOAT32
-}
+PYTORCH_TENSOR_TYPE = {torch.float32: ConsDataTypeEnum.FLOAT32}
 
-__all__ = ['Trainer', 'CArray']
+__all__ = ["Trainer", "CArray"]
 
 
 class PyTorchTensorMixin(TensorMixinBase):
@@ -30,7 +28,9 @@ class PyTorchTensorMixin(TensorMixinBase):
     def _bytes_size(self) -> int:
         elem_size = self.tensor_.element_size()
         if elem_size != get_basic_type_byte_size(self._dtype()):
-            raise ValueError("Tensor element size is not equal to the size of the corresponding data type")
+            raise ValueError(
+                "Tensor element size is not equal to the size of the corresponding data type"
+            )
         bytes_size = elem_size * self.tensor_.nelement()
         return bytes_size
 
@@ -41,7 +41,7 @@ class PyTorchTensorMixin(TensorMixinBase):
 
 class CArray(CArrayBase, PyTorchTensorMixin):
     def __init__(self, tensor_=None, **kwargs):
-        _tensor = None if tensor_ is None else tensor_.to('cpu').contiguous().detach()
+        _tensor = None if tensor_ is None else tensor_.to("cpu").contiguous().detach()
         super().__init__(_tensor, **kwargs)
         if self.tensor_ is not tensor_:
             self.origin_tensor_ = tensor_
@@ -52,7 +52,7 @@ class CArray(CArrayBase, PyTorchTensorMixin):
         if self.origin_tensor_ is not None:
             with torch.no_grad():
                 self.origin_tensor_.copy_(self.tensor_ / scale)
-    
+
     def sycn_tensor(self):
         if self.origin_tensor_ is not None:
             with torch.no_grad():
@@ -64,10 +64,9 @@ class CArray(CArrayBase, PyTorchTensorMixin):
             for item in tensor_list:
                 CArray.update_tensor(item, scale)
         elif isinstance(tensor_list, CArray):
-            tensor_list._update_tensor(scale)
+            tensor_list._update_tensor(scale)  # pylint: disable=protected-access
         else:
             raise ValueError("Unsupported type: {}".format(type(tensor_list)))
-        
 
 
 class Trainer(ConstelTrainer):
@@ -76,10 +75,11 @@ class Trainer(ConstelTrainer):
             handle = create_trainer_handle()
         super().__init__(handle)
         self._optimizer = None
-        self._model = None 
+        self._model = None
         self._keys = None
         self._params = None
         self._grads = None
+        self._is_model_opt_set = False
         self._rank = 0
         self._num_trainers = 1
 
@@ -93,22 +93,32 @@ class Trainer(ConstelTrainer):
         else:
             out_carray = self._convert_to_carray(out)
         super().pushpull(keys, values_carray, out_carray)
-        CArray.update_tensor(out_carray,self._num_trainers)
+        CArray.update_tensor(out_carray, self._num_trainers)
 
     def broadcast(self, keys, values):
         values_carray = self._convert_to_carray(values)
         super().broadcast(keys, values_carray)
         CArray.update_tensor(values_carray)
-        
+
     def _convert_to_carray(self, item, cls_=CArray):
         return super()._convert_to_carray(item, cls_)
 
-    def init(self, optimizer,model,*args, **kwargs):
-        # move the notify_begin logic to this func
-        self._optimizer = optimizer
+    def set_model_opt(self, model, optimizer):
+        assert isinstance(model, torch.nn.Module)
+        assert isinstance(optimizer, torch.optim.Optimizer)
         self._model = model
+        self._optimizer = optimizer
+        self._is_model_opt_set = True
+
+    def init(self, model_opt=None, **kwargs):  # pylint: disable=arguments-differ
+        super().init()
         self._params = []
-        self._keys= []
+        self._keys = []
+
+        if model_opt is None:
+            return
+
+        self.set_model_opt(model_opt[0], model_opt[1])
 
         for i, param in enumerate(self._model.parameters()):
             if param is not None:
@@ -118,6 +128,10 @@ class Trainer(ConstelTrainer):
         self._optimizer.zero_grad(set_to_none=False)
 
     def update(self):
+        assert (
+            self._is_model_opt_set
+        ), "Model and optimizer have not been set. Please call set_model_opt() first."
+        
         self._grads = [param.grad for param in self._params if param.grad is not None]
         self.pushpull(self._keys, self._grads)
         self._optimizer.step()

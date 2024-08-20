@@ -59,9 +59,9 @@ train_subset, _ = random_split(trainset, [subset, len(trainset) - subset])
 trainloader = torch.utils.data.DataLoader(
     train_subset, batch_size=64, shuffle=True, num_workers=2
 )
-
+test_subset, _ = random_split(testset, [1000, len(testset) - 1000])
 testloader = torch.utils.data.DataLoader(
-    testset, batch_size=64, shuffle=False, num_workers=2
+    test_subset, batch_size=64, shuffle=False, num_workers=2
 )
 
 
@@ -85,7 +85,7 @@ model = ResNet18(num_classes=10).to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(model.parameters(), lr=0.001)
 
-trainer.init(optimizer, model)
+trainer.init((model, optimizer))
 
 # 记录损失和精度
 train_losses = []
