@@ -3,6 +3,7 @@
 
 #include "ps/base.h"
 #include "./internal/utils.h"
+#include "./internal/serilite.hpp"
 
 #include <unordered_map>
 #include <vector>
