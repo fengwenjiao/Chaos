@@ -19,6 +19,36 @@ void ConstelTrainer::NotifyReadyAndWait() {
   }
 }
 
+bool ConstelTrainer::BatchEnd() {
+  // should be called after all batch end
+  if (this->clock_.clockTick()) {
+    // there is a alarm
+    auto& timestamp = this->clock_.getLocalTimestamp();
+    auto& transtopo = this->clock_.ticks_[timestamp].transtopo;
+    int my_id = ps::Postoffice::Get()->GetMyID();
+    auto it = transtopo.find(my_id);
+    if (it == transtopo.end()) {
+      return false;
+    }
+    // update Postoffice transtopo
+    auto& local_transtopo = it->second;
+    this->SetNodeTransTopo(local_transtopo);
+    this->clock_.removeTick(timestamp);
+  }
+  if (isRootNode()) {
+    NotifySchedulerUpdateClock(this->clock_.getLocalTimestamp());
+  }
+  return true;
+}
+
+void ConstelTrainer::NotifySchedulerUpdateClock(uint32_t timestamp) {
+  int head = static_cast<int>(kControllerSignal::kUpdateClockSignal);
+  int my_id = ps::Postoffice::Get()->GetMyID();
+  std::string body = std::to_string(my_id) + "," + std::to_string(timestamp);
+  // no need wait
+  trainer_->Request(head, body, ps::kScheduler);
+}
+
 void ConstelTrainer::Broadcast(std::vector<int>& keys, std::vector<CArray*>& vals_init) {
   int size = keys.size();
   CHECK_EQ(vals_init.size(), size);
@@ -217,27 +247,30 @@ void ConstelTrainer::RequestHandle(const ps::SimpleData& recved, ps::SimpleApp* 
     case kControllerSignal::kUpdateTransTopoAnouce: {
       // recv new transtopo, set it to clock
       ScaleClock::Tick tick;
-      tick.Decode(body);
+      serilite::deserialize(body, tick);
       auto fut_timestamp = tick.timestamp;
       auto& transtopo = tick.transtopo;
-      if (fut_timestamp == 0) {
-        // sycn add stage, update right now
+      if (fut_timestamp == 0 || !this->is_ctx_ready_.load()) {
+        // for sycn add nodes or async add nodes
+        //  sycn add stage, update right now
+        this->is_scale_ = fut_timestamp == 0;
         int my_id = ps::Postoffice::Get()->GetMyID();
         auto it = transtopo.find(my_id);
-        CHECK(it != transtopo.end()) << "Node " << my_id << " is not in the transtopo";
-        // update Postoffice transtopo
-        auto& local_transtopo = it->second;
-        ps::Postoffice::Get()->UpdateLocalTrans(local_transtopo.getParent(),
-                                                local_transtopo.getChildren());
-        auto& topo = GetNodeTransTopo();
-        topo = local_transtopo;
-        this->is_scale_ = false;
-        // notify main thread
-        this->is_ctx_ready_.store(true);
+        if (fut_timestamp == 0) {
+          CHECK(it != transtopo.end()) << "Node " << my_id << " is not in the transtopo";
+        }
+        if (it != transtopo.end()) {
+          this->clock_.local_timestamp_ = fut_timestamp;
+          auto& local_transtopo = it->second;
+          this->SetNodeTransTopo(local_transtopo);
+          // notify main thread
+          this->is_ctx_ready_.store(true);
+        }
       } else {
-        // async add stage, set alarm
+        // for old nodes
         clock_.setAlarm(std::move(tick));
       }
+
       break;
     }
     default:

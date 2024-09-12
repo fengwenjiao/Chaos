@@ -70,6 +70,17 @@ class ConstelTrainer {
     engine_->Stop();
     delete engine_;
   }
+
+  inline const auto& GetNodeTransTopo() const {
+    std::unique_lock<std::mutex> lock(trans_topo_mu_);
+    return trans_topo_;
+  }
+  inline const NodeTransTopo::Type& GetNodeType() const {
+    std::unique_lock<std::mutex> lock(trans_topo_mu_);
+    auto& type = trans_topo_.getType();
+    return type;
+  }
+
   inline bool isRootNode() const {
     auto type = GetNodeType();
     CHECK(type != NodeTransTopo::Type::kUnset);
@@ -91,11 +102,15 @@ class ConstelTrainer {
 
   void NotifyReadyAndWait();
 
+  bool BatchEnd();
+
   void Broadcast(std::vector<int>& keys, std::vector<CArray*>& vals_init);
 
   void PushPull(std::vector<int>& keys,
                 std::vector<CArray>& vals_push,
                 std::vector<CArray*>& vals_pull);
+
+  friend class __ConstelTrainerTest;
 
  private:
   /**
@@ -159,17 +174,16 @@ class ConstelTrainer {
     std::lock_guard<std::mutex> lock(update_buf_mu_);
     return &update_buf_[key];
   }
-  inline auto& GetNodeTransTopo() {
+
+  inline void SetNodeTransTopo(const NodeTransTopo& topo) {
     std::unique_lock<std::mutex> lock(trans_topo_mu_);
-    return trans_topo_;
-  }
-  inline NodeTransTopo::Type GetNodeType() const {
-    std::unique_lock<std::mutex> lock(trans_topo_mu_);
-    auto type = trans_topo_.getType();
-    return type;
+    ps::Postoffice::Get()->UpdateLocalTrans(topo.getParent(), topo.getChildren());
+    trans_topo_ = topo;
   }
 
   int SimplePushPullDefault(int key, const CArray& val);
+
+  void NotifySchedulerUpdateClock(uint32_t timestamp);
 
   void InitEngine(size_t num_thread);
 

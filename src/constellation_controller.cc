@@ -30,15 +30,15 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
       ScaleClock::Tick tick;
       tick.timestamp = future_timestamp;
       GlobalTransTopo topo;
-      for (const auto& entry : transtopo) {
+      for (const auto& [id,related_topo] : transtopo) {
         // send to all trainers in the topo
         // TODO: may need to notify the trainer that is not in the topo
         topo.clear();
-        topo[entry.first] = entry.second;  // only one node in the topo
+        topo[id] = related_topo;  // only one node in the topo
         tick.transtopo = std::move(topo);
-        std::string str;
-        tick.Encode(&str);
-        data[entry.first] = str;
+        auto serialized_tick = serilite::serialize(tick);
+        auto str = serialized_tick.as_string();
+        data.emplace(std::make_pair(id, str));
       }
       int head = static_cast<int>(kControllerSignal::kUpdateTransTopoAnouce);
       // send to all trainers and wait for response, should not wait!(dead lock)
@@ -46,6 +46,15 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
       // set alarm for the new future timestamp
       tick.transtopo = std::move(transtopo);
       clock_.setAlarm(std::move(tick));
+      break;
+    }
+    case kControllerSignal::kUpdateClockSignal:{
+      uint32_t timestamp = stoi(body);
+      this->clock_.clockTick();
+      if(timestamp != this->clock_.getLocalTimestamp()){
+        LOG(WARNING) << "Controller received timestamp: " << timestamp << " but local timestamp is: " << this->clock_.getLocalTimestamp();
+        this->clock_.local_timestamp_ = timestamp;
+      }
       break;
     }
 

@@ -174,19 +174,30 @@ struct SeriData {
   }
 
   /**
-   * @brief  Get the serialized data as a string_view.
+   * @brief  Get the serialized data as a string.
+   * @details Call this will copy the data.
    * @return const std::string_view
    */
-  const std::string_view as_string() const {
+  std::string as_string() const {
     return {reinterpret_cast<const char*>(data_.data()), data_.size()};
   }
 
+  /**
+   * @brief  Get the serialized data as a string_view.
+   * @details Will not copy the data. Do not call the function on a temprary object!!!
+   * eg. auto data = serilite::serialize(origin).as_string_view() -> Lifespan Issue!!!
+   * @return const std::string_view
+   */
+  const std::string_view as_string_view() const {
+    return {reinterpret_cast<const char*>(data_.data()), data_.size()};
+  }
+  
   /**
    * @brief  Get the serialized data as a pointer to the first element.
    * @return const ele_type*
    */
   const auto* data() const {
-    return as_string().data();
+    return as_string_view().data();
   }
 
   /**

@@ -1,9 +1,16 @@
-#include "constellation.h"
 #include <iostream>
+
+#include "constellation.h"
 #include "include/test_pushpull_utils.h"
+#include "include/trainer_debug_utils.h"
+
 using namespace constellation;
 
+const int KEY_NUM = 10;
+const int TIMES = 100;
+
 int main(int argc, char* argv[]) {
+  test::RandomUtils::set_seed(10);
   bool is_trainer = test::IsTrainer();
   if (!is_trainer) {
     // start Controller: kvapp layer, process datamsg
@@ -11,14 +18,35 @@ int main(int argc, char* argv[]) {
     while (true) {
       std::this_thread::sleep_for(std::chrono::seconds(1000));
     }
-  } else {
-    // for other nodes
-    constellation::ConstelTrainer trainer;
-    // simulate the process of ctx prepare
-    int sleep_time = test::RandomUtils::generate_random_number(10, 20);
-    std::this_thread::sleep_for(std::chrono::seconds(sleep_time));
+  }
+  // for other nodes
+  constellation::ConstelTrainer trainer;
+  auto params = test::ParameterMock(KEY_NUM);
+  params.fill();
 
-//        trainer.Broadcast(0, nullptr); // send ready signal to controller
+  trainer.NotifyReadyAndWait();
+  // trainer.Broadcast(params._ids, params._pointers);
+
+  using namespace test;
+  for (int i = 0; i < TIMES; i++) {
+    // formated print time
+    auto start = std::chrono::system_clock::now();
+    std::cout << "=====================" << test::GetTimestamp(trainer) << "=====================" << std::endl;
+    auto time = std::chrono::system_clock::to_time_t(start);
+    std::cout<< "Time: " << std::put_time(std::localtime(&time), "%H:%M:%S") << std::endl;
+    std::cout<<"MyRank: "<<trainer.myRank()<<std::endl;
+    std::cout << "NodeTransTopo: " << trainer.GetNodeTransTopo() << std::endl;
+
+    // trainer.PushPull(params._ids, params._parameters, params._pointers);
+
+    std::this_thread::sleep_for(std::chrono::seconds(3));
+
+    trainer.BatchEnd();
+    std::cout << "======================================\n" << std::endl;
   }
 
+  // since exit logic is not implemented, we need to sleep for a while to keep the process alive
+  std::this_thread::sleep_for(std::chrono::seconds(5));
+
+  return 0;
 }

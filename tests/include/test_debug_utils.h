@@ -7,6 +7,7 @@
 #include <iterator>
 
 #include "../include/internal/CArray.h"
+#include "../include/constellation_commons.h"
 
 namespace constellation {
 namespace test {
@@ -49,8 +50,7 @@ inline std::ostream& operator<<(std::ostream& os, const CArray& arr) {
 
 template <typename T>
 inline std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec) {
-  os << "Vector of " << typeid(T).name() << "{ Address: " << &vec << " Size:" << vec.size()
-     << " }\n";
+  os << "Vector of " << typeid(T).name() << "{ Address: " << &vec << " Size:" << vec.size() << " }";
   os << "[ ";
   for (const auto& val : vec) {
     os << val << " ";
@@ -69,6 +69,20 @@ inline std::ostream& operator<<(std::ostream& os, const std::vector<CArray>& vec
     os << arr << "\n";
   }
   os << "---------------------------------------------------\n";
+  return os;
+}
+
+inline std::ostream& operator<<(std::ostream& os, const NodeTransTopo& topo) {
+  using NodeType = NodeTransTopo::Type;
+  auto type_map = std::unordered_map<NodeType, std::string>{
+      {NodeType::kUnset, "Unset"},
+      {NodeType::kInner, "Inner"},
+      {NodeType::kLeaf, "Leaf"},
+      {NodeType::kRoot, "Root"},
+  };
+  os << "{NodeType: " << type_map[topo.getType()] << ", Parent: [" << topo.getParent()
+     << "] ,Children: [" << topo.getChildren() << "]}";
+
   return os;
 }
 
