@@ -1,4 +1,5 @@
 #include "constellation_trainer.h"
+#include "./internal/serilite.hpp"
 
 #include <functional>
 

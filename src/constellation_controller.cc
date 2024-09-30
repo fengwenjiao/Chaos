@@ -1,7 +1,23 @@
 #include "constellation_controller.h"
 #include "dmlc/logging.h"
+#include "./internal/serilite.hpp"
 
 namespace constellation {
+
+void ConstelController::setThinker(ConstelThinker* thinker) {
+  CHECK_NOTNULL(thinker);
+  this->thinker_ = thinker;
+}
+
+GlobalModelSyncConf ConstelController::ModelSycnConfTransform(int target_id,
+    const ModelLoadAssignment& model_load_assignment) {
+  GlobalModelSyncConf global_model_sync_conf;
+  for (const auto& [path, load] : model_load_assignment.load_assignment) {
+    ModelSycnConf model_sync_conf;
+    // TODO :model slice
+  }
+  return global_model_sync_conf;
+}
 
 void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleApp* app) {
   kControllerSignal signal = static_cast<kControllerSignal>(recved.head);
@@ -22,7 +38,14 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
       // TODO: now it is just a simple version, need to be improved
       // TODO: if need remote thinker, here should just send, can not get the result immediately
       AdjacencyList overlay = node_manager_.GetReadyOverlayStr();
-      GlobalTransTopo transtopo = this->thinker_->SendOverlay(overlay);
+      ModelSycnConf model_sync_conf;
+      model_sync_conf.target_node_id = {ready_node_id};
+      auto req = StrategyRequest{StrategyRequest::StrategyReqType::kTopoAndModelSyncConfUpdate,
+                                 {ready_node_id},
+                                 overlay,
+                                 nullptr};
+      auto& strategy_block = thinker_->GenerateStrategy(req);
+      auto& transtopo = strategy_block.global_topo_;
       // Decide a new future timestamp
       uint32_t future_timestamp = GetFutureTimtestamp();
 
@@ -30,7 +53,7 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
       ScaleClock::Tick tick;
       tick.timestamp = future_timestamp;
       GlobalTransTopo topo;
-      for (const auto& [id,related_topo] : transtopo) {
+      for (const auto& [id, related_topo] : transtopo) {
         // send to all trainers in the topo
         // TODO: may need to notify the trainer that is not in the topo
         topo.clear();
@@ -48,11 +71,12 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
       clock_.setAlarm(std::move(tick));
       break;
     }
-    case kControllerSignal::kUpdateClockSignal:{
+    case kControllerSignal::kUpdateClockSignal: {
       uint32_t timestamp = stoi(body);
       this->clock_.clockTick();
-      if(timestamp != this->clock_.getLocalTimestamp()){
-        LOG(WARNING) << "Controller received timestamp: " << timestamp << " but local timestamp is: " << this->clock_.getLocalTimestamp();
+      if (timestamp != this->clock_.getLocalTimestamp()) {
+        LOG(WARNING) << "Controller received timestamp: " << timestamp
+                     << " but local timestamp is: " << this->clock_.getLocalTimestamp();
         this->clock_.local_timestamp_ = timestamp;
       }
       break;
@@ -70,7 +94,7 @@ void ConstelController::ResponseHandle(const ps::SimpleData& recved, ps::SimpleA
 void ConstelController::SchedulerSignalHandle(const ps::SimpleData& recved, ps::SimpleApp* app) {}
 
 uint32_t ConstelController::GetFutureTimtestamp() {
-  if(!is_sycn_add_finished_){
+  if (!is_sycn_add_finished_) {
     is_sycn_add_finished_ = true;
     return 0;
   }
@@ -78,37 +102,4 @@ uint32_t ConstelController::GetFutureTimtestamp() {
   return future_timestamp + 5;
 }
 
-std::string ConstelController::SerializeTransTopo(int timestamp,
-                                                  const std::pair<int, std::vector<int>>& data) {
-  std::ostringstream oss;
-  oss << timestamp << "|" << data.first << ":";
-  for (size_t i = 0; i < data.second.size(); ++i) {
-    oss << data.second[i];
-    if (i < data.second.size() - 1) {
-      oss << ",";
-    }
-  }
-  return oss.str();
-}
-bool ConstelController::DeserializeTransTopo(const std::string& serialized,
-                                             int& timestamp,
-                                             std::pair<int, std::vector<int>>& data) {
-  std::istringstream iss(serialized);
-  std::string temp;
-
-  if (!std::getline(iss, temp, '|'))
-    return false;
-  timestamp = std::stoi(temp);
-
-  if (!std::getline(iss, temp, ':'))
-    return false;
-  data.first = std::stoi(temp);
-
-  data.second.clear();
-  while (std::getline(iss, temp, ',')) {
-    data.second.push_back(std::stoi(temp));
-  }
-
-  return true;
-}
 }  // namespace constellation

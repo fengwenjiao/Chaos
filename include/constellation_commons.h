@@ -2,11 +2,20 @@
 #define _CONSTELLATION_COMMONS_H_
 
 #include "ps/base.h"
+#include "ps/range.h"
 #include "./internal/utils.h"
-#include "./internal/serilite.hpp"
+
 
 #include <unordered_map>
 #include <vector>
+#include <cstdint>
+
+#define DEFAULT_SPECIAL_MEMBERS(Type) \
+  Type() = default; \
+  Type(const Type& other) = default; \
+  Type(Type&& other) noexcept = default; \
+  Type& operator=(const Type& other) = default; \
+  Type& operator=(Type&& other) noexcept = default;
 
 namespace constellation {
 
@@ -27,11 +36,7 @@ struct NodeTransTopo {
     kUnset,
   };
 
-  NodeTransTopo() = default;
-  NodeTransTopo(const NodeTransTopo& other) = default;
-  NodeTransTopo(NodeTransTopo&& other) noexcept = default;
-  NodeTransTopo& operator=(const NodeTransTopo& other) = default;
-  NodeTransTopo& operator=(NodeTransTopo&& other) noexcept = default;
+  DEFAULT_SPECIAL_MEMBERS(NodeTransTopo);
 
   const Type& getType() const {
     return type_;
@@ -76,14 +81,62 @@ struct NodeTransTopo {
  */
 using GlobalTransTopo = std::unordered_map<int, NodeTransTopo>;
 
+struct TransPath{
+  std::vector<int> path;
+
+  template <typename... T>
+  TransPath(T... args) : path({args...}) {}
+
+  // Hash function
+  struct PathHash {
+    std::size_t operator()(const TransPath& v) const {
+      std::hash<int> hasher;
+      std::size_t seed = 0;
+      for (int i : v.path) {
+        seed ^= hasher(i) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+      }
+      return seed;
+    }
+  };
+
+  // Equal function
+  struct PathEqual {
+    bool operator()(const TransPath& lhs, const TransPath& rhs) const {
+      for (size_t i = 0; i < lhs.path.size(); i++) {
+        if (lhs.path[i] != rhs.path[i]) {
+          return false;
+        }
+      }
+      return true;
+    }
+  };
+};
+
+
+/** @brief Model synchronization configuration.
+ * including target node id, keys, paths and slices
+ * @param `target_node_id`: the target node id
+ * @param `keys`: the keys of the model
+ * @param `paths`: indicate the node path of the slice
+ * @param `slices`: the slices of the model
+ */
+struct ModelSycnConf{
+  DEFAULT_SPECIAL_MEMBERS(ModelSycnConf);
+  std::vector<int> target_node_id;
+  std::vector<int> keys;
+  std::vector<std::vector<int>> paths;
+  std::vector<ps::Range> slices;
+};
+
+/** @brief Global model synchronization configuration.
+ * including all nodes' model synchronization configuration
+ */
+using GlobalModelSyncConf = std::unordered_map<int, ModelSycnConf>;
+
 struct ScaleClock {
  public:
   struct Tick {
-    Tick() = default;
-    Tick(const Tick& other) = default;
-    Tick& operator=(const Tick& other) = default;
-    Tick& operator=(Tick&& other) noexcept = default;
-    Tick(Tick&& other) noexcept = default;
+    DEFAULT_SPECIAL_MEMBERS(Tick);
     
     uint32_t timestamp;
     GlobalTransTopo transtopo;

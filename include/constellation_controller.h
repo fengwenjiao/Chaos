@@ -2,16 +2,16 @@
 #define _CONSTELLATION_CONTROLLER_H_
 
 #include <functional>
-#include "./constellation_commons.h"
+
 #include "./constellation_transtopothinker.h"
 #include "internal/topo_graph.hpp"
-#include <ps/ps.h>
+#include "ps/ps.h"
 
 namespace constellation {
 
 class ReadyNodeOverlayManager {
  public:
-  ReadyNodeOverlayManager(): is_asycn_add_(false) {}
+  ReadyNodeOverlayManager() : is_asycn_add_(false) {}
   bool HandleNodeReady(int node_id) {
     auto& connected_nodes = ps::Postoffice::Get()->GetOverlayNeighbour(node_id);
     if (!ready_nodes_.AddNode(node_id)) {
@@ -27,7 +27,7 @@ class ReadyNodeOverlayManager {
         }
       }
     }
-    if(!is_add_edge && ready_nodes_.NumNodes() >=2) {
+    if (!is_add_edge && ready_nodes_.NumNodes() >= 2) {
       LOG(WARNING) << "Node " << node_id << " is ready, but no edge is added";
     }
     // check if node number is enough
@@ -37,13 +37,13 @@ class ReadyNodeOverlayManager {
     return true;
   }
   bool ShouldGetNewTransTopo() {
-    return isAsyncJoinStage() ;
+    return isAsyncJoinStage();
   }
   bool isAsyncJoinStage() {
     return is_asycn_add_;
   }
 
-  //TODO: GetReadyOverlay() is debug version, should return the string of overlay
+  // TODO: GetReadyOverlay() is debug version, should return the string of overlay
   AdjacencyList GetReadyOverlayStr() {
     auto& edges = ready_nodes_.GetEdges();
     AdjacencyList overlay;
@@ -51,7 +51,7 @@ class ReadyNodeOverlayManager {
       overlay[edge.src].push_back(edge.dst);
       overlay[edge.dst].push_back(edge.src);
     }
-    if(overlay.empty()){
+    if (overlay.empty()) {
       auto& nodes = ready_nodes_.GetNodes();
       CHECK_EQ(nodes.size(), 1);
       auto& node = *nodes.begin();
@@ -60,10 +60,9 @@ class ReadyNodeOverlayManager {
     return overlay;
   }
 
-
  private:
   TopoGraph<int> ready_nodes_;
-  bool is_asycn_add_ ;  // 0: sync join stage, 1: async join stage
+  bool is_asycn_add_;  // 0: sync join stage, 1: async join stage
 };
 
 class ConstelController {
@@ -75,21 +74,33 @@ class ConstelController {
     ps_scheduler_->set_request_handle(std::bind(&ConstelController::RequestHandle, this, _1, _2));
     ps_scheduler_->set_response_handle(std::bind(&ConstelController::ResponseHandle, this, _1, _2));
 
-    thinker_ = new ConstelTransTopoThinker();
+    thinker_ = nullptr;
   }
+  void setThinker(ConstelThinker* thinker);
+
   ~ConstelController() {
     ps::Finalize(0, false);
     delete ps_scheduler_;
     delete thinker_;
   }
 
-  void run(){
+  void run() {
+    if (thinker_ == nullptr) {
+      LOG(INFO) << "Thinker is not set, use default thinker";
+      thinker_ = new ConstelTransTopoThinker();
+    }
     while (true) {
       std::this_thread::sleep_for(std::chrono::seconds(1000));
     }
   }
 
  private:
+  /**
+   * \brief Transform the ModelLoadAssignment to GlobalModelSyncConf
+   */
+  static GlobalModelSyncConf ModelSycnConfTransform(
+      int target_id,
+      const ModelLoadAssignment& model_load_assignment);
   /**
    * \brief Controller handle for all received request
    */
@@ -114,20 +125,12 @@ class ConstelController {
    * \brief send message to some trainer
    */
   void SendToTrainer(int head, const std::string& body, int recv_id);
-  /**
-   * \brief serialze timestamp and transtopo into a string
-   */
-  std::string SerializeTransTopo(int timestamp, const std::pair<int, std::vector<int>>& data);
-  /**
-   * \brief deserialze  a string into timestamp and transtopo
-   */
-  bool DeserializeTransTopo(const std::string& serialized, int& timestamp, std::pair<int, std::vector<int>>& data);
 
   ReadyNodeOverlayManager node_manager_;
 
   ScaleClock clock_;
   ps::Controller* ps_scheduler_;
-  ConstelTransTopoThinker * thinker_;
+  ConstelThinker* thinker_;
 
   bool is_sycn_add_finished_ = false;
 };
