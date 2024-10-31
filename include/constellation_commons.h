@@ -5,19 +5,29 @@
 #include "ps/range.h"
 #include "./internal/utils.h"
 
-
 #include <unordered_map>
 #include <vector>
 #include <cstdint>
+#include <deque>
 
-#define DEFAULT_SPECIAL_MEMBERS(Type) \
-  Type() = default; \
-  Type(const Type& other) = default; \
-  Type(Type&& other) noexcept = default; \
+#define DEFAULT_SPECIAL_MEMBERS(Type)           \
+  Type() = default;                             \
+  Type(const Type& other) = default;            \
+  Type(Type&& other) noexcept = default;        \
   Type& operator=(const Type& other) = default; \
   Type& operator=(Type&& other) noexcept = default;
 
 namespace constellation {
+
+template <typename T>
+bool std_isin(const T& val, const std::vector<T>& vec) {
+  return std::find(vec.begin(), vec.end(), val) != vec.end();
+}
+
+template <typename T,typename V>
+bool std_isin(const T& val, const std::unordered_map<T, V>& map) {
+  return map.find(val) != map.end();
+}
 
 /** @brief Overlay topology*/
 using AdjacencyList = std::unordered_map<int, std::vector<int>>;
@@ -70,7 +80,6 @@ struct NodeTransTopo {
     type_ = type_ == Type::kLeaf ? Type::kInner : Type::kRoot;
   }
 
-
   Type type_;
   int parent_;
   std::vector<int> children_;
@@ -81,18 +90,19 @@ struct NodeTransTopo {
  */
 using GlobalTransTopo = std::unordered_map<int, NodeTransTopo>;
 
-struct TransPath{
+struct TransPath {
   std::vector<int> path;
 
-  template <typename... T>
-  TransPath(T... args) : path({args...}) {}
+  TransPath() = default;
+  TransPath(std::initializer_list<int> list) : path(list) {}
+  TransPath(std::vector<int> path) : path(std::move(path)) {}
 
   // Hash function
   struct PathHash {
     std::size_t operator()(const TransPath& v) const {
       std::hash<int> hasher;
       std::size_t seed = 0;
-      for (int i : v.path) {
+      for (auto& i : v.path) {
         seed ^= hasher(i) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
       }
       return seed;
@@ -110,8 +120,57 @@ struct TransPath{
       return true;
     }
   };
+
+  bool operator==(const TransPath& rhs) const {
+    if (path.size() != rhs.path.size()) {
+      return false;
+    }
+    for (size_t i = 0; i < path.size(); i++) {
+      if (path[i] != rhs.path[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+  bool operator!=(const TransPath& rhs) const {
+    return !(*this == rhs);
+  }
+  bool operator<(const TransPath& rhs) const {
+    return std::tie(path) < std::tie(rhs.path);
+  }
 };
 
+struct ReadySignalBody {
+  DEFAULT_SPECIAL_MEMBERS(ReadySignalBody);
+  int id;
+  bool need_sycn_model;
+  std::vector<int> keys;
+  std::vector<uint64_t> lens;
+};
+
+struct KVSlice {
+  DEFAULT_SPECIAL_MEMBERS(KVSlice);
+  int key_begin, key_end;
+  uint64_t slice = 0;
+  uint64_t slice_len = 0;
+  KVSlice(const int& key_begin, const int& key_end) : key_begin(key_begin), key_end(key_end) {}
+  KVSlice(const int& key, const uint64_t& slice, const uint64_t& slice_len)
+      : key_begin(key), key_end(key), slice(slice), slice_len(slice_len) {}
+  void inc_range() {
+    if (is_full()) {
+      key_end++;
+    }
+  }
+  bool is_full() const {
+    return key_end > key_begin;
+  }
+  std::string debug_string(){
+    std::string s;
+    s+="keys: "+std::to_string(key_begin) + "-" + std::to_string(key_end) + " ";
+    s+="slice: "+std::to_string(slice) + " slice len:" + std::to_string(slice_len);
+    return s;
+  }
+};
 
 /** @brief Model synchronization configuration.
  * including target node id, keys, paths and slices
@@ -120,12 +179,34 @@ struct TransPath{
  * @param `paths`: indicate the node path of the slice
  * @param `slices`: the slices of the model
  */
-struct ModelSycnConf{
+struct ModelSycnConf {
   DEFAULT_SPECIAL_MEMBERS(ModelSycnConf);
+
   std::vector<int> target_node_id;
-  std::vector<int> keys;
+
+  std::vector<std::vector<KVSlice>> kvslices;
   std::vector<std::vector<int>> paths;
-  std::vector<ps::Range> slices;
+
+  std::string debug_string(){
+    std::string s;
+    s+="target node id: ";
+    for(auto& i: target_node_id){
+      s+=std::to_string(i)+" ";
+    }
+    s+="{ ";
+    for(size_t i = 0; i < kvslices.size(); i++){
+      s+="path: ";
+      for(auto& j: paths[i]){
+        s+=std::to_string(j)+" ";
+      }
+      s+="kvslices: ";
+      for(auto& j: kvslices[i]){
+        s+=j.debug_string();
+      }
+    }
+    s+="}";
+    return s;
+  }
 };
 
 /** @brief Global model synchronization configuration.
@@ -137,9 +218,10 @@ struct ScaleClock {
  public:
   struct Tick {
     DEFAULT_SPECIAL_MEMBERS(Tick);
-    
+
     uint32_t timestamp;
     GlobalTransTopo transtopo;
+    ModelSycnConf model_sync_conf;
   };
 
   void removeTick(uint32_t timestamp) {

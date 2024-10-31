@@ -4,25 +4,27 @@
 
 namespace constellation {
 
-void ConstelThinker::checkStrategy(const StrategyRequest& req,const StrategyBlock& strategy_block) {
-  const auto &transtopo = global_topo_;
-  const auto &model_load_assignment = model_load_assignment_;
+void ConstelThinker::checkStrategy(const StrategyRequest& req,
+                                   const StrategyBlock& strategy_block) {
+  const auto& transtopo = strategy_block.global_topo_;
+  const auto& model_load_assignment = strategy_block.model_load_assignment_;
   // TODO: check the strategy
-  const int & target = req.targets[0];
-  const auto & overlay = req.overlay;
-  for (const auto& [path, load] : model_load_assignment.load_assignment) {
+  const int& target = req.targets[0];
+  const auto& overlay = req.overlay;
+  for (size_t i = 0; i < model_load_assignment.paths.size(); i++) {
+    const auto& path = model_load_assignment.getPath(i);
     // check the source and target
-    CHECK_GT(path.path.size(), 1);
-    CHECK(overlay.find(*path.path.cbegin()) != overlay.end());
-    CHECK_EQ(*path.path.crbegin(), target);
+    CHECK_GT(path.size(), 1);
+    CHECK(overlay.find(*path.cbegin()) != overlay.end());
+    CHECK_EQ(*path.crbegin(), target);
     // check the node is unique
-    CHECK(algorithm::helper::checkUnique(path.path));
+    CHECK(algorithm::helper::checkUnique(path));
   }
 }
 
-const StrategyBlock& ConstelThinker::GenerateStrategy(const StrategyRequest& req){
-  auto strategy_block = GenerateStrategyImpl(req);
-  checkStrategy(req,strategy_block);
+const StrategyBlock& ConstelThinker::GenerateStrategy(const StrategyRequest& req) {
+  auto strategy_block = this->GenerateStrategyImpl(req);
+  checkStrategy(req, strategy_block);
   this->strategy_block_ = std::move(strategy_block);
   return this->strategy_block_;
 }
@@ -52,16 +54,111 @@ const GlobalTransTopo& ConstelTransTopoThinker::SendOverlay(const AdjacencyList&
 StrategyBlock ConstelTransTopoThinker::GenerateStrategyImpl(const StrategyRequest& req) {
   using StrategyReqType = StrategyRequest::StrategyReqType;
 
-  const auto& overlay = req.overlay;
-  const auto& targets = req.targets;
+  auto& overlay = req.overlay;
+  auto& targets = req.targets;
 
   StrategyBlock strategy_block;
-  auto &global_topo = strategy_block.global_topo_;
-  auto &model_load_assignment = strategy_block.model_load_assignment_;
+  auto& global_topo = strategy_block.global_topo_;
+  auto& model_load_assignment = strategy_block.model_load_assignment_;
+
+  std::vector<TransPath> allPaths;
+  std::function<void(const AdjacencyList&,
+                     int,
+                     int,
+                     std::vector<int>&,
+                     std::unordered_set<int>&,
+                     std::vector<TransPath>& allPaths)>
+      dfs;
+  dfs = [&dfs](const AdjacencyList& graph,
+               int current,
+               int target,
+               std::vector<int>& path,
+               std::unordered_set<int>& visited,
+               std::vector<TransPath>& allPaths) {
+    path.push_back(current);
+    visited.insert(current);
+
+    if (current == target) {
+      allPaths.emplace_back(path);
+    } else {
+      if (graph.find(current) != graph.end()) {
+        for (const auto& neighbor : graph.at(current)) {
+          if (visited.find(neighbor) == visited.end()) {
+            dfs(graph, neighbor, target, path, visited, allPaths);
+          }
+        }
+      }
+    }
+
+    path.pop_back();
+    visited.erase(current);
+  };
+  auto generatePathsToTarget = [&dfs](const AdjacencyList& graph,
+                                      int target,
+                                      int maxPaths = 1000) -> std::vector<TransPath> {
+    std::vector<TransPath> allPaths;
+    std::vector<TransPath> result;
+
+    for (const auto& [node, _] : graph) {
+      if (node == target)
+        continue;
+      std::vector<int> path;
+      std::unordered_set<int> visited;
+      dfs(graph, node, target, path, visited, allPaths);
+
+      for (const auto& p : allPaths) {
+        if (p.path.back() == target) {
+          result.emplace_back(p);
+          if (result.size() >= maxPaths) {
+            return result;
+          }
+        }
+      }
+      allPaths.clear();
+    }
+    return result;
+  };
+  auto selectRandomPaths = [](const std::vector<TransPath>& paths,
+                              size_t numberOfPaths) -> std::vector<TransPath> {
+    std::vector<TransPath> selectedPaths;
+
+    if (paths.empty()) {
+      return selectedPaths;
+    }
+
+    if (numberOfPaths >= paths.size()) {
+      return paths;
+    }
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    std::vector<size_t> indices(paths.size());
+    for (size_t i = 0; i < indices.size(); ++i) {
+      indices[i] = i;
+    }
+    std::shuffle(indices.begin(), indices.end(), gen);
+
+    for (size_t i = 0; i < numberOfPaths; ++i) {
+      selectedPaths.emplace_back(paths[indices[i]]);
+    }
+
+    return selectedPaths;
+  };
 
   switch (req.type) {
     case StrategyReqType::kTopoAndModelSyncConfUpdate: {
-      //TODO
+      // TODO
+      CHECK_EQ(targets.size(), 1);
+      const auto target = targets[0];
+      const auto it = overlay.find(target);
+      CHECK(it != overlay.end());
+
+      allPaths = generatePathsToTarget(overlay, target, 5);
+      auto paths = selectRandomPaths(allPaths, 2);
+      for (const auto& path : paths) {
+        model_load_assignment.assignLoad(path, 1.0);
+      }
     }
     case StrategyReqType::kTopoUpdateOnly: {
       GlobalTransTopo transtopo;
@@ -74,6 +171,7 @@ StrategyBlock ConstelTransTopoThinker::GenerateStrategyImpl(const StrategyReques
         transtopo = decideNewTransTopo(overlay, 1);
       }
       global_topo = std::move(transtopo);
+      break;
     }
 
     default:

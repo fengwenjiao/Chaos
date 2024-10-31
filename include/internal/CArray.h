@@ -92,6 +92,14 @@ struct CArray {
       memcpy(this->data(), data, size);
     }
   }
+  void CopyFrom(const void* data, size_t size, size_t offset) const {
+    if (this->size() < size + offset) {
+      throw std::runtime_error("CArray: size mismatch");
+    }
+    if (data && size) {
+      memcpy(this->data() + offset, data, size);
+    }
+  }
 
   void From(const CArray& other) {
     if (other.data() && other.size()) {

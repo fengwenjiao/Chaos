@@ -2,6 +2,7 @@
 #define CONSTELLATION_CONSTELLATION_API_H
 
 #include <cstdint>
+#include <memory>
 
 #ifdef __cplusplus
 #define DEFAULT(x) = x
@@ -24,6 +25,25 @@ typedef void* ConstelTrainerHandle;
 typedef void* ConstelControllerHandle;
 typedef void* ConstellationCArrayHandle;
 
+class CtypesInfoBuffer {
+ public:
+  static inline CtypesInfoBuffer* Get() {
+    return Get(nullptr).get();
+  }
+
+  std::vector<int>& GetKeysToMigrate() {
+    return keys_to_migrate_;
+  }
+
+  ~CtypesInfoBuffer() = default;
+ private:
+  CtypesInfoBuffer() {}
+  static inline std::shared_ptr<CtypesInfoBuffer> Get(void*) {
+    static std::shared_ptr<CtypesInfoBuffer> _prt(new CtypesInfoBuffer());
+    return _prt;
+  }
+  std::vector<int> keys_to_migrate_;
+};
 
 #ifdef __cplusplus
 extern "C" {
@@ -123,7 +143,6 @@ int ConstellationTrainerRank(ConstelTrainerHandle handle, int* rank);
  */
 int ConstellationTrainerNumTrainers(ConstelTrainerHandle handle, int* num);
 
-
 ////////Controller ////////
 /** @brief create a controller handle
  * @param name - the name of the controller
@@ -144,14 +163,12 @@ int ConstelControllerHandleFree(ConstelControllerHandle handle);
  */
 int ConstellationControllerRun(ConstelControllerHandle handle);
 
-
 /////// Info //////
 /** @brief check if the current process is a worker
  * @param is_worker - the flag to indicate if the current process is a worker
  * @return
  */
-int ConstellationIsTrainer(int * is_worker);
-
+int ConstellationIsTrainer(int* is_worker);
 
 #ifdef __cplusplus
 }  // extern "C"

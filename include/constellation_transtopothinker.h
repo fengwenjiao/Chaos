@@ -4,21 +4,52 @@
 #include "constellation_commons.h"
 
 #include <memory>
+#include <algorithm>
 
 namespace constellation {
 
 struct ModelLoadAssignment {
-  using PathLoadMap =
-      std::unordered_map<TransPath, float, TransPath::PathHash, TransPath::PathEqual>;
-
   bool assignLoad(const TransPath& path, const float& load) {
-    if (load_assignment.find(path) != load_assignment.end()) {
+    if (std::find(paths.begin(), paths.end(), path) != paths.end()) {
       return false;
     }
-    load_assignment[path] = load;
+    paths.emplace_back(path);
+    loads.emplace_back(load);
     return true;
   }
-  PathLoadMap load_assignment;
+  void normalize() {
+    float sum = 0;
+    for (const auto& load : loads) {
+      sum += load;
+    }
+    for (auto& load : loads) {
+      load /= sum;
+    }
+  }
+  /* @brief group the paths and loads by the first node in paths.
+    * Change the order of paths and loads, which make the paths and loads 
+    * that have the same first node in paths are together.  */
+  void groupByFirstNode() {
+    std::vector<TransPath> new_paths;
+    std::vector<float> new_loads;
+    std::unordered_map<int, std::vector<size_t>> indices;
+    for (size_t i = 0; i < paths.size(); i++) {
+      indices[paths[i].path[0]].emplace_back(i);
+    }
+    for (const auto& index : indices) {
+      for (const auto& i : index.second) {
+        new_paths.emplace_back(paths[i]);
+        new_loads.emplace_back(loads[i]);
+      }
+    }
+    paths = std::move(new_paths);
+    loads = std::move(new_loads);
+  }
+  const std::vector<int>& getPath(size_t i) const {
+    return paths[i].path;
+  }
+  std::vector<TransPath> paths;
+  std::vector<float> loads;
 };
 
 struct Extra {

@@ -19,9 +19,7 @@ int main(int argc, char* argv[]) {
   if (!is_trainer) {
     // start Controller: kvapp layer, process datamsg
     constellation::ConstelController controller;
-    while (true) {
-      std::this_thread::sleep_for(std::chrono::seconds(1000));
-    }
+    controller.run();
   }
   // for other nodes
   constellation::ConstelTrainer trainer;
@@ -35,8 +33,12 @@ int main(int argc, char* argv[]) {
   params.fill(rank, 0);
   // print
   using namespace test;
-  trainer.NotifyReadyAndWait();
-  trainer.Broadcast(params._ids, params._pointers);
+  trainer.NotifyReadyAndWait(true, params.keys(), params.lens());
+  if (trainer.is_scale()){
+    trainer.Recv(params.keys(), params.pointers());
+  }else{
+    trainer.Broadcast(params.keys(), params.pointers());
+  }
 
   auto start = std::chrono::high_resolution_clock ::now();
   for (int i = 1; i <= TIMES; ++i) {

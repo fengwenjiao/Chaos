@@ -11,7 +11,13 @@
 namespace constellation {
 
 // TODO: now only support default push pull
-enum class RequestType { kDefaultPushPull, kDefaultInit, kRowSparsePushPull, kCompressedPushPull };
+enum class RequestType {
+  kDefaultPushPull,
+  kDefaultInit,
+  kModelSync,
+  kRowSparsePushPull,
+  kCompressedPushPull
+};
 
 struct DataHandleType {
   RequestType requestType;
@@ -100,15 +106,25 @@ class ConstelTrainer {
     return ps::Postoffice::Get()->myRank();
   }
 
-  void NotifyReadyAndWait();
+  void NotifyReadyAndWait(bool need_sycn_model = false,
+                          const std::vector<int> keys = {},
+                          const std::vector<uint64_t> lens = {});
 
-  bool BatchEnd();
+  bool BatchEnd(std::vector<int>* keys_to_migrate = nullptr);
 
-  void Broadcast(std::vector<int>& keys, std::vector<CArray*>& vals_init);
+  void Migrate(const std::vector<int>& keys, const std::vector<CArray>& vals);
 
-  void PushPull(std::vector<int>& keys,
-                std::vector<CArray>& vals_push,
-                std::vector<CArray*>& vals_pull);
+  void Broadcast(const std::vector<int>& keys, const std::vector<CArray*>& vals_init);
+
+  void Recv(const std::vector<int>& keys, const std::vector<CArray*>& vals);
+
+  void PushPull(const std::vector<int>& keys,
+                const std::vector<CArray>& vals_push,
+                const std::vector<CArray*>& vals_pull);
+  
+  bool is_scale() const {
+    return is_scale_;
+  }
 
   friend class __ConstelTrainerTest;
 
@@ -156,11 +172,22 @@ class ConstelTrainer {
 
   NodeTransTopo trans_topo_;
 
+  ModelSycnConf model_sync_conf_;
+
   ps::KVTrainer<char>* trainer_;
 
   std::atomic<bool> is_ctx_ready_{false};
 
-  bool is_scale_ = true;
+  std::atomic<bool> is_model_sync_{false};
+
+  std::mutex model_sync_mu_;
+  std::condition_variable model_sync_cv_;
+  std::unordered_map<int, uint64_t> model_info_; 
+  uint64_t model_size_ = 0; 
+  std::vector<int>* wait_recv_keys_;
+  std::vector<CArray*>* wait_recv_vals_;
+
+  std::atomic<bool> is_scale_{true};
 
   mutable std::mutex update_buf_mu_;
 

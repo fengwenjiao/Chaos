@@ -176,7 +176,7 @@ struct SeriData {
   /**
    * @brief  Get the serialized data as a string.
    * @details Call this will copy the data.
-   * @return const std::string_view
+   * @return const std::string
    */
   std::string as_string() const {
     return {reinterpret_cast<const char*>(data_.data()), data_.size()};

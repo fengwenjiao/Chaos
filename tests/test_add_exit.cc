@@ -15,17 +15,24 @@ int main(int argc, char* argv[]) {
   if (!is_trainer) {
     // start Controller: kvapp layer, process datamsg
     constellation::ConstelController controller;
-    while (true) {
-      std::this_thread::sleep_for(std::chrono::seconds(1000));
-    }
+    controller.run();
   }
   // for other nodes
   constellation::ConstelTrainer trainer;
-  auto params = test::ParameterMock(KEY_NUM);
-  params.fill();
+  int rank = trainer.myRank();
 
-  trainer.NotifyReadyAndWait();
-  // trainer.Broadcast(params._ids, params._pointers);
+  auto params = test::ParameterMock(KEY_NUM);
+  params.fill(rank, 0);
+  using namespace test;
+  std::cout<<params;
+  trainer.NotifyReadyAndWait(true, params.keys(), params.lens());
+  if (trainer.is_scale()){
+    trainer.Recv(params.keys(), params.pointers());
+  }else{
+    trainer.Broadcast(params.keys(), params.pointers());
+  }
+  std::cout<<params;
+  
 
   using namespace test;
   for (int i = 0; i < TIMES; i++) {
@@ -40,8 +47,11 @@ int main(int argc, char* argv[]) {
     // trainer.PushPull(params._ids, params._parameters, params._pointers);
 
     std::this_thread::sleep_for(std::chrono::seconds(3));
-
-    trainer.BatchEnd();
+    std::vector<int> keys_to_migrate;
+    trainer.BatchEnd(&keys_to_migrate);
+    if (keys_to_migrate.size() > 0) {
+      trainer.Migrate(params.keys(), params.values());
+    }
     std::cout << "======================================\n" << std::endl;
   }
 

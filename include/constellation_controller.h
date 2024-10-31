@@ -11,7 +11,7 @@ namespace constellation {
 
 class ReadyNodeOverlayManager {
  public:
-  ReadyNodeOverlayManager() : is_asycn_add_(false) {}
+  ReadyNodeOverlayManager() : is_asycn_add_(false), is_first_reach_init_num_{false} {}
   bool HandleNodeReady(int node_id) {
     auto& connected_nodes = ps::Postoffice::Get()->GetOverlayNeighbour(node_id);
     if (!ready_nodes_.AddNode(node_id)) {
@@ -30,17 +30,23 @@ class ReadyNodeOverlayManager {
     if (!is_add_edge && ready_nodes_.NumNodes() >= 2) {
       LOG(WARNING) << "Node " << node_id << " is ready, but no edge is added";
     }
+    if (is_asycn_add_) {
+      is_first_reach_init_num_ = false;
+      return true;
+    }
     // check if node number is enough
     if (ready_nodes_.NumNodes() == ps::Postoffice::Get()->init_num_trainers()) {
       is_asycn_add_ = true;
+      // first reach init num
+      is_first_reach_init_num_ = true;
     }
     return true;
   }
-  bool ShouldGetNewTransTopo() {
-    return isAsyncJoinStage();
-  }
-  bool isAsyncJoinStage() {
+  bool ShouldGetNewTransTopo() const {
     return is_asycn_add_;
+  }
+  bool isFristReachInitNum() const {
+    return is_first_reach_init_num_;
   }
 
   // TODO: GetReadyOverlay() is debug version, should return the string of overlay
@@ -63,20 +69,24 @@ class ReadyNodeOverlayManager {
  private:
   TopoGraph<int> ready_nodes_;
   bool is_asycn_add_;  // 0: sync join stage, 1: async join stage
+  bool is_first_reach_init_num_;
 };
 
 class ConstelController {
  public:
-  explicit ConstelController() {
+  explicit ConstelController(ConstelThinker* thinker = nullptr) {
     ps::StartAsync(0, "ConstelController\0");
     using namespace std::placeholders;
     ps_scheduler_ = new ps::Controller(0);
     ps_scheduler_->set_request_handle(std::bind(&ConstelController::RequestHandle, this, _1, _2));
     ps_scheduler_->set_response_handle(std::bind(&ConstelController::ResponseHandle, this, _1, _2));
 
-    thinker_ = nullptr;
+    if (thinker == nullptr) {
+      thinker_ = new ConstelTransTopoThinker();
+    } else {
+      thinker_ = thinker;
+    }
   }
-  void setThinker(ConstelThinker* thinker);
 
   ~ConstelController() {
     ps::Finalize(0, false);
@@ -98,9 +108,8 @@ class ConstelController {
   /**
    * \brief Transform the ModelLoadAssignment to GlobalModelSyncConf
    */
-  static GlobalModelSyncConf ModelSycnConfTransform(
-      int target_id,
-      const ModelLoadAssignment& model_load_assignment);
+  GlobalModelSyncConf ModelSycnConfTransform(int target_id,
+                                             ModelLoadAssignment model_load_assignment);
   /**
    * \brief Controller handle for all received request
    */
@@ -125,6 +134,9 @@ class ConstelController {
    * \brief send message to some trainer
    */
   void SendToTrainer(int head, const std::string& body, int recv_id);
+
+  std::unordered_map<int, uint64_t> model_params_dist_;
+  uint64_t model_params_total_ = 0;
 
   ReadyNodeOverlayManager node_manager_;
 

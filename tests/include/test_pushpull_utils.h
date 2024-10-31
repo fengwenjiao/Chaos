@@ -148,6 +148,14 @@ struct ParameterMock {
     return _parameters;
   }
 
+  std::vector<uint64_t> lens(){
+    std::vector<uint64_t> lens;
+    for (int i = 0; i < _size; ++i) {
+      lens.push_back(_parameters[i].size());
+    }
+    return lens;
+  }
+
   /**
    * Retrieves the collection of pointers to CArray objects.
    * @return A reference to a std::vector containing pointers to CArray objects.
