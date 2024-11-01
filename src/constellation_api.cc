@@ -76,9 +76,63 @@ int ConstellationTrainerInit(ConstelTrainerHandle handle,
   API_END();
 }
 
-int ConstelTrainerNotifyReadyAndWait(ConstelTrainerHandle handle) {
+int ConstellationTrainerRecv(ConstelTrainerHandle handle,
+                             const int* keys_in,
+                             ConstellationCArrayHandle* values,
+                             uint32_t num) {
   API_BEGIN();
-  static_cast<ConstelTrainer*>(handle)->NotifyReadyAndWait();
+  std::vector<int> keys_in_vec(keys_in, keys_in + num);
+  std::vector<CArray*> values_vec(num);
+  for (uint32_t i = 0; i < num; ++i) {
+    values_vec[i] = static_cast<CArray*>(values[i]);
+  }
+  static_cast<ConstelTrainer*>(handle)->Recv(keys_in_vec, values_vec);
+  API_END();
+}
+
+int ConstellationTrainerIsScale(ConstelTrainerHandle handle, int* is_scale) {
+  API_BEGIN();
+  *is_scale = static_cast<ConstelTrainer*>(handle)->is_scale() ? 1 : 0;
+  API_END();
+}
+
+int ConstelTrainerNotifyReadyAndWait(ConstelTrainerHandle handle,
+                                     const int need_sycn_model,
+                                     const int* keys,
+                                     const uint64_t* lens,
+                                     const int key_num) {
+  API_BEGIN();
+  std::vector<int> keys_vec;
+  std::vector<uint64_t> lens_vec;
+  if (key_num != 0) {
+    keys_vec.assign(keys, keys + key_num);
+    lens_vec.assign(lens, lens + key_num);
+  }
+  bool need_sycn_model_bool = need_sycn_model == 1 ? true : false;
+  static_cast<ConstelTrainer*>(handle)->NotifyReadyAndWait(
+      need_sycn_model_bool, keys_vec, lens_vec);
+  API_END();
+}
+
+int ConstelTrainerBatchEnd(ConstelTrainerHandle handle, int* keys_size) {
+  API_BEGIN();
+  auto& keys_to_migrate = CtypesInfoBuffer::Get()->GetKeysToMigrate();
+  static_cast<ConstelTrainer*>(handle)->BatchEnd(&keys_to_migrate);
+  *keys_size = keys_to_migrate.size();
+  API_END();
+}
+
+int ConstelTrainerGetKeysToMigrate(int* keys, const int keys_size) {
+  API_BEGIN();
+  auto& keys_to_migrate = CtypesInfoBuffer::Get()->GetKeysToMigrate();
+  if (keys_size < keys_to_migrate.size()) {
+    throw std::runtime_error(
+        "keys_size is smaller than keys_to_migrate.size(). Please call ConstelTrainerBatchEnd "
+        "to get the correct size of keys_to_migrate.");
+  }
+  for (size_t i = 0; i < keys_to_migrate.size(); ++i) {
+    keys[i] = keys_to_migrate[i];
+  }
   API_END();
 }
 

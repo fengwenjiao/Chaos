@@ -3,8 +3,9 @@
 
 #include "./constellation_commons.h"
 #include "ps/ps.h"
-#include "./internal/engine.h"
 #include "./internal/CArray.h"
+#include "./internal/engine.hpp"
+
 #include <atomic>
 #include <cmath>
 
@@ -60,22 +61,8 @@ static DataHandleType DepairDataHandleType(int cmd) {
 
 class ConstelTrainer {
  public:
-  explicit ConstelTrainer() {
-    ps::StartAsync(0, "ConstelTrainer");
-    this->trainer_ = new ps::KVTrainer<char>(0, 0);  // app_id, customer_id
-    using namespace std::placeholders;
-    static_cast<ps::SimpleApp*>(this->trainer_)
-        ->set_request_handle(std::bind(&ConstelTrainer::RequestHandle, this, _1, _2));
-    this->trainer_->set_request_handle(std::bind(&ConstelTrainer::DataHandle, this, _1, _2, _3));
-    InitEngine(2);
-  }
-  ~ConstelTrainer() {
-    ps::Finalize(0, false);
-    delete this->trainer_;
-    this->trainer_ = nullptr;
-    engine_->Stop();
-    delete engine_;
-  }
+  explicit ConstelTrainer();
+  ~ConstelTrainer();
 
   inline const auto& GetNodeTransTopo() const {
     std::unique_lock<std::mutex> lock(trans_topo_mu_);
@@ -121,7 +108,7 @@ class ConstelTrainer {
   void PushPull(const std::vector<int>& keys,
                 const std::vector<CArray>& vals_push,
                 const std::vector<CArray*>& vals_pull);
-  
+
   bool is_scale() const {
     return is_scale_;
   }
@@ -182,8 +169,8 @@ class ConstelTrainer {
 
   std::mutex model_sync_mu_;
   std::condition_variable model_sync_cv_;
-  std::unordered_map<int, uint64_t> model_info_; 
-  uint64_t model_size_ = 0; 
+  std::unordered_map<int, uint64_t> model_info_;
+  uint64_t model_size_ = 0;
   std::vector<int>* wait_recv_keys_;
   std::vector<CArray*>* wait_recv_vals_;
 

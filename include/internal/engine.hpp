@@ -1,11 +1,8 @@
-//
-// Created by deemo on 5/31/24.
-//
-
 #ifndef CONSTELLATION_ENGINE_H_
 #define CONSTELLATION_ENGINE_H_
 
 #include "ps/internal/threadsafe_queue.h"
+
 #include <vector>
 #include <functional>
 #include <thread>

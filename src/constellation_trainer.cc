@@ -6,6 +6,24 @@
 
 namespace constellation {
 
+ConstelTrainer::ConstelTrainer() {
+  ps::StartAsync(0, "ConstelTrainer");
+  this->trainer_ = new ps::KVTrainer<char>(0, 0);  // app_id, customer_id
+  using namespace std::placeholders;
+  static_cast<ps::SimpleApp*>(this->trainer_)
+      ->set_request_handle(std::bind(&ConstelTrainer::RequestHandle, this, _1, _2));
+  this->trainer_->set_request_handle(std::bind(&ConstelTrainer::DataHandle, this, _1, _2, _3));
+  InitEngine(2);
+}
+
+ConstelTrainer::~ConstelTrainer() {
+  ps::Finalize(0, false);
+  delete this->trainer_;
+  this->trainer_ = nullptr;
+  engine_->Stop();
+  delete engine_;
+}
+
 void ConstelTrainer::NotifyReadyAndWait(bool need_sycn_model,
                                         const std::vector<int> keys,
                                         const std::vector<uint64_t> lens) {

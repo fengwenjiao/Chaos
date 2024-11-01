@@ -36,6 +36,7 @@ class CtypesInfoBuffer {
   }
 
   ~CtypesInfoBuffer() = default;
+
  private:
   CtypesInfoBuffer() {}
   static inline std::shared_ptr<CtypesInfoBuffer> Get(void*) {
@@ -123,11 +124,50 @@ int ConstellationTrainerInit(ConstelTrainerHandle handle,
                              const int* keys_in,
                              ConstellationCArrayHandle* values);
 
+/** @brief recv the data from the trainer
+ * @param handle - the handle of the trainer
+ * @param keys_in - the keys to recv
+ * @param values - the values to recv
+ * @param num - the number of keys to recv
+ * @return 0 - success, -1 - failure
+ */
+int ConstellationTrainerRecv(ConstelTrainerHandle handle,
+                             const int* keys_in,
+                             ConstellationCArrayHandle* values,
+                             uint32_t num);
+
+/** @brief check if the trainer is scale
+ * @param handle - the handle of the trainer
+ * @param is_scale - the flag to indicate if the trainer is scale
+ * @return 0 - success, -1 - failure
+ */
+int ConstellationTrainerIsScale(ConstelTrainerHandle handle, int* is_scale);
+
 /** @brief send the ready signal to the trainer
  * @param handle - the handle of the trainer
  * @return 0 - success, -1 - failure
  */
-int ConstelTrainerNotifyReadyAndWait(ConstelTrainerHandle handle);
+int ConstelTrainerNotifyReadyAndWait(ConstelTrainerHandle handle,
+                                     const int need_sycn_model,
+                                     const int* keys DEFAULT(nullptr),
+                                     const uint64_t* lens DEFAULT(nullptr),
+                                     const int key_num DEFAULT(0));
+
+/** @brief end the batch of the trainer
+ * @param handle - the handle of the trainer
+ * @param keys_to_migrate - the keys to migrate
+ * to tell the trainer which keys to migrate
+ * @param key_num - the number of keys to migrate
+ * @return 0 - success, -1 - failure
+ */
+int ConstelTrainerBatchEnd(ConstelTrainerHandle handle, int* keys_size DEFAULT(nullptr));
+
+/** @brief get the keys to migrate, must be called after ConstelTrainerBatchEnd
+ * @param keys - the keys to migrate
+ * @param keys_size - the size of the keys
+ * @return 0 - success, -1 - failure
+ */
+int ConstelTrainerGetKeysToMigrate(int* keys, const int keys_size);
 
 /** @brief get the rank of the trainer
  * @param handle - the handle of the trainer

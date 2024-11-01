@@ -56,7 +56,7 @@ class ConstelTrainerBase(object):
     def broadcast(self, keys, values):
         raise NotImplementedError
 
-    def pushpull(self, keys, values, out):
+    def allreduce(self, keys, values, out):
         raise NotImplementedError
 
     @property
@@ -92,20 +92,56 @@ class ConstelTrainer(ConstelTrainerBase):
         self.handle = handle
         self._carray_cache = {}
         self._is_ready = False
+        self._is_scale = None
+        self._need_sync = None
 
     def __del__(self):
-        
         check_call(_LIB.ConstelTrainerHandleFree(self.handle))
 
-    def init(self):
-        self._notify_ready()
+    def init(self, model_sync=True, keys: list = None, lens: list = None):
+        self._need_sync = model_sync
+        self._notify_ready(model_sync, keys, lens)
+        self._is_scale = self._is_scale()
 
-    def _notify_ready(self):
+    @property
+    def is_scale(self):
+        assert self._is_ready, "Trainer has not been ready."
+        return self._is_scale
+
+    def _is_scale(self):
+        is_scale = ctypes.c_int()
+        check_call(_LIB.ConstelTrainerIsScale(self.handle, ctypes.byref(is_scale)))
+        return True if is_scale.value >= 1 else False
+
+    def _notify_ready(self, model_sync=True, keys: list = None, lens: list = None):
         assert not self._is_ready, "Trainer has already been ready."
-        check_call(_LIB.ConstelTrainerNotifyReadyAndWait(self.handle))
+        model_sync_int = 1 if model_sync else 0
+        if not model_sync:
+            assert keys is None, "keys must be None if model_sync is False."
+            assert lens is None, "lens must be None if model_sync is False."
+        if keys is not None:
+            assert lens is not None, "lens must be provided if keys is provided."
+            assert len(keys) == len(
+                lens
+            ), "The length of keys and lens must be the same."
+            ckeys = c_array(ctypes.c_int, keys)
+            clens = c_array(ctypes.c_int, lens)
+            check_call(
+                _LIB.ConstelTrainerNotifyReadyAndWaitWithKeys(
+                    self.handle,
+                    ctypes.c_int(model_sync_int),
+                    ckeys,
+                    clens,
+                    c_uint(len(keys)),
+                )
+            )
+        check_call(
+            _LIB.ConstelTrainerNotifyReadyAndWait(self.handle),
+            ctypes.c_int(model_sync_int),
+        )
         self._is_ready = True
 
-    def pushpull(self, keys, values, out=None):
+    def allreduce(self, keys, values, out=None):
         assert check_keys_unique(
             keys
         ), "Have not supported multiple device yet. Keys must be unique."
@@ -136,6 +172,17 @@ class ConstelTrainer(ConstelTrainerBase):
         ckeys, cvalues = _ctype_key_value_cast(keys, values)
         check_call(
             _LIB.ConstellationTrainerInit(
+                self.handle, c_uint(len(ckeys)), ckeys, cvalues
+            )
+        )
+
+    def _recv(self, keys, values):
+        assert check_keys_unique(
+            keys
+        ), "Have not supported multiple device yet. Keys must be unique."
+        ckeys, cvalues = _ctype_key_value_cast(keys, values)
+        check_call(
+            _LIB.ConstellationTrainerRecv(
                 self.handle, c_uint(len(ckeys)), ckeys, cvalues
             )
         )

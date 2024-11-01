@@ -94,6 +94,11 @@ class Trainer(ConstelTrainer):
             out_carray = self._convert_to_carray(out)
         super().pushpull(keys, values_carray, out_carray)
         CArray.update_tensor(out_carray, self._num_trainers)
+    
+    def _recv(self, keys, values):
+        values_carray = self._convert_to_carray(values)
+        super()._recv(keys, values_carray)
+        CArray.update_tensor(values_carray)
 
     def broadcast(self, keys, values):
         values_carray = self._convert_to_carray(values)
@@ -119,12 +124,18 @@ class Trainer(ConstelTrainer):
             return
 
         self.set_model_opt(model_opt[0], model_opt[1])
-
         for i, param in enumerate(self._model.parameters()):
             if param is not None:
                 self._keys.append(i)
                 self._params.append(param)
-        self.broadcast(self._keys, self._params)
+        
+        if self._is_scale:
+            if self._need_sync:
+                pass
+                self._recv(self._keys, self._params)
+        else:
+            self.broadcast(self._keys, self._params)
+            
         self._optimizer.zero_grad(set_to_none=False)
 
     def update(self):
