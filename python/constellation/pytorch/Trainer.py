@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import torch
 from ctypes import cast
+from typing import List, Tuple, Optional, Union
 
 from ..base import CArrayDataPtr, ConsDataTypeEnum, get_basic_type_byte_size
 from ..trainer import ConstelTrainer, create_trainer_handle
@@ -78,6 +79,7 @@ class Trainer(ConstelTrainer):
         self._model = None
         self._keys = None
         self._params = None
+        self._lens = None
         self._grads = None
         self._is_model_opt_set = False
         self._rank = 0
@@ -133,28 +135,43 @@ class Trainer(ConstelTrainer):
         self._optimizer = optimizer
         self._is_model_opt_set = True
 
-    def init(self, model_opt=None, **kwargs):  # pylint: disable=arguments-differ
-        super().init()
-        self._params = []
-        self._keys = []
+    def init(
+        self,
+        model_sync=True,
+        keys: Optional[List] = None,
+        params: Optional[List[torch.Tensor]] = None,
+        model_opt: Optional[Tuple[torch.nn.Module, torch.optim.Optimizer]] = None,
+        **kwargs
+    ):  # pylint: disable=arguments-differ
 
+        keys_, lens_, params_ = None, None, None
         if model_opt is None:
-            return
+            assert keys is not None, "keys is required if model_opt is not provided"
+            assert params is not None, "params is required if model_opt is not provided"
+            lens_ = [param.nelement() * param.element_size() for param in params]
+            keys_, params_ = keys, params
+        else:
+            self._params = []
+            self._keys = []
+            self._lens = []
+            self.set_model_opt(model_opt[0], model_opt[1])
+            for i, param in enumerate(self._model.parameters()):
+                if param is not None:
+                    self._keys.append(i)
+                    self._params.append(param)
+                    self._lens.append(param.nelement() * param.element_size())
+            keys_, lens_, params_ = self._keys, self._lens, self._params
 
-        self.set_model_opt(model_opt[0], model_opt[1])
-        for i, param in enumerate(self._model.parameters()):
-            if param is not None:
-                self._keys.append(i)
-                self._params.append(param)
+        super()._init_ready_state(model_sync, keys_, lens_)
 
         if self._is_scale:
             if self._need_sync:
-                pass
-                self._recv(self._keys, self._params)
+                self._recv(keys_, params_)
         else:
-            self.broadcast(self._keys, self._params)
+            self.broadcast(keys_, params_)
 
-        self._optimizer.zero_grad(set_to_none=False)
+        if self._optimizer is not None:
+            self._optimizer.zero_grad(set_to_none=False)
 
     def update(self):
         assert (

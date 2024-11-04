@@ -78,15 +78,21 @@ struct CArray {
   void CopyFrom(const CArray& other) {
     // TODO:use OMP to accelerate
     if (other.data() && other.size()) {
-      if (this->size() != other.size())
-        throw std::runtime_error("CArray: size mismatch");
+      if (this->size() != other.size()) {
+        throw std::runtime_error(
+            "CArray: void CopyFrom(const CArray& other) size mismatch. this->size(): " +
+            std::to_string(this->size()) + ", other.size(): " + std::to_string(other.size()));
+      }
+
       memcpy(this->data(), other.data(), other.size());
       this->dtype = other.dtype;
     }
   }
   void CopyFrom(const void* data, size_t size) const {
     if (this->size() != size) {
-      throw std::runtime_error("CArray: size mismatch");
+      throw std::runtime_error(
+          "CArray: void CopyFrom(const void* data, size_t size) size mismatch. this->size(): " +
+          std::to_string(this->size()) + ", size: " + std::to_string(size));
     }
     if (data && size) {
       memcpy(this->data(), data, size);
@@ -94,7 +100,11 @@ struct CArray {
   }
   void CopyFrom(const void* data, size_t size, size_t offset) const {
     if (this->size() < size + offset) {
-      throw std::runtime_error("CArray: size mismatch");
+      throw std::runtime_error(
+          "CArray: void CopyFrom(const void* data, size_t size, size_t offset) size mismatch. "
+          "this->size(): " +
+          std::to_string(this->size()) + ", size: " + std::to_string(size) +
+          ", offset: " + std::to_string(offset));
     }
     if (data && size) {
       memcpy(this->data() + offset, data, size);

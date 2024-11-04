@@ -152,7 +152,7 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
           if (model_params_dist_.find(key) == model_params_dist_.end()) {
             model_params_dist_.emplace(std::make_pair(key, len));
             model_params_total_ += len;
-            LOG(INFO) << "Key: " << key << " has length: " << len;
+            PS_VLOG(3) << "Key: " << key << " has length: " << len;
           } else if (model_params_dist_[key] != len) {
             LOG(WARNING) << "Key: " << key << " has different length: " << len
                          << " from previous length: " << model_params_dist_[key];

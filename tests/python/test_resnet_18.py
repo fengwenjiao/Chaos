@@ -97,7 +97,7 @@ model = ResNet18(num_classes=10).to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(model.parameters(), lr=0.001)
 
-trainer.init((model, optimizer))
+trainer.init(model_opt=(model, optimizer))
 
 # 记录损失和精度
 train_losses = []

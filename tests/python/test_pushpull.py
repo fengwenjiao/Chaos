@@ -8,16 +8,15 @@ import numpy as np
 from constellation.pytorch import Trainer
 
 
-KEY_NUM = 200           # 200 keys
-PARAMS_NUM = 1000000    # 1M parameters per key
-TEST_ITER = 20          # 20 iterations
+KEY_NUM = 200  # 200 keys
+PARAMS_NUM = 1000000  # 1M parameters per key
+TEST_ITER = 20  # 20 iterations
 
 keys = list(range(KEY_NUM))
 data = [torch.randn(PARAMS_NUM, dtype=torch.float32) for _ in range(KEY_NUM)]
 
 trainer = Trainer.Trainer()
-trainer.init()
-trainer.broadcast(keys, data)
+trainer.init(True, keys, data)
 
 print(f"each test pushpull {PARAMS_NUM * KEY_NUM * 4 / 1e6} M bytes")
 
@@ -25,7 +24,7 @@ time_cost = []
 
 for i in range(TEST_ITER):
     start = time.time()
-    trainer.pushpull(keys, data)
+    trainer.allreduce(keys, data)
     end = time.time()
     # print("pushpull time: ", end - start)
     time_cost.append(end - start)

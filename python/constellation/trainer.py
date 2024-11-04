@@ -99,8 +99,12 @@ class ConstelTrainer(ConstelTrainerBase):
     def __del__(self):
         check_call(_LIB.ConstelTrainerHandleFree(self.handle))
 
-    def init(
-        self, model_sync=True, keys: Optional[List] = None, lens: Optional[List] = None
+    def _init_ready_state(
+        self,
+        model_sync=True,
+        keys: Optional[List] = None,
+        lens: Optional[List] = None,
+        **kwargs,
     ):
         self._need_sync = model_sync
         self._notify_ready(model_sync, keys, lens)
@@ -113,7 +117,9 @@ class ConstelTrainer(ConstelTrainerBase):
 
     def _check_is_scale(self):
         is_scale = ctypes.c_int()
-        check_call(_LIB.ConstelTrainerIsScale(self.handle, ctypes.byref(is_scale)))
+        check_call(
+            _LIB.ConstellationTrainerIsScale(self.handle, ctypes.byref(is_scale))
+        )
         return True if is_scale.value >= 1 else False
 
     def _notify_ready(
@@ -130,9 +136,9 @@ class ConstelTrainer(ConstelTrainerBase):
                 lens
             ), "The length of keys and lens must be the same."
             ckeys = c_array(ctypes.c_int, keys)
-            clens = c_array(ctypes.c_int, lens)
+            clens = c_array(ctypes.c_uint64, lens)
             check_call(
-                _LIB.ConstelTrainerNotifyReadyAndWaitWithKeys(
+                _LIB.ConstelTrainerNotifyReadyAndWait(
                     self.handle,
                     ctypes.c_int(model_sync_int),
                     ckeys,
@@ -140,11 +146,8 @@ class ConstelTrainer(ConstelTrainerBase):
                     c_uint(len(keys)),
                 )
             )
-        check_call(
-            _LIB.ConstelTrainerNotifyReadyAndWait(
-                self.handle, ctypes.c_int(model_sync_int)
-            )
-        )
+        else:
+            raise RuntimeError("must provide keys and lens if model_sync is True")
         self._is_ready = True
 
     def _batch_end_get_migrate_keys(self):
