@@ -104,19 +104,21 @@ class ConstelTrainer(ConstelTrainerBase):
     ):
         self._need_sync = model_sync
         self._notify_ready(model_sync, keys, lens)
-        self._is_scale = self._is_scale()
+        self._is_scale = self._check_is_scale()
 
     @property
     def is_scale(self):
         assert self._is_ready, "Trainer has not been ready."
         return self._is_scale
 
-    def _is_scale(self):
+    def _check_is_scale(self):
         is_scale = ctypes.c_int()
         check_call(_LIB.ConstelTrainerIsScale(self.handle, ctypes.byref(is_scale)))
         return True if is_scale.value >= 1 else False
 
-    def _notify_ready(self, model_sync=True, keys: list = None, lens: list = None):
+    def _notify_ready(
+        self, model_sync=True, keys: Optional[list] = None, lens: Optional[list] = None
+    ):
         assert not self._is_ready, "Trainer has already been ready."
         model_sync_int = 1 if model_sync else 0
         if not model_sync:
@@ -139,8 +141,9 @@ class ConstelTrainer(ConstelTrainerBase):
                 )
             )
         check_call(
-            _LIB.ConstelTrainerNotifyReadyAndWait(self.handle),
-            ctypes.c_int(model_sync_int),
+            _LIB.ConstelTrainerNotifyReadyAndWait(
+                self.handle, ctypes.c_int(model_sync_int)
+            )
         )
         self._is_ready = True
 

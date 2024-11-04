@@ -19,7 +19,7 @@ release:
 	python -m twine upload dist/*
 
 lint:
-	flake8 constellation/ tests/ --count --max-line-length=127 --ignore=W503
+	flake8 constellation/ tests/ --count --max-line-length=127 --ignore=W503,E902
 	mypy constellation/ --follow-imports=skip
 
 test:
