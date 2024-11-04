@@ -3,6 +3,7 @@ import ctypes
 import warnings
 from array import array
 import weakref
+from typing import Optional, List
 
 from .base import _LIB, check_call, TrainerHandle, c_str, c_array, c_array_buf, c_uint
 from .carray import CArrayBase
@@ -67,7 +68,7 @@ class ConstelTrainerBase(object):
     def num_trainers(self):
         raise NotImplementedError
 
-    registry = {}
+    registry: dict = {}
 
     @staticmethod
     def register(klass):
@@ -98,7 +99,9 @@ class ConstelTrainer(ConstelTrainerBase):
     def __del__(self):
         check_call(_LIB.ConstelTrainerHandleFree(self.handle))
 
-    def init(self, model_sync=True, keys: list = None, lens: list = None):
+    def init(
+        self, model_sync=True, keys: Optional[List] = None, lens: Optional[List] = None
+    ):
         self._need_sync = model_sync
         self._notify_ready(model_sync, keys, lens)
         self._is_scale = self._is_scale()
@@ -141,6 +144,36 @@ class ConstelTrainer(ConstelTrainerBase):
         )
         self._is_ready = True
 
+    def _batch_end_get_migrate_keys(self):
+        size = ctypes.c_int()
+        check_call(_LIB.ConstelTrainerBatchEnd(self.handle, ctypes.byref(size)))
+        # ConstelTrainerGetKeysToMigrate(int* keys, const int keys_size);
+        keys = (ctypes.c_int * size.value)()
+        check_call(
+            _LIB.ConstelTrainerGetKeysToMigrate(
+                ctypes.POINTER(ctypes.c_int)(keys), size
+            )
+        )
+        keys_to_migrate = []
+        for i in range(size.value):
+            keys_to_migrate.append(keys[i])
+        keys_to_migrate.sort()
+        return keys_to_migrate
+
+    def batch_end(self, keys, values):
+        keys_to_migrate = self._batch_end_get_migrate_keys()
+
+        def check_keys(keys, keys_to_migrate):
+            for key in keys:
+                if key not in keys_to_migrate:
+                    return False
+            return True
+
+        assert len(keys) == len(values)
+        # check all keys are in keys_to_migrate
+        assert check_keys(keys, keys_to_migrate)
+        self._migrate(keys, values)
+
     def allreduce(self, keys, values, out=None):
         assert check_keys_unique(
             keys
@@ -174,6 +207,16 @@ class ConstelTrainer(ConstelTrainerBase):
             _LIB.ConstellationTrainerInit(
                 self.handle, c_uint(len(ckeys)), ckeys, cvalues
             )
+        )
+
+    def _migrate(self, keys, values):
+        assert check_keys_unique(
+            keys
+        ), "Have not supported multiple device yet. Keys must be unique."
+
+        ckeys, cvalues = _ctype_key_value_cast(keys, values)
+        check_call(
+            _LIB.ConstelTrainerMigrate(self.handle, c_uint(len(ckeys)), ckeys, cvalues)
         )
 
     def _recv(self, keys, values):

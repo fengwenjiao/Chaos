@@ -108,6 +108,7 @@ void ConstelTrainer::Migrate(const std::vector<int>& keys, const std::vector<CAr
     model_sync_conf.paths = {std::vector<int>(path.begin() + 1, path.end())};
     for (const auto& kvslice : this->model_sync_conf_.kvslices[i]) {
       if (kvslice.is_full()) {
+        // send the full kv-pair
         for (int key = kvslice.key_begin; key < kvslice.key_end; key++) {
           auto it = std::find(keys.begin(), keys.end(), key);
           CHECK(it != keys.end()) << "key " << key << " is not in the keys";

@@ -83,7 +83,7 @@ class Trainer(ConstelTrainer):
         self._rank = 0
         self._num_trainers = 1
 
-    def pushpull(self, keys, values, out=None):
+    def allreduce(self, keys, values, out=None):
         self._rank = self.rank
         self._num_trainers = self.num_trainers
         values_carray = self._convert_to_carray(values)
@@ -92,9 +92,9 @@ class Trainer(ConstelTrainer):
             out_carray = None
         else:
             out_carray = self._convert_to_carray(out)
-        super().pushpull(keys, values_carray, out_carray)
+        super().allreduce(keys, values_carray, out_carray)
         CArray.update_tensor(out_carray, self._num_trainers)
-    
+
     def _recv(self, keys, values):
         values_carray = self._convert_to_carray(values)
         super()._recv(keys, values_carray)
@@ -104,6 +104,24 @@ class Trainer(ConstelTrainer):
         values_carray = self._convert_to_carray(values)
         super().broadcast(keys, values_carray)
         CArray.update_tensor(values_carray)
+
+    def _migrate(self, keys, values):
+        values_carray = self._convert_to_carray(values)
+        super()._migrate(keys, values_carray)
+
+    def batch_end(self, keys=None, values=None):
+        if keys is not None and values is not None:
+            super().batch_end(keys, values)
+        else:
+            assert (
+                self._is_model_opt_set
+            ), "Model and optimizer have not been set. Please call set_model_opt() first."
+            keys_to_migration = self._batch_end_get_migrate_keys()
+            st = set(keys_to_migration)
+            params = [
+                param for i, param in enumerate(self._model.parameters()) if i in st
+            ]
+            self._migrate(keys_to_migration, params)
 
     def _convert_to_carray(self, item, cls_=CArray):
         return super()._convert_to_carray(item, cls_)
@@ -128,22 +146,22 @@ class Trainer(ConstelTrainer):
             if param is not None:
                 self._keys.append(i)
                 self._params.append(param)
-        
+
         if self._is_scale:
             if self._need_sync:
                 pass
                 self._recv(self._keys, self._params)
         else:
             self.broadcast(self._keys, self._params)
-            
+
         self._optimizer.zero_grad(set_to_none=False)
 
     def update(self):
         assert (
             self._is_model_opt_set
         ), "Model and optimizer have not been set. Please call set_model_opt() first."
-        
+
         self._grads = [param.grad for param in self._params if param.grad is not None]
-        self.pushpull(self._keys, self._grads)
+        self.allreduce(self._keys, self._grads)
         self._optimizer.step()
         self._optimizer.zero_grad(set_to_none=False)

@@ -169,6 +169,18 @@ int ConstelTrainerBatchEnd(ConstelTrainerHandle handle, int* keys_size DEFAULT(n
  */
 int ConstelTrainerGetKeysToMigrate(int* keys, const int keys_size);
 
+/** @brief migrate the keys and values to the trainer
+ * @param handle - the handle of the trainer
+ * @param key_num - the number of keys to migrate
+ * @param keys_in - the keys to migrate
+ * @param values - the values to migrate
+ * @return 0 - success, -1 - failure
+ */
+int ConstelTrainerMigrate(ConstelTrainerHandle handle,
+                          uint32_t key_num,
+                          const int* keys_in,
+                          ConstellationCArrayHandle* values);
+
 /** @brief get the rank of the trainer
  * @param handle - the handle of the trainer
  * @param rank - the rank of the trainer

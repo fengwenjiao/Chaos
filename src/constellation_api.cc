@@ -136,6 +136,20 @@ int ConstelTrainerGetKeysToMigrate(int* keys, const int keys_size) {
   API_END();
 }
 
+int ConstelTrainerMigrate(ConstelTrainerHandle handle,
+                          uint32_t key_num,
+                          const int* keys_in,
+                          ConstellationCArrayHandle* values) {
+  API_BEGIN();
+  std::vector<int> keys_in_vec(keys_in, keys_in + key_num);
+  std::vector<CArray> values_vec(key_num);
+  for (uint32_t i = 0; i < key_num; ++i) {
+    values_vec[i] = *static_cast<CArray*>(values[i]);
+  }
+  static_cast<ConstelTrainer*>(handle)->Migrate(keys_in_vec, values_vec);
+  API_END();
+}
+
 int ConstellationTrainerRank(ConstelTrainerHandle handle, int* rank) {
   API_BEGIN();
   *rank = static_cast<ConstelTrainer*>(handle)->myRank();
