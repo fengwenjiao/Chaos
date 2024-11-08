@@ -7,7 +7,7 @@
 #include "constellation_commons.h"
 #include "./algorithm_helper.h"
 
-namespace constellation::algorithm::basic{
+namespace constellation::algorithm::basic {
 
 GlobalTransTopo dfs_method(const AdjacencyList& overlay) {
   std::unordered_map<int, NodeTransTopo> transtopo;
@@ -25,7 +25,7 @@ GlobalTransTopo dfs_method(const AdjacencyList& overlay) {
   while (!q.empty()) {
     int current = q.front();
     q.pop();
-    for (const auto& neighbor : overlay.at(current))  {
+    for (const auto& neighbor : overlay.at(current)) {
       if (!visited[neighbor]) {
         visited[neighbor] = true;
         q.push(neighbor);
@@ -38,13 +38,13 @@ GlobalTransTopo dfs_method(const AdjacencyList& overlay) {
 }
 
 GlobalTransTopo random_choose_method(const AdjacencyList& overlay) {
-  using Edge = std::pair<int, int>; 
+  using Edge = std::pair<int, int>;
   GlobalTransTopo transtopo;
   if (overlay.empty()) {
     return transtopo;
   }
 
-  AdjacencyList mst;  
+  AdjacencyList mst;
   std::vector<Edge> edges;
   std::unordered_set<int> nodes;
 
@@ -61,7 +61,7 @@ GlobalTransTopo random_choose_method(const AdjacencyList& overlay) {
   std::mt19937 gen(rd());
   std::shuffle(edges.begin(), edges.end(), gen);
 
-   algorithm::helper::UnionFind<int> uf(nodes);
+  algorithm::helper::UnionFind<int> uf(nodes);
 
   for (const auto& [u, v] : edges) {
     if (uf.unionSets(u, v)) {
@@ -69,6 +69,12 @@ GlobalTransTopo random_choose_method(const AdjacencyList& overlay) {
       mst[v].push_back(u);
     }
   }
+  // mst.clear();
+  // mst.emplace(11, std::vector<int>{10});
+  // mst.emplace(10, std::vector<int>{14, 11});
+  // mst.emplace(12, std::vector<int>{14});
+  // mst.emplace(14, std::vector<int>{13, 12, 10});
+  // mst.emplace(13, std::vector<int>{14});
   auto buildTree = [](int root, const AdjacencyList& mst, GlobalTransTopo& transtopo) {
     std::unordered_set<int> visited;
     std::function<void(int)> dfs = [&](int node) {
@@ -85,9 +91,26 @@ GlobalTransTopo random_choose_method(const AdjacencyList& overlay) {
   };
 
   int root = *nodes.begin();
+  // root =13;
   buildTree(root, mst, transtopo);
+
+  bool flag = false;
+  for (const auto& [_, topo] : transtopo) {
+    if (topo.getType() == NodeTransTopo::Type::kUnset) {
+      throw std::runtime_error("Unset node in the transtopo");
+    }
+    if (flag) {
+      if (topo.getType() == NodeTransTopo::Type::kRoot) {
+        throw std::runtime_error("More than one root node in the transtopo");
+      }
+    } else {
+      if (topo.getType() == NodeTransTopo::Type::kRoot) {
+        flag = true;
+      }
+    }
+  }
 
   return transtopo;
 }
 
-} // namespace constellation::algorithm::basic
+}  // namespace constellation::algorithm::basic

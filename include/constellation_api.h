@@ -143,6 +143,22 @@ int ConstellationTrainerRecv(ConstelTrainerHandle handle,
  */
 int ConstellationTrainerIsScale(ConstelTrainerHandle handle, int* is_scale);
 
+/** @brief get the node transport topology of the trainer
+ * @param handle - the handle of the trainer
+ * @param parent - the parent of the trainer
+ * @param children - the children of the trainer
+ * @param children_size - the size of the children
+ * @return 0 - success, -1 - failure
+ */
+int ConstellationTrainerGetNodeTransTopo(ConstelTrainerHandle handle, char* buffer, uint32_t size);
+
+/** @brief get the timestamp of the trainer
+ * @param handle - the handle of the trainer
+ * @param timestamp - the timestamp of the trainer
+ * @return 0 - success, -1 - failure
+ */
+int ConstellationTrainerGetTimestamp(ConstelTrainerHandle handle, uint32_t* timestamp);
+
 /** @brief send the ready signal to the trainer
  * @param handle - the handle of the trainer
  * @return 0 - success, -1 - failure

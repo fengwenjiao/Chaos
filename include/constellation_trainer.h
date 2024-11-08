@@ -68,6 +68,9 @@ class ConstelTrainer {
     std::unique_lock<std::mutex> lock(trans_topo_mu_);
     return trans_topo_;
   }
+  inline uint32_t GetLocalTimestamp() const {
+    return clock_.getLocalTimestamp();
+  }
   inline const NodeTransTopo::Type& GetNodeType() const {
     std::unique_lock<std::mutex> lock(trans_topo_mu_);
     auto& type = trans_topo_.getType();
@@ -154,6 +157,8 @@ class ConstelTrainer {
   std::unordered_map<int, int> init_waiting_ts_;
 
   using Engine = ConstelAggEngine<EngineTaskData, int>;
+  std::unordered_map<uint32_t, std::vector<std::pair<int, EngineTaskData>>> cached_kv_;
+  std::mutex cached_kv_mu_;
 
   ScaleClock clock_;
 

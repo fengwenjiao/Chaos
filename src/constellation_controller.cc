@@ -197,6 +197,7 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
         auto serialized_tick = serilite::serialize(tick);
         auto str = serialized_tick.as_string();
         data.emplace(std::make_pair(id, str));
+        PS_VLOG(2) << "Send new tick to node: " << id << " with tick: " << tick.debug_string();
       }
       int head = static_cast<int>(kControllerSignal::kUpdateTransTopoAnouce);
       // send to all trainers and wait for response, should not wait!(dead lock)
@@ -214,10 +215,11 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
       uint32_t timestamp = std::stoi(body.substr(it + 1));
 
       this->clock_.clockTick();
+      clock_.unlock();
       if (timestamp != this->clock_.getLocalTimestamp()) {
         LOG(WARNING) << "Controller received timestamp: " << timestamp
                      << " but local timestamp is: " << this->clock_.getLocalTimestamp();
-        this->clock_.local_timestamp_ = timestamp;
+        // this->clock_.local_timestamp_ = timestamp;
       }
       break;
     }
@@ -239,7 +241,7 @@ uint32_t ConstelController::GetFutureTimtestamp() {
     return 0;
   }
   uint32_t future_timestamp = clock_.getLocalTimestamp();
-  return future_timestamp + 2;
+  return future_timestamp + 3;
 }
 
 }  // namespace constellation

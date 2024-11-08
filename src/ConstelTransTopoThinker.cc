@@ -85,6 +85,7 @@ StrategyBlock ConstelTransTopoThinker::GenerateStrategyImpl(const StrategyReques
         for (const auto& neighbor : graph.at(current)) {
           if (visited.find(neighbor) == visited.end()) {
             dfs(graph, neighbor, target, path, visited, allPaths);
+            break;
           }
         }
       }
@@ -95,7 +96,7 @@ StrategyBlock ConstelTransTopoThinker::GenerateStrategyImpl(const StrategyReques
   };
   auto generatePathsToTarget = [&dfs](const AdjacencyList& graph,
                                       int target,
-                                      int maxPaths = 1000) -> std::vector<TransPath> {
+                                      int maxPaths = 10) -> std::vector<TransPath> {
     std::vector<TransPath> allPaths;
     std::vector<TransPath> result;
 

@@ -9,6 +9,7 @@
 #include <vector>
 #include <cstdint>
 #include <deque>
+#include <mutex>
 
 #define DEFAULT_SPECIAL_MEMBERS(Type)           \
   Type() = default;                             \
@@ -24,7 +25,7 @@ bool std_isin(const T& val, const std::vector<T>& vec) {
   return std::find(vec.begin(), vec.end(), val) != vec.end();
 }
 
-template <typename T,typename V>
+template <typename T, typename V>
 bool std_isin(const T& val, const std::unordered_map<T, V>& map) {
   return map.find(val) != map.end();
 }
@@ -48,6 +49,19 @@ struct NodeTransTopo {
 
   DEFAULT_SPECIAL_MEMBERS(NodeTransTopo);
 
+  std::string debug_string() const {
+    std::string s = "{";
+    s += "'type': " + std::to_string(static_cast<int>(type_)) + ",";
+    s += "'parent': " + std::to_string(parent_) + ",";
+    s += "'children': [";
+    for (size_t i = 0; i < children_.size(); i++) {
+      const char* c = i == children_.size() - 1 ? "" : ",";
+      s += std::to_string(children_[i]) + c;
+    }
+    s += "]}";
+    return s;
+  }
+
   const Type& getType() const {
     return type_;
   }
@@ -67,17 +81,24 @@ struct NodeTransTopo {
     }
     return false;
   }
+  void update_type() {
+    if (parent_ == 0) {
+      type_ = Type::kRoot;
+    } else {
+      type_ = children_.size() > 0 ? Type::kInner : Type::kLeaf;
+    }
+  }
 
   void setParent(int parent) {
     CHECK_GE(parent, ps::kMinTrainerID);
     parent_ = parent;
-    type_ = children_.size() > 0 ? Type::kInner : Type::kLeaf;
+    update_type();
   }
 
   void addChildren(int child) {
     CHECK_GE(child, ps::kMinTrainerID);
     children_.push_back(child);
-    type_ = type_ == Type::kLeaf ? Type::kInner : Type::kRoot;
+    update_type();
   }
 
   Type type_;
@@ -164,10 +185,10 @@ struct KVSlice {
   bool is_full() const {
     return key_end > key_begin;
   }
-  std::string debug_string(){
+  std::string debug_string() {
     std::string s;
-    s+="keys: "+std::to_string(key_begin) + "-" + std::to_string(key_end) + " ";
-    s+="slice: "+std::to_string(slice) + " slice len:" + std::to_string(slice_len);
+    s += "keys: " + std::to_string(key_begin) + "-" + std::to_string(key_end) + " ";
+    s += "slice: " + std::to_string(slice) + " slice len:" + std::to_string(slice_len);
     return s;
   }
 };
@@ -187,24 +208,30 @@ struct ModelSycnConf {
   std::vector<std::vector<KVSlice>> kvslices;
   std::vector<std::vector<int>> paths;
 
-  std::string debug_string(){
+  void Clear() {
+    target_node_id.clear();
+    kvslices.clear();
+    paths.clear();
+  }
+
+  std::string debug_string() {
     std::string s;
-    s+="target node id: ";
-    for(auto& i: target_node_id){
-      s+=std::to_string(i)+" ";
+    s += "target node id: ";
+    for (auto& i : target_node_id) {
+      s += std::to_string(i) + " ";
     }
-    s+="{ ";
-    for(size_t i = 0; i < kvslices.size(); i++){
-      s+="path: ";
-      for(auto& j: paths[i]){
-        s+=std::to_string(j)+" ";
+    s += "{ ";
+    for (size_t i = 0; i < kvslices.size(); i++) {
+      s += "path: ";
+      for (auto& j : paths[i]) {
+        s += std::to_string(j) + " ";
       }
-      s+="kvslices: ";
-      for(auto& j: kvslices[i]){
-        s+=j.debug_string();
+      s += "kvslices: ";
+      for (auto& j : kvslices[i]) {
+        s += j.debug_string() + " ";
       }
     }
-    s+="}";
+    s += "}";
     return s;
   }
 };
@@ -222,6 +249,17 @@ struct ScaleClock {
     uint32_t timestamp;
     GlobalTransTopo transtopo;
     ModelSycnConf model_sync_conf;
+
+    std::string debug_string() {
+      std::string s;
+      s += "timestamp: " + std::to_string(timestamp) + " ";
+      s += "transtopo: ";
+      for (auto& [id, topo] : transtopo) {
+        s += std::to_string(id) + ": " + topo.debug_string() + " ";
+      }
+      s += "\nmodel_sync_conf: " + model_sync_conf.debug_string();
+      return s;
+    }
   };
 
   void removeTick(uint32_t timestamp) {
@@ -237,6 +275,8 @@ struct ScaleClock {
   }
 
   bool clockTick() {
+    // TODO： to be improved
+    mu_.lock();
     local_timestamp_++;
 
     if (ticks_.find(local_timestamp_) != ticks_.end()) {
@@ -244,12 +284,17 @@ struct ScaleClock {
     }
     return false;
   }
+  void unlock() {
+    mu_.unlock();
+  }
 
   const uint32_t& getLocalTimestamp() const {
+    std::lock_guard<std::mutex> lk(mu_);
     return local_timestamp_;
   }
 
   uint32_t local_timestamp_ = 0;
+  mutable std::mutex mu_;  // protect the local_timestamp_
   std::unordered_map<uint32_t, Tick> ticks_;
 };
 
