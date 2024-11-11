@@ -111,19 +111,28 @@ class Trainer(ConstelTrainer):
         values_carray = self._convert_to_carray(values)
         super()._migrate(keys, values_carray)
 
-    def batch_end(self, keys=None, values=None):
+    def batch_end(self, keys=None, values=None, _need_notify=True):
+        keys_, vals_ = None, None
+        need_notify = True
         if keys is not None and values is not None:
-            super().batch_end(keys, values)
+            keys_, vals_ = keys, values
         else:
             assert (
                 self._is_model_opt_set
             ), "Model and optimizer have not been set. Please call set_model_opt() first."
-            keys_to_migration = self._batch_end_get_migrate_keys()
-            st = set(keys_to_migration)
-            params = [
+
+            keys_ = self._batch_end_get_migrate_keys(get_from_cache=False)
+            if len(keys_) == 0:
+                return
+
+            need_notify = False
+
+            st = set(keys_)
+            vals_ = [
                 param for i, param in enumerate(self._model.parameters()) if i in st
             ]
-            self._migrate(keys_to_migration, params)
+
+        super().batch_end(keys_, vals_, need_notify)
 
     def _convert_to_carray(self, item, cls_=CArray):
         return super()._convert_to_carray(item, cls_)

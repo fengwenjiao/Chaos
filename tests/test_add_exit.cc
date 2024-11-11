@@ -6,8 +6,8 @@
 
 using namespace constellation;
 
-const int KEY_NUM = 10;
-const int TIMES = 100;
+const int KEY_NUM = 2;
+const int TIMES = 200;
 
 int main(int argc, char* argv[]) {
   test::RandomUtils::set_seed(10);
@@ -21,32 +21,32 @@ int main(int argc, char* argv[]) {
   constellation::ConstelTrainer trainer;
   int rank = trainer.myRank();
 
-  auto params = test::ParameterMock(KEY_NUM);
+  auto params = test::ParameterMock(KEY_NUM, 1000, 1000);
   params.fill(rank, 0);
   using namespace test;
-  std::cout<<params;
+  // std::cout<<params;
   trainer.NotifyReadyAndWait(true, params.keys(), params.lens());
-  if (trainer.is_scale()){
+  if (trainer.is_scale()) {
     trainer.Recv(params.keys(), params.pointers());
-  }else{
+  } else {
     trainer.Broadcast(params.keys(), params.pointers());
   }
-  std::cout<<params;
-  
+  // std::cout<<params;
 
   using namespace test;
   for (int i = 0; i < TIMES; i++) {
     // formated print time
     auto start = std::chrono::system_clock::now();
-    std::cout << "=====================" << test::GetTimestamp(trainer) << "=====================" << std::endl;
+    std::cout << "=====================" << test::GetTimestamp(trainer)
+              << "=====================" << std::endl;
     auto time = std::chrono::system_clock::to_time_t(start);
-    std::cout<< "Time: " << std::put_time(std::localtime(&time), "%H:%M:%S") << std::endl;
-    std::cout<<"MyRank: "<<trainer.myRank()<<std::endl;
+    std::cout << "Time: " << std::put_time(std::localtime(&time), "%H:%M:%S") << std::endl;
+    std::cout << "MyRank: " << trainer.myRank() << std::endl;
     std::cout << "NodeTransTopo: " << trainer.GetNodeTransTopo() << std::endl;
 
-    // trainer.PushPull(params._ids, params._parameters, params._pointers);
+    trainer.PushPull(params._ids, params._parameters, params._pointers);
 
-    std::this_thread::sleep_for(std::chrono::seconds(3));
+    std::this_thread::sleep_for(std::chrono::seconds(2));
     std::vector<int> keys_to_migrate;
     trainer.BatchEnd(&keys_to_migrate);
     if (keys_to_migrate.size() > 0) {

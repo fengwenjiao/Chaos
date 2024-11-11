@@ -7,6 +7,7 @@ from typing import Optional, List
 
 from .base import _LIB, check_call, TrainerHandle, c_str, c_array, c_array_buf, c_uint
 from .carray import CArrayBase
+import json
 
 __all__ = ["ConstelTrainer", "create_trainer_handle"]
 
@@ -95,6 +96,7 @@ class ConstelTrainer(ConstelTrainerBase):
         self._is_ready = False
         self._is_scale = None
         self._need_sync = None
+        self._keys_to_migrate = None
 
     def __del__(self):
         check_call(_LIB.ConstelTrainerHandleFree(self.handle))
@@ -121,6 +123,29 @@ class ConstelTrainer(ConstelTrainerBase):
             _LIB.ConstellationTrainerIsScale(self.handle, ctypes.byref(is_scale))
         )
         return True if is_scale.value >= 1 else False
+
+    def _get_node_transtopo(self) -> tuple[int, list]:
+        buffer_size = 100
+        buffer = ctypes.create_string_buffer(buffer_size)
+        check_call(
+            _LIB.ConstellationTrainerGetNodeTransTopo(
+                self.handle, buffer, ctypes.c_uint(buffer_size)
+            )
+        )
+        buffer = buffer.value.decode("utf-8")
+        # Parse buffer format: '{type:0, parent: 10, children: [1 2 3]}'
+        # Extract parent and children
+        buffer_dict = json.loads(buffer.replace("'", '"'))
+        parent = buffer_dict["parent"]
+        children = buffer_dict["children"]
+        return parent, children
+
+    def _get_timestamp(self) -> int:
+        timestamp = ctypes.c_uint32()
+        check_call(
+            _LIB.ConstellationTrainerGetTimestamp(self.handle, ctypes.byref(timestamp))
+        )
+        return timestamp.value
 
     def _notify_ready(
         self, model_sync=True, keys: Optional[list] = None, lens: Optional[list] = None
@@ -150,28 +175,30 @@ class ConstelTrainer(ConstelTrainerBase):
             raise RuntimeError("must provide keys and lens if model_sync is True")
         self._is_ready = True
 
-    def _batch_end_get_migrate_keys(self):
+    def _batch_end_get_migrate_keys(self, get_from_cache=False):
+        if get_from_cache:
+            assert self._keys_to_migrate is not None
+            return self._keys_to_migrate
         size = ctypes.c_int()
         check_call(_LIB.ConstelTrainerBatchEnd(self.handle, ctypes.byref(size)))
         # ConstelTrainerGetKeysToMigrate(int* keys, const int keys_size);
         keys = (ctypes.c_int * size.value)()
-        check_call(
-            _LIB.ConstelTrainerGetKeysToMigrate(
-                ctypes.POINTER(ctypes.c_int)(keys), size
-            )
-        )
-        keys_to_migrate = []
-        for i in range(size.value):
-            keys_to_migrate.append(keys[i])
+        if size.value == 0:
+            return []
+        check_call(_LIB.ConstelTrainerGetKeysToMigrate(keys, size))
+        keys_to_migrate = list(keys)
         keys_to_migrate.sort()
+        self._keys_to_migrate = keys_to_migrate.copy()
         return keys_to_migrate
 
-    def batch_end(self, keys, values):
-        keys_to_migrate = self._batch_end_get_migrate_keys()
+    def batch_end(self, keys, values, _need_notify=True):
+        keys_to_migrate = self._batch_end_get_migrate_keys(not _need_notify)
+        if len(keys_to_migrate) == 0:
+            return
 
         def check_keys(keys, keys_to_migrate):
-            for key in keys:
-                if key not in keys_to_migrate:
+            for key in keys_to_migrate:
+                if key not in keys:
                     return False
             return True
 
@@ -232,7 +259,7 @@ class ConstelTrainer(ConstelTrainerBase):
         ckeys, cvalues = _ctype_key_value_cast(keys, values)
         check_call(
             _LIB.ConstellationTrainerRecv(
-                self.handle, c_uint(len(ckeys)), ckeys, cvalues
+                self.handle, ckeys, cvalues, c_uint(len(ckeys))
             )
         )
 

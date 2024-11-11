@@ -1,4 +1,5 @@
 #include <vector>
+#include <string>
 
 #include "constellation_api.h"
 #include "constellation.h"
@@ -93,6 +94,25 @@ int ConstellationTrainerRecv(ConstelTrainerHandle handle,
 int ConstellationTrainerIsScale(ConstelTrainerHandle handle, int* is_scale) {
   API_BEGIN();
   *is_scale = static_cast<ConstelTrainer*>(handle)->is_scale() ? 1 : 0;
+  API_END();
+}
+
+int ConstellationTrainerGetNodeTransTopo(ConstelTrainerHandle handle, char* buffer, uint32_t size) {
+  API_BEGIN();
+  auto& topo = static_cast<ConstelTrainer*>(handle)->GetNodeTransTopo();
+  auto str = topo.debug_string();
+  const char* c_str = str.c_str();
+  if (size < str.size()) {
+    throw std::runtime_error("The buffer size is smaller than the size of the debug string.");
+  }
+  memcpy(buffer, c_str, str.size());
+  buffer[str.size()] = '\0';
+  API_END();
+}
+
+int ConstellationTrainerGetTimestamp(ConstelTrainerHandle handle, uint32_t* timestamp) {
+  API_BEGIN();
+  *timestamp = static_cast<ConstelTrainer*>(handle)->GetLocalTimestamp();
   API_END();
 }
 

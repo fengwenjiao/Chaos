@@ -47,7 +47,7 @@ void ConstelTrainer::NotifyReadyAndWait(bool need_sycn_model,
     // no need wait
     trainer_->Request(head, body_str, ps::kScheduler);
     while (!is_ctx_ready_.load()) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
   }
 }
@@ -80,7 +80,7 @@ bool ConstelTrainer::BatchEnd(std::vector<int>* keys_to_migrate) {
   // update Postoffice transtopo
   auto& local_transtopo = it->second;
   this->SetNodeTransTopo(local_transtopo);
-  clock_.unlock(); //TODO: to be improved
+  clock_.unlock();  // TODO: to be improved
   PS_VLOG(2) << "Update transtopo: " << local_transtopo.debug_string();
 
   if (!model_sync_conf.paths.empty()) {
@@ -306,12 +306,12 @@ void ConstelTrainer::ProcessPushData(const int key,
       data.type == TaskTypeEnum::kPushPull) {
     uint32_t timestamp = std::stoi(update.request_meta[0].extra);
     if (timestamp > now) {
-      PS_VLOG(2) <<  "timestamp: " << timestamp;
+      PS_VLOG(2) << "timestamp: " << timestamp;
       std::lock_guard<std::mutex> lock(cached_kv_mu_);
       cached_kv_[timestamp].push_back({key, data});
       return;
     }
-    }
+  }
   int all_recved = ps::Postoffice::Get()->GetMyChildren().size() + 1;
   auto& tasktype = data.type;
   if (update_buf->shouldReset)
