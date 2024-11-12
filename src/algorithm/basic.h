@@ -69,12 +69,7 @@ GlobalTransTopo random_choose_method(const AdjacencyList& overlay) {
       mst[v].push_back(u);
     }
   }
-  // mst.clear();
-  // mst.emplace(11, std::vector<int>{10});
-  // mst.emplace(10, std::vector<int>{14, 11});
-  // mst.emplace(12, std::vector<int>{14});
-  // mst.emplace(14, std::vector<int>{13, 12, 10});
-  // mst.emplace(13, std::vector<int>{14});
+
   auto buildTree = [](int root, const AdjacencyList& mst, GlobalTransTopo& transtopo) {
     std::unordered_set<int> visited;
     std::function<void(int)> dfs = [&](int node) {
@@ -91,7 +86,7 @@ GlobalTransTopo random_choose_method(const AdjacencyList& overlay) {
   };
 
   int root = *nodes.begin();
-  // root =13;
+
   buildTree(root, mst, transtopo);
 
   bool flag = false;

@@ -3,7 +3,7 @@ import ctypes
 import warnings
 from array import array
 import weakref
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 from .base import _LIB, check_call, TrainerHandle, c_str, c_array, c_array_buf, c_uint
 from .carray import CArrayBase
@@ -124,7 +124,7 @@ class ConstelTrainer(ConstelTrainerBase):
         )
         return True if is_scale.value >= 1 else False
 
-    def _get_node_transtopo(self) -> tuple[int, list]:
+    def _get_node_transtopo(self) -> Tuple[int, list]:
         buffer_size = 100
         buffer = ctypes.create_string_buffer(buffer_size)
         check_call(

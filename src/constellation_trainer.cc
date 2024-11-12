@@ -81,7 +81,6 @@ bool ConstelTrainer::BatchEnd(std::vector<int>* keys_to_migrate) {
   auto& local_transtopo = it->second;
   this->SetNodeTransTopo(local_transtopo);
   clock_.unlock();  // TODO: to be improved
-  PS_VLOG(2) << "Update transtopo: " << local_transtopo.debug_string();
 
   if (!model_sync_conf.paths.empty()) {
     PS_VLOG(2) << "BatchEnd Model Sync Conf: " << model_sync_conf.debug_string();
@@ -141,7 +140,6 @@ void ConstelTrainer::Migrate(const std::vector<int>& keys, const std::vector<CAr
           model_sync_conf.kvslices = {{slice_info}};
 
           auto str = serilite::serialize(model_sync_conf).as_string();
-          PS_VLOG(3) << "Migrate key: " << key << " to node: " << path.back();
           int ts = trainer_->ZMove(path[1], keys, *vals_s, *lens, str, cmd, [vals_s, lens]() {
             delete vals_s;
             delete lens;
@@ -243,7 +241,6 @@ void ConstelTrainer::PushPull(const std::vector<int>& keys,
     auto datas_ = std::vector<EngineTaskData>(size);
     size_t i = 0;
     for (auto& data : cached_kv_[now]) {
-      PS_VLOG(2) << "cached_kv_ key: " << data.first << "timestamp: " << now;
       keys_[i] = data.first;
       datas_[i] = data.second;
       i++;
@@ -274,12 +271,6 @@ void ConstelTrainer::PushPull(const std::vector<int>& keys,
       pairs.lens = {len};
       trainer_->Response(meta, pairs);
     }
-    std::string debug;
-    for (const auto& meta : buf->request_meta) {
-      debug += std::to_string(meta.sender) + " ";
-    }
-    LOG(INFO) << "PushPull key: " << key << " to node: " << buf->request_meta.size() << " "
-              << debug;
   }
 }
 
@@ -301,12 +292,10 @@ void ConstelTrainer::ProcessPushData(const int key,
   auto& update = data.update_buf;
   auto update_buf = GetUpdateBuf(key);
   auto now = clock_.getLocalTimestamp();
-  PS_VLOG(2) << "now: " << now;
   if (!update.request_meta.empty() && update.request_meta[0].extra.size() > 0 &&
       data.type == TaskTypeEnum::kPushPull) {
     uint32_t timestamp = std::stoi(update.request_meta[0].extra);
     if (timestamp > now) {
-      PS_VLOG(2) << "timestamp: " << timestamp;
       std::lock_guard<std::mutex> lock(cached_kv_mu_);
       cached_kv_[timestamp].push_back({key, data});
       return;
@@ -397,8 +386,6 @@ void ConstelTrainer::ProcessPushData(const int key,
         for (const auto& meta : update_buf->request_meta) {
           dbg += std::to_string(meta.sender) + " ";
         }
-        PS_VLOG(2) << "all recved. meta size: " << update_buf->request_meta.size() << "[ " << dbg
-                   << "]";
         update_buf->shouldReset = true;
         // send to father
         // TODO: int dtype = what...
