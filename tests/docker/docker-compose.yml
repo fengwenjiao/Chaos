@@ -1,0 +1,44 @@
+version: '3.8'
+
+x-worker: &worker_defaults
+  image: constellation:0.0.1
+  volumes:
+    - ../../:/constellation-rt
+  networks:
+    - constellation
+  tty: true
+  stdin_open: true
+  environment:
+    - DMLC_PS_ROOT_URI=constellation-test-master
+    - DMLC_PS_ROOT_PORT=8000
+    - DMLC_ROLE=trainer
+    - DEBUG_OVERLAY=1
+    - PS_VERBOSE=1
+
+  command: python3 /constellation-rt/tests/python/test_pushpull.py
+
+services:
+  master:
+    image: constellation:0.0.1
+    container_name: constellation-test-master
+    volumes:
+      - ../..:/constellation-rt
+    networks:
+      - constellation
+    command: python3 /constellation-rt/tests/python/test_pushpull.py
+    tty: true
+    stdin_open: true
+    environment:
+      - DMLC_PS_ROOT_URI=0.0.0.0
+      - DMLC_PS_ROOT_PORT=8000
+      - DMLC_ROLE=scheduler
+      - START_TRAINER_NUM=2
+      - DEBUG_OVERLAY=1
+      - PS_VERBOSE=3
+
+  worker:
+    <<: *worker_defaults
+
+networks:
+  constellation:
+    driver: bridge
