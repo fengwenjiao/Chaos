@@ -14,7 +14,15 @@ x-worker: &worker_defaults
     - DMLC_ROLE=trainer
     - DEBUG_OVERLAY=1
     - PS_VERBOSE=1
-
+  restart: on-failure
+  runtime: nvidia
+  deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
   command: python3 /constellation-rt/tests/python/test_pushpull.py
 
 services:
@@ -34,7 +42,7 @@ services:
       - DMLC_ROLE=scheduler
       - START_TRAINER_NUM=2
       - DEBUG_OVERLAY=1
-      - PS_VERBOSE=3
+      - PS_VERBOSE=1
 
   worker:
     <<: *worker_defaults
