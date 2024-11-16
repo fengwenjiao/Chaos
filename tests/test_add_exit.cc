@@ -6,7 +6,7 @@
 
 using namespace constellation;
 
-const int KEY_NUM = 2;
+const int KEY_NUM = 200;
 const int TIMES = 200;
 
 int main(int argc, char* argv[]) {
@@ -21,7 +21,7 @@ int main(int argc, char* argv[]) {
   constellation::ConstelTrainer trainer;
   int rank = trainer.myRank();
 
-  auto params = test::ParameterMock(KEY_NUM, 1000, 1000);
+  auto params = test::ParameterMock(KEY_NUM, 1000000, 1000000);
   params.fill(rank, 0);
   using namespace test;
   // std::cout<<params;

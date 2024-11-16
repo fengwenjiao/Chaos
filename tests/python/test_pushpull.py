@@ -10,7 +10,7 @@ from constellation.pytorch import Trainer
 
 KEY_NUM = 200  # 200 keys
 PARAMS_NUM = 1000000  # 1M parameters per key
-TEST_ITER = 20  # 20 iterations
+TEST_ITER = 200  # 20 iterations
 
 keys = list(range(KEY_NUM))
 data = [torch.randn(PARAMS_NUM, dtype=torch.float32) for _ in range(KEY_NUM)]
@@ -26,7 +26,9 @@ for i in range(TEST_ITER):
     start = time.time()
     trainer.allreduce(keys, data)
     end = time.time()
-    # print("pushpull time: ", end - start)
+    trainer.batch_end(keys, data)
+    # time.sleep(2)
+    print("pushpull time: ", end - start)
     time_cost.append(end - start)
 
 print("avg time: ", sum(time_cost) / len(time_cost))

@@ -1,0 +1,11 @@
+/build
+/.vscode
+/CMakeFiles
+/old
+tests/test_static_info
+tests/test_dynamic_info
+tests/test_iperf
+tests/test_iperf_api
+tests/test_smq_server
+tests/test_smq_client
+tests/*.out
