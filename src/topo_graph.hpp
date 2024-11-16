@@ -3,30 +3,46 @@
 
 #include <unordered_set>
 #include <vector>
+#include <string>
+#include <memory>
 
-template <typename T>
+namespace constellation {
+
+namespace topo {
+
+template <typename E>
+struct EdgeProperty {
+  E link_property;
+};
+
+template <>
+struct EdgeProperty<void> {};
+
+template <typename T, typename E = void>
+struct Edge : EdgeProperty<E> {
+  using Node = T;
+  Edge() {}
+  Edge(const Edge& other) : src(other.src), dst(other.dst) {}
+  Edge(const T& src, const T& dst) : src(src < dst ? src : dst), dst(src < dst ? dst : src) {}
+  virtual ~Edge() {}
+  bool operator==(const Edge& other) const {
+    return this->src == other.src && this->dst == other.dst;
+  }
+
+  T src;
+  T dst;
+
+  struct Hash {
+    std::size_t operator()(const Edge& edge) const {
+      return std::hash<T>()(edge.src) ^ std::hash<T>()(edge.dst);
+    }
+  };
+};
+
+template <typename Edge>
 class TopoGraph {
  public:
-  struct Edge {
-    Edge() {}
-    Edge(const Edge& other) : src(other.src), dst(other.dst) {}
-    Edge(const T& src, const T& dst) : src(src < dst ? src : dst), dst(src < dst ? dst : src) {}
-
-    bool operator==(const Edge& other) const {
-      return this->src == other.src && this->dst == other.dst;
-    }
-
-    T src;
-    T dst;
-    // maybe other infos, such as delay, bandwidth, etc.
-    // ...
-
-    struct Hash {
-      std::size_t operator()(const Edge& edge) const {
-        return std::hash<T>()(edge.src) ^ std::hash<T>()(edge.dst);
-      }
-    };
-  };
+  using T = typename Edge::Node;
   TopoGraph() {}
   bool AddNode(const T& node) {
     if (nodes_.count(node) > 0) {
@@ -101,4 +117,6 @@ class TopoGraph {
   std::unordered_set<T> nodes_;
 };
 
+}  // namespace topo
+}  // namespace constellation
 #endif  // _TOPO_GRAPH_H_

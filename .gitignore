@@ -12,6 +12,7 @@ tests/constellation_unit_tests
 dist/
 .run/
 __pycache__/
+.mypy_cache/
 
 data/
 **/data/

@@ -8,6 +8,8 @@
 
 namespace constellation {
 
+class ReadyoverlayInfo;
+
 struct ModelLoadAssignment {
   bool assignLoad(const TransPath& path, const float& load) {
     if (std::find(paths.begin(), paths.end(), path) != paths.end()) {
@@ -27,8 +29,8 @@ struct ModelLoadAssignment {
     }
   }
   /* @brief group the paths and loads by the first node in paths.
-    * Change the order of paths and loads, which make the paths and loads 
-    * that have the same first node in paths are together.  */
+   * Change the order of paths and loads, which make the paths and loads
+   * that have the same first node in paths are together.  */
   void groupByFirstNode() {
     std::vector<TransPath> new_paths;
     std::vector<float> new_loads;
@@ -63,7 +65,7 @@ struct StrategyRequest {
   };
   StrategyReqType type;
   std::vector<int> targets;
-  AdjacencyList overlay;
+  std::unique_ptr<ReadyoverlayInfo> overlay;
   std::shared_ptr<Extra> extra;
 };
 

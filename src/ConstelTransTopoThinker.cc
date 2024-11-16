@@ -1,5 +1,5 @@
 #include "constellation_transtopothinker.h"
-
+#include "node_overlay_manager.h"
 #include "algorithm/basic.h"
 
 namespace constellation {
@@ -10,7 +10,7 @@ void ConstelThinker::checkStrategy(const StrategyRequest& req,
   const auto& model_load_assignment = strategy_block.model_load_assignment_;
   // TODO: check the strategy
   const int& target = req.targets[0];
-  const auto& overlay = req.overlay;
+  const auto& overlay = req.overlay->GetReadyOverlay();
   for (size_t i = 0; i < model_load_assignment.paths.size(); i++) {
     const auto& path = model_load_assignment.getPath(i);
     // check the source and target
@@ -54,7 +54,7 @@ const GlobalTransTopo& ConstelTransTopoThinker::SendOverlay(const AdjacencyList&
 StrategyBlock ConstelTransTopoThinker::GenerateStrategyImpl(const StrategyRequest& req) {
   using StrategyReqType = StrategyRequest::StrategyReqType;
 
-  auto& overlay = req.overlay;
+  auto& overlay = req.overlay->GetReadyOverlay();
   auto& targets = req.targets;
 
   StrategyBlock strategy_block;

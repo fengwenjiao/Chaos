@@ -1,9 +1,12 @@
 #include "constellation_controller.h"
 #include "dmlc/logging.h"
 #include "./internal/serilite.hpp"
+#include "topo_graph.hpp"
+#include "node_overlay_manager.h"
 
 #if CONS_NETWORK_AWARE
 #include "clusterRM/smq.h"
+#include "./network_aware.h"
 #endif
 
 #include <cmath>
@@ -11,55 +14,8 @@
 
 namespace constellation {
 
-bool ReadyNodeOverlayManager::HandleNodeReady(int node_id) {
-  auto& connected_nodes = ps::Postoffice::Get()->GetOverlayNeighbour(node_id);
-  if (!ready_nodes_.AddNode(node_id)) {
-    // the node is already in the ready_nodes_
-    return false;
-  }
-  bool is_add_edge = false;
-  for (auto& node : connected_nodes) {
-    if (ready_nodes_.HasNode(node)) {
-      // the nerghbour is ready, then add edge
-      if (ready_nodes_.AddEdge(node_id, node)) {
-        is_add_edge = true;
-      }
-    }
-  }
-  if (!is_add_edge && ready_nodes_.NumNodes() >= 2) {
-    LOG(WARNING) << "Node " << node_id << " is ready, but no edge is added";
-  }
-  if (is_asycn_add_) {
-    is_first_reach_init_num_ = false;
-    return true;
-  }
-  // check if node number is enough
-  if (ready_nodes_.NumNodes() == ps::Postoffice::Get()->init_num_trainers()) {
-    is_asycn_add_ = true;
-    // first reach init num
-    is_first_reach_init_num_ = true;
-  }
-  return true;
-}
-
-// TODO: GetReadyOverlay() is debug version, should return the string of overlay
-AdjacencyList ReadyNodeOverlayManager::GetReadyOverlayStr() {
-  auto& edges = ready_nodes_.GetEdges();
-  AdjacencyList overlay;
-  for (auto& edge : edges) {
-    overlay[edge.src].push_back(edge.dst);
-    overlay[edge.dst].push_back(edge.src);
-  }
-  if (overlay.empty()) {
-    auto& nodes = ready_nodes_.GetNodes();
-    CHECK_EQ(nodes.size(), 1);
-    auto& node = *nodes.begin();
-    overlay[node] = std::vector<int>();
-  }
-  return overlay;
-}
-
 ConstelController::ConstelController(ConstelThinker* thinker) {
+  node_manager_ = std::make_shared<ReadyNodeOverlayManager>();
   ps::StartAsync(0, "ConstelController\0");
   using namespace std::placeholders;
   ps_scheduler_ = new ps::Controller(0);
@@ -73,12 +29,17 @@ ConstelController::ConstelController(ConstelThinker* thinker) {
   }
 #if CONS_NETWORK_AWARE
   test_server_ = new moniter::Smq();
+  test_server_->start_server();
 #endif
 }
 ConstelController::~ConstelController() {
   ps::Finalize(0, false);
   delete ps_scheduler_;
   delete thinker_;
+
+#if CONS_NETWORK_AWARE
+  delete test_server_;
+#endif
 }
 
 void ConstelController::run() {
@@ -155,7 +116,8 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
       serilite::deserialize(body, ready_signal_body);
       int ready_node_id = ready_signal_body.id;
       // TODO: handle keys and lens
-      if (!node_manager_.HandleNodeReady(ready_node_id) || !node_manager_.ShouldGetNewTransTopo()) {
+      if (!node_manager_->HandleNodeReady(ready_node_id) ||
+          !node_manager_->ShouldGetNewTransTopo()) {
         // duplicated node ready signal
         break;
       }
@@ -176,14 +138,14 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
       // get new transtopo
       // TODO: now it is just a simple version, need to be improved
       // TODO: if need remote thinker, here should just send, can not get the result immediately
-      AdjacencyList overlay = node_manager_.GetReadyOverlayStr();
+      auto overlay = node_manager_->GetReadyOverlay();
       ModelSycnConf model_sync_conf;
       model_sync_conf.target_node_id = {ready_node_id};
       auto req = StrategyRequest{StrategyRequest::StrategyReqType::kTopoAndModelSyncConfUpdate,
                                  {ready_node_id},
-                                 overlay,
+                                 std::move(overlay),
                                  nullptr};
-      if (!ready_signal_body.need_sycn_model || node_manager_.isFristReachInitNum()) {
+      if (!ready_signal_body.need_sycn_model || node_manager_->isFristReachInitNum()) {
         req.type = StrategyRequest::StrategyReqType::kTopoUpdateOnly;
       }
       auto& strategy_block = thinker_->GenerateStrategy(req);

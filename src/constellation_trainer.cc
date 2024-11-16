@@ -17,11 +17,11 @@ ConstelTrainer::ConstelTrainer() {
   static_cast<ps::SimpleApp*>(this->trainer_)
       ->set_request_handle(std::bind(&ConstelTrainer::RequestHandle, this, _1, _2));
   this->trainer_->set_request_handle(std::bind(&ConstelTrainer::DataHandle, this, _1, _2, _3));
-  
+
 #if CONS_NETWORK_AWARE
   test_client_ = new moniter::Smq();
+  test_client_->start_client();
 #endif
-
   InitEngine(2);
 }
 
@@ -31,6 +31,10 @@ ConstelTrainer::~ConstelTrainer() {
   this->trainer_ = nullptr;
   engine_->Stop();
   delete engine_;
+
+#if CONS_NETWORK_AWARE
+  delete test_client_;
+#endif
 }
 
 void ConstelTrainer::NotifyReadyAndWait(bool need_sycn_model,

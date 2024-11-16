@@ -4,7 +4,6 @@
 #include <functional>
 
 #include "./constellation_transtopothinker.h"
-#include "internal/topo_graph.hpp"
 #include "ps/ps.h"
 
 namespace moniter {
@@ -13,23 +12,7 @@ class Smq;
 
 namespace constellation {
 
-class ReadyNodeOverlayManager {
- public:
-  ReadyNodeOverlayManager() : is_asycn_add_(false), is_first_reach_init_num_{false} {}
-  bool HandleNodeReady(int node_id);
-  inline bool ShouldGetNewTransTopo() const {
-    return is_asycn_add_;
-  }
-  inline bool isFristReachInitNum() const {
-    return is_first_reach_init_num_;
-  }
-  AdjacencyList GetReadyOverlayStr();
-
- private:
-  TopoGraph<int> ready_nodes_;
-  bool is_asycn_add_;  // 0: sync join stage, 1: async join stage
-  bool is_first_reach_init_num_;
-};
+class ReadyNodeOverlayManager;
 
 class ConstelController {
  public:
@@ -73,7 +56,7 @@ class ConstelController {
   std::unordered_map<int, uint64_t> model_params_dist_;
   uint64_t model_params_total_ = 0;
 
-  ReadyNodeOverlayManager node_manager_;
+  std::shared_ptr<ReadyNodeOverlayManager> node_manager_;
 
   ScaleClock clock_;
 
