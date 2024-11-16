@@ -5,9 +5,14 @@
 #include "ps/ps.h"
 #include "./internal/CArray.h"
 #include "./internal/engine.hpp"
+#include "clusterRM/smq.h"
 
 #include <atomic>
 #include <cmath>
+
+namespace moniter {
+class Smq;
+}
 
 namespace constellation {
 
@@ -213,6 +218,10 @@ class ConstelTrainer {
   void DataHandle(const ps::KVMeta& req_meta,
                   const ps::KVPairs<char>& req_data,
                   ps::KVTrainer<char>* trainer);
+
+#ifdef CONS_NETWORK_AWARE
+  moniter::Smq* test_client_;
+#endif
 };
 }  // namespace constellation
 

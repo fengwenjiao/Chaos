@@ -7,6 +7,10 @@
 #include "internal/topo_graph.hpp"
 #include "ps/ps.h"
 
+namespace moniter {
+class Smq;
+}  // namespace moniter
+
 namespace constellation {
 
 class ReadyNodeOverlayManager {
@@ -29,35 +33,11 @@ class ReadyNodeOverlayManager {
 
 class ConstelController {
  public:
-  explicit ConstelController(ConstelThinker* thinker = nullptr) {
-    ps::StartAsync(0, "ConstelController\0");
-    using namespace std::placeholders;
-    ps_scheduler_ = new ps::Controller(0);
-    ps_scheduler_->set_request_handle(std::bind(&ConstelController::RequestHandle, this, _1, _2));
-    ps_scheduler_->set_response_handle(std::bind(&ConstelController::ResponseHandle, this, _1, _2));
+  explicit ConstelController(ConstelThinker* thinker = nullptr);
 
-    if (thinker == nullptr) {
-      thinker_ = new ConstelTransTopoThinker();
-    } else {
-      thinker_ = thinker;
-    }
-  }
+  ~ConstelController();
 
-  ~ConstelController() {
-    ps::Finalize(0, false);
-    delete ps_scheduler_;
-    delete thinker_;
-  }
-
-  void run() {
-    if (thinker_ == nullptr) {
-      LOG(INFO) << "Thinker is not set, use default thinker";
-      thinker_ = new ConstelTransTopoThinker();
-    }
-    while (true) {
-      std::this_thread::sleep_for(std::chrono::seconds(1000));
-    }
-  }
+  void run();
 
  private:
   /**
@@ -102,6 +82,10 @@ class ConstelController {
   ConstelThinker* thinker_;
 
   bool is_sycn_add_finished_ = false;
+
+#ifdef CONS_NETWORK_AWARE
+  moniter::Smq* test_server_;
+#endif
 };
 
 }  // namespace constellation

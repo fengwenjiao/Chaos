@@ -2,6 +2,10 @@
 #include "dmlc/logging.h"
 #include "./internal/serilite.hpp"
 
+#if CONS_NETWORK_AWARE
+#include "clusterRM/smq.h"
+#endif
+
 #include <cmath>
 #include <algorithm>
 
@@ -55,27 +59,37 @@ AdjacencyList ReadyNodeOverlayManager::GetReadyOverlayStr() {
   return overlay;
 }
 
-// template <typename T>
-// struct KeyIter {
-//   KeyIter(const std::unordered_map<int, T>& model_params_dist) {
-//     int idx = 0;
-//     keys_inner.resize(model_params_dist.size());
-//     for (const auto& [key, len] : model_params_dist) {
-//       keys_inner[idx++] = key;
-//     }
-//     std::sort(keys_inner.begin(), keys_inner.end());
-//   }
-//   std::optional<int> operator()() {
-//     if (idx_ >= keys_inner.size()) {
-//       return std::nullopt;
-//     }
-//     return keys_inner[idx_++];
-//   }
-//   int idx_ = 0;
-//   std::vector<int> keys_inner;
-// };
-// template <typename T>
-// KeyIter(const std::unordered_map<int, T>&) -> KeyIter<T>;
+ConstelController::ConstelController(ConstelThinker* thinker) {
+  ps::StartAsync(0, "ConstelController\0");
+  using namespace std::placeholders;
+  ps_scheduler_ = new ps::Controller(0);
+  ps_scheduler_->set_request_handle(std::bind(&ConstelController::RequestHandle, this, _1, _2));
+  ps_scheduler_->set_response_handle(std::bind(&ConstelController::ResponseHandle, this, _1, _2));
+
+  if (thinker == nullptr) {
+    thinker_ = new ConstelTransTopoThinker();
+  } else {
+    thinker_ = thinker;
+  }
+#if CONS_NETWORK_AWARE
+  test_server_ = new moniter::Smq();
+#endif
+}
+ConstelController::~ConstelController() {
+  ps::Finalize(0, false);
+  delete ps_scheduler_;
+  delete thinker_;
+}
+
+void ConstelController::run() {
+  if (thinker_ == nullptr) {
+    LOG(INFO) << "Thinker is not set, use default thinker";
+    thinker_ = new ConstelTransTopoThinker();
+  }
+  while (true) {
+    std::this_thread::sleep_for(std::chrono::seconds(1000));
+  }
+}
 
 GlobalModelSyncConf ConstelController::ModelSycnConfTransform(
     int target_id,

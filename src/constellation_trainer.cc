@@ -1,6 +1,10 @@
 #include "constellation_trainer.h"
 #include "./internal/serilite.hpp"
 
+#if CONS_NETWORK_AWARE
+#include "clusterRM/smq.h"
+#endif
+
 #include <functional>
 #include <unordered_set>
 
@@ -13,6 +17,11 @@ ConstelTrainer::ConstelTrainer() {
   static_cast<ps::SimpleApp*>(this->trainer_)
       ->set_request_handle(std::bind(&ConstelTrainer::RequestHandle, this, _1, _2));
   this->trainer_->set_request_handle(std::bind(&ConstelTrainer::DataHandle, this, _1, _2, _3));
+  
+#if CONS_NETWORK_AWARE
+  test_client_ = new moniter::Smq();
+#endif
+
   InitEngine(2);
 }
 

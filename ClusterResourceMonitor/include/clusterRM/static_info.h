@@ -1,6 +1,6 @@
 #ifndef MONITER_STATIC_INFO_H_
 #define MONITER_STATIC_INFO_H_
-#include "util.h"
+
 #include <vector>
 #include <map>
 #include <cstring>

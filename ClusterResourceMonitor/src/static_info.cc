@@ -1,5 +1,5 @@
 #include "static_info.h"
-
+#include "util.h"
 
 namespace moniter{
 float StaticInfo::get_totalram(){

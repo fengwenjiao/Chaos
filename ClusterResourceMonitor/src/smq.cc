@@ -1,4 +1,5 @@
 #include "smq.h"
+#include "util.h"
 
 namespace moniter{
 

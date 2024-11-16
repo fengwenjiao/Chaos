@@ -1,5 +1,5 @@
 #include "dynamic_info.h"
-
+#include "util.h"
 
 namespace moniter{
 struct DynamicInfo::cpu_times_stat DynamicInfo::get_cpu_times(){
