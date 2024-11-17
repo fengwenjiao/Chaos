@@ -15,8 +15,7 @@
 namespace constellation {
 
 ConstelController::ConstelController(ConstelThinker* thinker) {
-  node_manager_ = std::make_shared<ReadyNodeOverlayManager>();
-  ps::StartAsync(0, "ConstelController\0");
+    ps::StartAsync(0, "ConstelController\0");
   using namespace std::placeholders;
   ps_scheduler_ = new ps::Controller(0);
   ps_scheduler_->set_request_handle(std::bind(&ConstelController::RequestHandle, this, _1, _2));
@@ -28,18 +27,16 @@ ConstelController::ConstelController(ConstelThinker* thinker) {
     thinker_ = thinker;
   }
 #if CONS_NETWORK_AWARE
-  test_server_ = new moniter::Smq();
-  test_server_->start_server();
+  test_server_ = std::make_unique<moniter::Smq>();
+  node_manager_ = std::make_shared<aware::NetworkAwareNodeManager>(test_server_);
+#else
+  node_manager_ = std::make_shared<ReadyNodeOverlayManager>();
 #endif
 }
 ConstelController::~ConstelController() {
   ps::Finalize(0, false);
   delete ps_scheduler_;
   delete thinker_;
-
-#if CONS_NETWORK_AWARE
-  delete test_server_;
-#endif
 }
 
 void ConstelController::run() {
@@ -128,7 +125,7 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
           if (model_params_dist_.find(key) == model_params_dist_.end()) {
             model_params_dist_.emplace(std::make_pair(key, len));
             model_params_total_ += len;
-            PS_VLOG(3) << "Key: " << key << " has length: " << len;
+            // PS_VLOG(3) << "Key: " << key << " has length: " << len;
           } else if (model_params_dist_[key] != len) {
             LOG(WARNING) << "Key: " << key << " has different length: " << len
                          << " from previous length: " << model_params_dist_[key];

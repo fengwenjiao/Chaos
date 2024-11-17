@@ -19,8 +19,16 @@ ConstelTrainer::ConstelTrainer() {
   this->trainer_->set_request_handle(std::bind(&ConstelTrainer::DataHandle, this, _1, _2, _3));
 
 #if CONS_NETWORK_AWARE
-  test_client_ = new moniter::Smq();
-  test_client_->start_client();
+  test_client_ = std::make_unique<moniter::Smq>();
+  test_client_->set_id(ps::Postoffice::Get()->GetMyID());
+  auto& ip2nodes = ps::Postoffice::Get()->GetIp2Nodes();
+  std::vector<std::string> ips;
+  for (const auto& ip_nodes : ip2nodes) {
+    ips.push_back(ip_nodes.first);
+  }
+  test_client_->set_neighbors_(ips);
+  //TODO
+  test_client_thread_ = std::make_unique<std::thread>([this] { test_client_->start_client(); });
 #endif
   InitEngine(2);
 }
@@ -31,9 +39,9 @@ ConstelTrainer::~ConstelTrainer() {
   this->trainer_ = nullptr;
   engine_->Stop();
   delete engine_;
-
 #if CONS_NETWORK_AWARE
-  delete test_client_;
+  test_client_->stop();
+  test_client_thread_->join();
 #endif
 }
 

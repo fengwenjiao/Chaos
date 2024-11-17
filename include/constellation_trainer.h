@@ -220,7 +220,8 @@ class ConstelTrainer {
                   ps::KVTrainer<char>* trainer);
 
 #ifdef CONS_NETWORK_AWARE
-  moniter::Smq* test_client_;
+  std::unique_ptr<moniter::Smq> test_client_;
+  std::unique_ptr<std::thread> test_client_thread_;
 #endif
 };
 }  // namespace constellation

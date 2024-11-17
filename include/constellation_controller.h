@@ -67,7 +67,7 @@ class ConstelController {
   bool is_sycn_add_finished_ = false;
 
 #ifdef CONS_NETWORK_AWARE
-  moniter::Smq* test_server_;
+  std::unique_ptr<moniter::Smq> test_server_;
 #endif
 };
 

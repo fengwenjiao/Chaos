@@ -15,28 +15,37 @@ class ReadyoverlayInfo {
     return overlay_;
   }
 
- private:
+ protected:
   AdjacencyList overlay_;
 };
 
-class ReadyNodeOverlayManager {
+class NodeManagerBase {
  public:
-  ReadyNodeOverlayManager() : is_asycn_add_(false), is_first_reach_init_num_{false} {}
-  virtual bool HandleNodeReady(int node_id);
+  NodeManagerBase() : is_asycn_add_(false), is_first_reach_init_num_{false} {}
   inline bool ShouldGetNewTransTopo() const {
     return is_asycn_add_;
   }
   inline bool isFristReachInitNum() const {
     return is_first_reach_init_num_;
   }
-  virtual std::unique_ptr<ReadyoverlayInfo> GetReadyOverlay();
-  virtual ~ReadyNodeOverlayManager() = default;
+  virtual bool HandleNodeReady(int node_id) = 0;
+  virtual std::unique_ptr<ReadyoverlayInfo> GetReadyOverlay() = 0;
+  virtual ~NodeManagerBase() = default;
+
+ protected:
+  bool is_asycn_add_;  // 0: sync join stage, 1: async join stage
+  bool is_first_reach_init_num_;
+};
+
+class ReadyNodeOverlayManager : public NodeManagerBase {
+ public:
+  ReadyNodeOverlayManager() : NodeManagerBase() {}
+  virtual bool HandleNodeReady(int node_id) override;
+
+  virtual std::unique_ptr<ReadyoverlayInfo> GetReadyOverlay() override;
 
  private:
   topo::TopoGraph<topo::Edge<int> > ready_nodes_;
-
-  bool is_asycn_add_;  // 0: sync join stage, 1: async join stage
-  bool is_first_reach_init_num_;
 };
 
 }  // namespace constellation

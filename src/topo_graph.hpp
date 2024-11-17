@@ -5,13 +5,24 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <type_traits>
 
 namespace constellation {
 
 namespace topo {
 
+template <typename T, typename = void>
+struct has_prop_type : std::false_type {};
+
+template <typename T>
+struct has_prop_type<T, std::void_t<typename T::PropType>> : std::true_type {};
+
+template <typename T>
+constexpr bool has_prop_type_v = has_prop_type<T>::value;
+
 template <typename E>
 struct EdgeProperty {
+  using PropType = E;
   E link_property;
 };
 
@@ -39,10 +50,10 @@ struct Edge : EdgeProperty<E> {
   };
 };
 
-template <typename Edge>
+template <typename E>
 class TopoGraph {
  public:
-  using T = typename Edge::Node;
+  using T = typename E::Node;
   TopoGraph() {}
   bool AddNode(const T& node) {
     if (nodes_.count(node) > 0) {
@@ -58,7 +69,18 @@ class TopoGraph {
       edges_.insert({src, dst});
       return true;
     }
-    return edges_.insert(Edge(src, dst)).second;
+    return edges_.insert(E(src, dst)).second;
+  }
+
+  template <typename P = E, std::enable_if_t<has_prop_type_v<P>, bool>>
+  bool setEdgeProperty(const T& src, const T& dst, const typename P::PropType& link_property) {
+    Edge edge(src, dst);
+    auto it = edges_.find(edge);
+    if (it == edges_.end()) {
+      return false;
+    }
+    it->second = link_property;
+    return true;
   }
 
   bool RemoveNode(const T& node) {
@@ -66,7 +88,7 @@ class TopoGraph {
       return false;
     }
     nodes_.erase(node);
-    std::vector<Edge> to_remove;
+    std::vector<E> to_remove;
     // may use a map record node->edge to speed up
     for (const auto& edge : edges_) {
       if (edge.src == node || edge.dst == node) {
@@ -80,7 +102,7 @@ class TopoGraph {
   }
 
   bool RemoveEdge(const T& src, const T& dst) {
-    return edges_.erase(Edge(src, dst)) > 0;
+    return edges_.erase(E(src, dst)) > 0;
   }
 
   void Clear() {
@@ -104,7 +126,7 @@ class TopoGraph {
     return edges_.size();
   }
 
-  const std::unordered_set<Edge, typename Edge::Hash>& GetEdges() const {
+  const std::unordered_set<E, typename E::Hash>& GetEdges() const {
     return edges_;
   }
 
@@ -113,7 +135,7 @@ class TopoGraph {
   }
 
  private:
-  std::unordered_set<Edge, typename Edge::Hash> edges_;
+  std::unordered_set<E, typename E::Hash> edges_;
   std::unordered_set<T> nodes_;
 };
 

@@ -50,4 +50,4 @@ std::unique_ptr<ReadyoverlayInfo> ReadyNodeOverlayManager::GetReadyOverlay() {
   }
   return std::make_unique<ReadyoverlayInfo>(overlay);
 }
-} // namespace constellation
+}  // namespace constellation
