@@ -1,5 +1,6 @@
 #include "constellation_trainer.h"
 #include "./internal/serilite.hpp"
+#include "./engine.hpp"
 
 #if CONS_NETWORK_AWARE
 #include "clusterRM/smq.h"
@@ -27,7 +28,7 @@ ConstelTrainer::ConstelTrainer() {
     ips.push_back(ip_nodes.first);
   }
   test_client_->set_neighbors_(ips);
-  //TODO
+  // TODO
   test_client_thread_ = std::make_unique<std::thread>([this] { test_client_->start_client(); });
 #endif
   InitEngine(2);
@@ -300,7 +301,7 @@ int ConstelTrainer::SimplePushPullDefault(int key, const CArray& val) {
 }
 
 void ConstelTrainer::InitEngine(size_t num_thread = 8) {
-  engine_ = new Engine(num_thread);
+  engine_ = new EngineType(num_thread);
   using namespace std::placeholders;
   engine_->set_data_handle(std::bind(&ConstelTrainer::ProcessPushData, this, _1, _2, _3));
   //  engine_->set_messure_func();
@@ -309,7 +310,7 @@ void ConstelTrainer::InitEngine(size_t num_thread = 8) {
 
 void ConstelTrainer::ProcessPushData(const int key,
                                      const EngineTaskData& data,
-                                     Engine::ReturnOnAgg& rt) {
+                                     std::shared_ptr<ReturnOnAgg<EngineTaskData, int>> rt) {
   auto& update = data.update_buf;
   auto update_buf = GetUpdateBuf(key);
   auto now = clock_.getLocalTimestamp();
@@ -380,7 +381,7 @@ void ConstelTrainer::ProcessPushData(const int key,
           trainer_->Response(meta, pairs);
         }
 
-        rt(0);
+        (*rt)(0);
       }
       break;
     }
@@ -412,7 +413,7 @@ void ConstelTrainer::ProcessPushData(const int key,
         // TODO: int dtype = what...
         if (isRootNode()) {
           // for root node, no need to send, just rt(0)
-          rt(0);
+          (*rt)(0);
         } else {
           // ps::SArray vals's initialization will create the shared_ptr from the data ptr,
           // and CArray also hold the shared_ptr of the data, So here `deletable` must be false.
@@ -430,7 +431,7 @@ void ConstelTrainer::ProcessPushData(const int key,
                 delete vals;
                 delete lens;
               });
-          rt(ts);
+          (*rt)(ts);
         }
       }
       break;

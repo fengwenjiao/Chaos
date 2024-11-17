@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "internal/engine.hpp"
+#include "../src/engine.hpp"
 #include <iostream>
 
 // Define a test fixture class
@@ -14,13 +14,13 @@ class ConstelAggEngineTest : public ::testing::Test {
     }
     // Set the data handle function
     engine->set_data_handle(
-        [this](int id, int data, constellation::ConstelAggEngine<int, int>::ReturnOnAgg cb) {
+        [this](int id, int data, std::shared_ptr<constellation::ReturnOnAgg<int, int>> cb) {
           // Simulate some processing
           processed_data[id] += data;
           record[id]++;
           // Call the callback with the processed data
           if (record[id] == 2) {
-            cb(processed_data[id]);
+            (*cb)(processed_data[id]);
             processed_data[id] = 0;
             record[id] = 0;
           }
@@ -90,7 +90,7 @@ TEST_F(ConstelAggEngineTest, PushAsyncTest) {
 
   t.join();
 }
-#include<random>
+#include <random>
 TEST_F(ConstelAggEngineTest, PushTestConcurrent) {
   int count = 10;
   std::mutex mu;
@@ -100,7 +100,7 @@ TEST_F(ConstelAggEngineTest, PushTestConcurrent) {
   // generate random numbers,val1(4,10000),vals(4,10000)
   std::random_device rd;
   std::mt19937 gen(rd());
-  std::uniform_int_distribution<> dis(1,100);
+  std::uniform_int_distribution<> dis(1, 100);
   std::vector<std::vector<int>> vals1;
   std::vector<std::vector<int>> vals2;
   for (int i = 0; i < count; i++) {
@@ -113,14 +113,14 @@ TEST_F(ConstelAggEngineTest, PushTestConcurrent) {
     vals1.push_back(val1);
     vals2.push_back(val2);
   }
-  auto expected_results = vals1; // copy vals1
+  auto expected_results = vals1;  // copy vals1
   for (int i = 0; i < count; i++) {
     for (int j = 0; j < 4; j++) {
       expected_results[i][j] += vals2[i][j];
     }
   }
-  
-  std::thread t([this, &count, &vals1, &mu,&cv,&is_ready]() mutable {
+
+  std::thread t([this, &count, &vals1, &mu, &cv, &is_ready]() mutable {
     std::unique_lock<std::mutex> lock(mu);
     for (int i = 0; i < count; i++) {
       lock.unlock();
@@ -132,7 +132,6 @@ TEST_F(ConstelAggEngineTest, PushTestConcurrent) {
     }
   });
   std::unordered_map<int, int> res;
-  
 
   std::unique_lock<std::mutex> lock(mu, std::defer_lock);
   for (int i = 0; i < count; i++) {

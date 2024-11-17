@@ -4,8 +4,10 @@
 #include "./constellation_commons.h"
 #include "ps/ps.h"
 #include "./internal/CArray.h"
-#include "./internal/engine.hpp"
+
+#ifdef CONS_NETWORK_AWARE
 #include "clusterRM/smq.h"
+#endif
 
 #include <atomic>
 #include <cmath>
@@ -15,6 +17,12 @@ class Smq;
 }
 
 namespace constellation {
+
+template <typename Data, typename ResType>
+class ConstelAggEngine;
+
+template <typename Data, typename ResType>
+class ReturnOnAgg;
 
 // TODO: now only support default push pull
 enum class RequestType {
@@ -161,7 +169,6 @@ class ConstelTrainer {
 
   std::unordered_map<int, int> init_waiting_ts_;
 
-  using Engine = ConstelAggEngine<EngineTaskData, int>;
   std::unordered_map<uint32_t, std::vector<std::pair<int, EngineTaskData>>> cached_kv_;
   std::mutex cached_kv_mu_;
 
@@ -192,7 +199,9 @@ class ConstelTrainer {
 
   mutable std::mutex init_waiting_ts_mu_;
 
-  Engine* engine_;
+  using EngineType = ConstelAggEngine<EngineTaskData, int>;
+
+  EngineType* engine_;
 
   UpdateBuf* GetUpdateBuf(int key) {
     std::lock_guard<std::mutex> lock(update_buf_mu_);
@@ -211,7 +220,9 @@ class ConstelTrainer {
 
   void InitEngine(size_t num_thread);
 
-  void ProcessPushData(int key, const EngineTaskData& data, Engine::ReturnOnAgg& rt);
+  void ProcessPushData(int key,
+                       const EngineTaskData& data,
+                       std::shared_ptr<ReturnOnAgg<EngineTaskData, int>> rt);
 
   void RequestHandle(const ps::SimpleData& recved, ps::SimpleApp* app);
 

@@ -12,21 +12,28 @@
 namespace constellation {
 
 template <typename Data, typename ResType>
+class ConstelAggEngine;
+
+template <typename Data, typename ResType>
+class ReturnOnAgg {
+ public:
+  inline void operator()(const ResType& res) {
+    return_handle_(engine_, this->id, res);
+  }
+
+ private:
+  using EngineType = ConstelAggEngine<Data, ResType>;
+  friend class ConstelAggEngine<Data, ResType>;
+  int id;
+  EngineType* engine_;
+  std::function<void(EngineType*, const int, const ResType)> return_handle_;
+};
+
+template <typename Data, typename ResType>
 class ConstelAggEngine {
  public:
-  class ReturnOnAgg {
-   public:
-    inline void operator()(const ResType& res) {
-      return_handle_(engine_, this->id, res);
-    }
-
-   private:
-    friend class ConstelAggEngine;
-    int id;
-    ConstelAggEngine* engine_;
-    std::function<void(ConstelAggEngine*, const int, const ResType)> return_handle_;
-  };
-  using DataHandle = std::function<void(const int, const Data&, ReturnOnAgg&)>;
+  using ReturnOnAggType = ReturnOnAgg<Data, ResType>;
+  using DataHandle = std::function<void(const int, const Data&, std::shared_ptr<ReturnOnAggType>)>;
 
   using MessureFunc = std::function<int(int, Data)>;
 
@@ -52,12 +59,12 @@ class ConstelAggEngine {
     if (is_running_)
       this->Stop();
   }
-  inline ReturnOnAgg CreateReturnCallBack(int id) {
-    ReturnOnAgg callback;
-    callback.engine_ = this;
+  inline std::shared_ptr<ReturnOnAggType> CreateReturnCallBack(int id) {
+    auto callback = std::make_shared<ReturnOnAggType>();
+    callback->engine_ = this;
     using namespace std::placeholders;
-    callback.return_handle_ = std::bind(&ConstelAggEngine::CallBackReturnHandle, this, _1, _2, _3);
-    callback.id = id;
+    callback->return_handle_ = std::bind(&ConstelAggEngine::CallBackReturnHandle, this, _1, _2, _3);
+    callback->id = id;
     return callback;
   }
 
@@ -130,7 +137,7 @@ class ConstelAggEngine {
       auto d = std::make_shared<Data>(std::move(data[i]));
       size_t tid = GetWorkerId(id, d.get());
       queues_[tid]->Push([this, d, id]() {
-        ReturnOnAgg callback = this->CreateReturnCallBack(id);
+        auto callback = CreateReturnCallBack(id);
         this->datahandle_(id, *d, callback);
       });
     }
