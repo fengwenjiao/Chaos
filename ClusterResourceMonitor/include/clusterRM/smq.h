@@ -93,12 +93,23 @@ class Smq{
         /**
          * @brief set neighbors_ of clients
          */
-        void set_neighbors_(std::vector<std::string>& nb){neighbors_ = nb;}
+        void set_neighbors_(std::vector<std::string>& nb){
+            std::vector<std::string> neighbors;
+            for (auto& n : nb){
+                if(is_loopback(n) || n == self_ip_){
+                    continue;
+                }
+                neighbors.push_back(n);
+            }
+            neighbors_ = neighbors;
+        }
         /**
          * @brief set id 
          * @param  {int} global_id : 
          */
         inline void set_id(int global_id){id_ = global_id;};
+
+        inline void set_self_ip(const std::string& ip){self_ip_ = ip;};
     private:
         /**
          * @brief  whether smq is ready: 
@@ -110,11 +121,15 @@ class Smq{
         int epoll_fd_;
         std::vector<int> client_sockets_;
 
+        std::string self_ip_;
+
 
         std::mutex tracker_mu_;
         std::condition_variable tracker_cond_;
         std::pair<int, int> tracker_;
         std::vector<std::string> recved_info_;
+
+        static bool is_loopback(const std::string& ip);
 
         /**
          * @brief send signal to all clients

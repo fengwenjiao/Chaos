@@ -70,9 +70,22 @@ namespace moniter{
 
     void from_json(const nlohmann::json& j, moniter::SmqMeta& s) {
         j.at("id").get_to(s.id);
-        j.at("dynamic_info").get_to(s.dynamic_info);
-        j.at("static_info").get_to(s.static_info);
-        j.at("network_info").get_to(s.network_info);
+                j.at("id").get_to(s.id);
+        if (j.find("dynamic_info") == j.end()|| j.at("dynamic_info").is_null()) {
+            s.dynamic_info = {};
+        } else {
+            j.at("dynamic_info").get_to(s.dynamic_info);
+        }
+        if (j.find("static_info") == j.end() || j.at("static_info").is_null()) {
+            s.static_info = {};
+        } else {
+            j.at("static_info").get_to(s.static_info);
+        }
+        if (j.find("network_info") == j.end() || j.at("network_info").is_null()) {
+            s.network_info = {};
+        } else {
+            j.at("network_info").get_to(s.network_info);
+        }
     }
 
 
@@ -157,17 +170,23 @@ namespace moniter{
         return smq_meta;
     }
 
-    
-    void Smq::send_signal_to_clients( const char* signal) {
-        
-        char buffer[BUFFER_SIZE];
-        // std::cout<<signal<<std::endl;
-        
-        if(client_sockets_.size() == 0)LOG("no connected client");
-        for (int client_socket : client_sockets_) {
-            send(client_socket, signal, strlen(signal), 0);
-            LOG("Instruction sent to client socket " << client_socket << ": " << signal );
-        }
+    bool Smq::is_loopback(const std::string& ip) {
+      if (ip.find("127") == 0) {
+        return true;
+      }
+      return false;
+    }
+
+    void Smq::send_signal_to_clients(const char* signal) {
+      char buffer[BUFFER_SIZE];
+      // std::cout<<signal<<std::endl;
+
+      if (client_sockets_.size() == 0)
+        LOG("no connected client");
+      for (int client_socket : client_sockets_) {
+        send(client_socket, signal, strlen(signal), 0);
+        LOG("Instruction sent to client socket " << client_socket << ": " << signal);
+      }
     }
 
     void Smq::server(){
