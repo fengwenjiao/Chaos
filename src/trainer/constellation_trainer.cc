@@ -1,6 +1,7 @@
 #include "constellation_trainer.h"
-#include "./internal/serilite.hpp"
-#include "./engine.hpp"
+
+#include "../utils/serilite.hpp"
+#include "engine.hpp"
 
 #if CONS_NETWORK_AWARE
 #include "clusterRM/smq.h"

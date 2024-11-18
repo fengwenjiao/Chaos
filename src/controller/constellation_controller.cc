@@ -1,12 +1,14 @@
 #include "constellation_controller.h"
 #include "dmlc/logging.h"
-#include "./internal/serilite.hpp"
-#include "topo_graph.hpp"
-#include "node_overlay_manager.h"
+
+#include "../utils/serilite.hpp"
+#include "../overlay/topo_graph.hpp"
+#include "../overlay/node_overlay_manager.h"
+#include "../thinker/ConstelTransTopoThinker.h"
 
 #if CONS_NETWORK_AWARE
 #include "clusterRM/smq.h"
-#include "./network_aware.h"
+#include "../overlay/network_aware/network_aware.h"
 #endif
 
 #include <cmath>
@@ -15,7 +17,7 @@
 namespace constellation {
 
 ConstelController::ConstelController(ConstelThinker* thinker) {
-    ps::StartAsync(0, "ConstelController\0");
+  ps::StartAsync(0, "ConstelController\0");
   using namespace std::placeholders;
   ps_scheduler_ = new ps::Controller(0);
   ps_scheduler_->set_request_handle(std::bind(&ConstelController::RequestHandle, this, _1, _2));
@@ -51,21 +53,21 @@ void ConstelController::run() {
 
 GlobalModelSyncConf ConstelController::ModelSycnConfTransform(
     int target_id,
-    ModelLoadAssignment model_load_assignment) {
+    std::unique_ptr<ModelLoadAssignment> model_load_assignment) {
   GlobalModelSyncConf global_model_sync_conf;
-  model_load_assignment.normalize();
-  model_load_assignment.groupByFirstNode();
+  model_load_assignment->normalize();
+  model_load_assignment->groupByFirstNode();
   int key = 0;
   uint64_t tot_len = 0;
   uint64_t cur_len = 0;
   int full_key_begin = -1;
   int full_key_end = -1;
   uint64_t piece;
-  for (size_t i = 0; i < model_load_assignment.paths.size(); i++) {
-    const auto& path = model_load_assignment.getPath(i);
+  for (size_t i = 0; i < model_load_assignment->paths.size(); i++) {
+    const auto& path = model_load_assignment->getPath(i);
     const int& node = path[0];
-    const float& load = model_load_assignment.loads[i];
-    uint64_t slice_len = (i < model_load_assignment.paths.size() - 1) ?
+    const float& load = model_load_assignment->loads[i];
+    uint64_t slice_len = (i < model_load_assignment->paths.size() - 1) ?
                              std::ceil(load * model_params_total_) :
                              model_params_total_ - tot_len;
     auto& model_sc_ = global_model_sync_conf[node];
@@ -148,7 +150,8 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
       auto& strategy_block = thinker_->GenerateStrategy(req);
       auto& transtopo = strategy_block.global_topo_;
       auto& model_load_assignment = strategy_block.model_load_assignment_;
-      auto global_model_sync_conf = ModelSycnConfTransform(ready_node_id, model_load_assignment);
+      auto global_model_sync_conf = ModelSycnConfTransform(
+          ready_node_id, std::make_unique<ModelLoadAssignment>(model_load_assignment));
 
       // Decide a new future timestamp
       uint32_t future_timestamp = GetFutureTimtestamp();

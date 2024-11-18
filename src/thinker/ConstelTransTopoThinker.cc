@@ -1,33 +1,11 @@
-#include "constellation_transtopothinker.h"
-#include "node_overlay_manager.h"
-#include "algorithm/basic.h"
+#include "ConstelTransTopoThinker.h"
+#include "../overlay/node_overlay_manager.h"
+#include "../algorithm/basic.h"
+
+#include <functional>
+#include <random>
 
 namespace constellation {
-
-void ConstelThinker::checkStrategy(const StrategyRequest& req,
-                                   const StrategyBlock& strategy_block) {
-  const auto& transtopo = strategy_block.global_topo_;
-  const auto& model_load_assignment = strategy_block.model_load_assignment_;
-  // TODO: check the strategy
-  const int& target = req.targets[0];
-  const auto& overlay = req.overlay->GetReadyOverlay();
-  for (size_t i = 0; i < model_load_assignment.paths.size(); i++) {
-    const auto& path = model_load_assignment.getPath(i);
-    // check the source and target
-    CHECK_GT(path.size(), 1);
-    CHECK(overlay.find(*path.cbegin()) != overlay.end());
-    CHECK_EQ(*path.crbegin(), target);
-    // check the node is unique
-    CHECK(algorithm::helper::checkUnique(path));
-  }
-}
-
-const StrategyBlock& ConstelThinker::GenerateStrategy(const StrategyRequest& req) {
-  auto strategy_block = this->GenerateStrategyImpl(req);
-  checkStrategy(req, strategy_block);
-  this->strategy_block_ = std::move(strategy_block);
-  return this->strategy_block_;
-}
 
 GlobalTransTopo ConstelTransTopoThinker::decideNewTransTopo(const AdjacencyList& overlay, int) {
   return algorithm::basic::random_choose_method(overlay);
@@ -36,20 +14,20 @@ GlobalTransTopo ConstelTransTopoThinker::decideNewTransTopo(const AdjacencyList&
 void ConstelTransTopoThinker::deciedModelSyncConf(const AdjacencyList& overlay,
                                                   ModelSycnConf& model_sync_conf) {}
 
-const GlobalTransTopo& ConstelTransTopoThinker::SendOverlay(const AdjacencyList& overlay,
-                                                            ModelSycnConf& model_sync_conf) {
-  GlobalTransTopo transtopo;
-  if (overlay.size() == 1) {
-    NodeTransTopo topo;
-    topo.setoRoot();
-    int node_id = overlay.begin()->first;
-    transtopo[node_id] = topo;
-  } else {
-    transtopo = decideNewTransTopo(overlay, 1);
-  }
-  this->global_topo_ = std::move(transtopo);
-  return this->global_topo_;
-}
+// const GlobalTransTopo& ConstelTransTopoThinker::SendOverlay(const AdjacencyList& overlay,
+//                                                             ModelSycnConf& model_sync_conf) {
+//   GlobalTransTopo transtopo;
+//   if (overlay.size() == 1) {
+//     NodeTransTopo topo;
+//     topo.setoRoot();
+//     int node_id = overlay.begin()->first;
+//     transtopo[node_id] = topo;
+//   } else {
+//     transtopo = decideNewTransTopo(overlay, 1);
+//   }
+//   this->global_topo_ = std::move(transtopo);
+//   return this->global_topo_;
+// }
 
 StrategyBlock ConstelTransTopoThinker::GenerateStrategyImpl(const StrategyRequest& req) {
   using StrategyReqType = StrategyRequest::StrategyReqType;
@@ -94,9 +72,8 @@ StrategyBlock ConstelTransTopoThinker::GenerateStrategyImpl(const StrategyReques
     path.pop_back();
     visited.erase(current);
   };
-  auto generatePathsToTarget = [&dfs](const AdjacencyList& graph,
-                                      int target,
-                                      int maxPaths = 10) -> std::vector<TransPath> {
+  auto generatePathsToTarget =
+      [&dfs](const AdjacencyList& graph, int target, int maxPaths = 10) -> std::vector<TransPath> {
     std::vector<TransPath> allPaths;
     std::vector<TransPath> result;
 

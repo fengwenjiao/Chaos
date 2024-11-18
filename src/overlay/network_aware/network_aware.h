@@ -1,7 +1,7 @@
 #pragma once
-#include "topo_graph.hpp"
+#include "../topo_graph.hpp"
 #include "clusterRM/smq.h"
-#include "node_overlay_manager.h"
+#include "../node_overlay_manager.h"
 
 #include <thread>
 

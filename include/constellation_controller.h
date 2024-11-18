@@ -3,7 +3,7 @@
 
 #include <functional>
 
-#include "./constellation_transtopothinker.h"
+#include "./constellation_thinker.h"
 #include "ps/ps.h"
 
 namespace moniter {
@@ -27,7 +27,7 @@ class ConstelController {
    * \brief Transform the ModelLoadAssignment to GlobalModelSyncConf
    */
   GlobalModelSyncConf ModelSycnConfTransform(int target_id,
-                                             ModelLoadAssignment model_load_assignment);
+                                             std::unique_ptr<ModelLoadAssignment> model_load_assignment);
   /**
    * \brief Controller handle for all received request
    */

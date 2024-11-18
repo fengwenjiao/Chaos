@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "../src/engine.hpp"
+#include "../src/trainer/engine.hpp"
 #include <iostream>
 
 // Define a test fixture class

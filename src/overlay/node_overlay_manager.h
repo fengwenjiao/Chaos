@@ -1,6 +1,7 @@
 #pragma once
-#include "topo_graph.hpp"
 #include "constellation_commons.h"
+
+#include "topo_graph.hpp"
 
 #include <memory>
 

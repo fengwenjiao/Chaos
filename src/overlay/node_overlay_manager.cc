@@ -1,4 +1,4 @@
-#include "./node_overlay_manager.h"
+#include "node_overlay_manager.h"
 #include "ps/ps.h"
 
 namespace constellation {
