@@ -16,9 +16,9 @@ class ConstelTransTopoThinker : public ConstelThinker {
  private:
   virtual StrategyBlock GenerateStrategyImpl(const StrategyRequest& req) override;
 
-  virtual GlobalTransTopo decideNewTransTopo(const AdjacencyList& overlay, int);
+  virtual GlobalTransTopo decideNewTransTopo(const StrategyRequest& req);
 
-  void deciedModelSyncConf(const AdjacencyList& overlay, ModelSycnConf& model_sync_conf);
+  virtual GlobalModelSyncConf deciedModelSyncConf(const StrategyRequest& req);
 };
 
 }  // namespace constellation

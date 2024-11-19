@@ -87,12 +87,36 @@ std::vector<TransPath> selectRandomPaths(const std::vector<TransPath>& paths,
   return selectedPaths;
 };
 
-GlobalTransTopo ConstelTransTopoThinker::decideNewTransTopo(const AdjacencyList& overlay, int) {
+GlobalTransTopo ConstelTransTopoThinker::decideNewTransTopo(const StrategyRequest& req) {
+  auto& overlay = req.overlay->GetReadyOverlay();
+  if (overlay.size() == 1) {
+    GlobalTransTopo transtopo;
+    NodeTransTopo topo;
+    topo.setoRoot();
+    int node_id = overlay.begin()->first;
+    transtopo.emplace(node_id, topo);
+    return transtopo;
+  }
   return algorithm::basic::random_choose_method(overlay);
 }
 
-void ConstelTransTopoThinker::deciedModelSyncConf(const AdjacencyList& overlay,
-                                                  ModelSycnConf& model_sync_conf) {}
+GlobalModelSyncConf ConstelTransTopoThinker::deciedModelSyncConf(const StrategyRequest& req) {
+  auto& overlay = req.overlay->GetReadyOverlay();
+  auto& targets = req.targets;
+  CHECK_EQ(targets.size(), 1);
+  const auto target = targets[0];
+  const auto it = overlay.find(target);
+  CHECK(it != overlay.end());
+
+  ModelLoadAssignment model_load_assignment;
+  std::vector<TransPath> allPaths;
+  allPaths = generatePathsToTarget(overlay, target, 5);
+  auto paths = selectRandomPaths(allPaths, 2);
+  for (const auto& path : paths) {
+    model_load_assignment.assignLoad(path, 1.0);
+  }
+  return ModelSycnConfTransform(target, model_load_assignment);
+}
 
 GlobalModelSyncConf ConstelTransTopoThinker::ModelSycnConfTransform(
     int target_id,
@@ -152,21 +176,6 @@ GlobalModelSyncConf ConstelTransTopoThinker::ModelSycnConfTransform(
   return global_model_sync_conf;
 }
 
-// const GlobalTransTopo& ConstelTransTopoThinker::SendOverlay(const AdjacencyList& overlay,
-//                                                             ModelSycnConf& model_sync_conf) {
-//   GlobalTransTopo transtopo;
-//   if (overlay.size() == 1) {
-//     NodeTransTopo topo;
-//     topo.setoRoot();
-//     int node_id = overlay.begin()->first;
-//     transtopo[node_id] = topo;
-//   } else {
-//     transtopo = decideNewTransTopo(overlay, 1);
-//   }
-//   this->global_topo_ = std::move(transtopo);
-//   return this->global_topo_;
-// }
-
 StrategyBlock ConstelTransTopoThinker::GenerateStrategyImpl(const StrategyRequest& req) {
   using StrategyReqType = StrategyRequest::StrategyReqType;
 
@@ -177,35 +186,12 @@ StrategyBlock ConstelTransTopoThinker::GenerateStrategyImpl(const StrategyReques
   auto& global_topo = strategy_block.global_topo_;
   auto& global_sync_conf = strategy_block.global_model_sync_conf_;
 
-  ModelLoadAssignment model_load_assignment;
-  std::vector<TransPath> allPaths;
-
-  switch (req.type) {
+    switch (req.type) {
     case StrategyReqType::kTopoAndModelSyncConfUpdate: {
-      // TODO
-      CHECK_EQ(targets.size(), 1);
-      const auto target = targets[0];
-      const auto it = overlay.find(target);
-      CHECK(it != overlay.end());
-
-      allPaths = generatePathsToTarget(overlay, target, 5);
-      auto paths = selectRandomPaths(allPaths, 2);
-      for (const auto& path : paths) {
-        model_load_assignment.assignLoad(path, 1.0);
-      }
-      global_sync_conf = ModelSycnConfTransform(target, model_load_assignment);
+      global_sync_conf = deciedModelSyncConf(req);
     }
     case StrategyReqType::kTopoUpdateOnly: {
-      GlobalTransTopo transtopo;
-      if (overlay.size() == 1) {
-        NodeTransTopo topo;
-        topo.setoRoot();
-        int node_id = overlay.begin()->first;
-        transtopo[node_id] = topo;
-      } else {
-        transtopo = decideNewTransTopo(overlay, 1);
-      }
-      global_topo = std::move(transtopo);
+      global_topo = decideNewTransTopo(req);
       break;
     }
 
