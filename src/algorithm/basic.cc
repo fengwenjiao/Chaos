@@ -6,7 +6,7 @@
 
 namespace constellation::algorithm::basic {
 
-GlobalTransTopo dfs_method(const AdjacencyList& overlay) {
+GlobalTransTopo dfs_tree(const AdjacencyList& overlay) {
   std::unordered_map<int, NodeTransTopo> transtopo;
   if (overlay.empty()) {
     return transtopo;
@@ -34,7 +34,7 @@ GlobalTransTopo dfs_method(const AdjacencyList& overlay) {
   return transtopo;
 }
 
-GlobalTransTopo random_choose_method(const AdjacencyList& overlay) {
+GlobalTransTopo random_choose_tree(const AdjacencyList& overlay) {
   using Edge = std::pair<int, int>;
   GlobalTransTopo transtopo;
   if (overlay.empty()) {
@@ -103,6 +103,63 @@ GlobalTransTopo random_choose_method(const AdjacencyList& overlay) {
   }
 
   return transtopo;
+}
+
+void dfs(const AdjacencyList& graph,
+         int current,
+         int target,
+         std::vector<int>& path,
+         std::unordered_set<int>& visited,
+         std::vector<TransPath>& allPaths) {
+  path.push_back(current);
+  visited.insert(current);
+
+  if (current == target) {
+    allPaths.emplace_back(path);
+  } else {
+    if (graph.find(current) != graph.end()) {
+      for (const auto& neighbor : graph.at(current)) {
+        if (visited.find(neighbor) == visited.end()) {
+          dfs(graph, neighbor, target, path, visited, allPaths);
+          break;
+        }
+      }
+    }
+  }
+
+  path.pop_back();
+  visited.erase(current);
+};
+
+std::vector<TransPath> random_choose_paths(AdjacencyList overlay, int target, int maxPaths) {
+  std::vector<TransPath> allPaths;
+  std::vector<TransPath> result;
+
+  // random order of nodes
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  for (auto& [node, neighbors] : overlay) {
+    std::shuffle(neighbors.begin(), neighbors.end(), gen);
+  }
+
+  for (const auto& [node, _] : overlay) {
+    if (node == target)
+      continue;
+    std::vector<int> path;
+    std::unordered_set<int> visited;
+    dfs(overlay, node, target, path, visited, allPaths);
+
+    for (const auto& p : allPaths) {
+      if (p.path.back() == target) {
+        result.emplace_back(p);
+        if (result.size() >= maxPaths) {
+          return result;
+        }
+      }
+    }
+    allPaths.clear();
+  }
+  return result;
 }
 
 }  // namespace constellation::algorithm::basic

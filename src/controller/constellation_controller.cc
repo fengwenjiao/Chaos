@@ -23,7 +23,7 @@ ConstelController::ConstelController(ConstelThinker* thinker) {
   ps_scheduler_->set_response_handle(std::bind(&ConstelController::ResponseHandle, this, _1, _2));
 
   if (thinker == nullptr) {
-    thinker_ = new ConstelTransTopoThinker();
+    thinker_ = new ConstelSimpleThinker();
   } else {
     thinker_ = thinker;
   }
@@ -43,7 +43,7 @@ ConstelController::~ConstelController() {
 void ConstelController::run() {
   if (thinker_ == nullptr) {
     LOG(INFO) << "Thinker is not set, use default thinker";
-    thinker_ = new ConstelTransTopoThinker();
+    thinker_ = new ConstelSimpleThinker();
   }
   while (true) {
     std::this_thread::sleep_for(std::chrono::seconds(1000));

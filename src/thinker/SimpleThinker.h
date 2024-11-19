@@ -4,7 +4,7 @@
 
 namespace constellation {
 
-class ConstelTransTopoThinker : public ConstelThinker {
+class ConstelSimpleThinker : public ConstelThinker {
  public:
  protected:
   /**

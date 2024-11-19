@@ -7,118 +7,28 @@
 
 namespace constellation {
 
-void dfs(const AdjacencyList& graph,
-         int current,
-         int target,
-         std::vector<int>& path,
-         std::unordered_set<int>& visited,
-         std::vector<TransPath>& allPaths) {
-  path.push_back(current);
-  visited.insert(current);
-
-  if (current == target) {
-    allPaths.emplace_back(path);
-  } else {
-    if (graph.find(current) != graph.end()) {
-      for (const auto& neighbor : graph.at(current)) {
-        if (visited.find(neighbor) == visited.end()) {
-          dfs(graph, neighbor, target, path, visited, allPaths);
-          break;
-        }
-      }
-    }
-  }
-
-  path.pop_back();
-  visited.erase(current);
-};
-
-std::vector<TransPath> generatePathsToTarget(const AdjacencyList& graph,
-                                             int target,
-                                             int maxPaths = 10) {
-  std::vector<TransPath> allPaths;
-  std::vector<TransPath> result;
-
-  for (const auto& [node, _] : graph) {
-    if (node == target)
-      continue;
-    std::vector<int> path;
-    std::unordered_set<int> visited;
-    dfs(graph, node, target, path, visited, allPaths);
-
-    for (const auto& p : allPaths) {
-      if (p.path.back() == target) {
-        result.emplace_back(p);
-        if (result.size() >= maxPaths) {
-          return result;
-        }
-      }
-    }
-    allPaths.clear();
-  }
-  return result;
-}
-
-std::vector<TransPath> selectRandomPaths(const std::vector<TransPath>& paths,
-                                         size_t numberOfPaths) {
-  std::vector<TransPath> selectedPaths;
-
-  if (paths.empty()) {
-    return selectedPaths;
-  }
-
-  if (numberOfPaths >= paths.size()) {
-    return paths;
-  }
-
-  std::random_device rd;
-  std::mt19937 gen(rd());
-
-  std::vector<size_t> indices(paths.size());
-  for (size_t i = 0; i < indices.size(); ++i) {
-    indices[i] = i;
-  }
-  std::shuffle(indices.begin(), indices.end(), gen);
-
-  for (size_t i = 0; i < numberOfPaths; ++i) {
-    selectedPaths.emplace_back(paths[indices[i]]);
-  }
-
-  return selectedPaths;
-};
-
-GlobalTransTopo ConstelTransTopoThinker::decideNewTransTopo(const StrategyRequest& req) {
+GlobalTransTopo ConstelSimpleThinker::decideNewTransTopo(const StrategyRequest& req) {
   auto& overlay = req.overlay->GetReadyOverlay();
-  if (overlay.size() == 1) {
-    GlobalTransTopo transtopo;
-    NodeTransTopo topo;
-    topo.setoRoot();
-    int node_id = overlay.begin()->first;
-    transtopo.emplace(node_id, topo);
-    return transtopo;
-  }
-  return algorithm::basic::random_choose_method(overlay);
+  return algorithm::basic::random_choose_tree(overlay);
 }
 
-GlobalModelSyncConf ConstelTransTopoThinker::deciedModelSyncConf(const StrategyRequest& req) {
+GlobalModelSyncConf ConstelSimpleThinker::deciedModelSyncConf(const StrategyRequest& req) {
   auto& overlay = req.overlay->GetReadyOverlay();
   auto& targets = req.targets;
-  CHECK_EQ(targets.size(), 1);
-  const auto target = targets[0];
-  const auto it = overlay.find(target);
-  CHECK(it != overlay.end());
 
+  const auto target = targets[0];
   ModelLoadAssignment model_load_assignment;
   std::vector<TransPath> allPaths;
-  allPaths = generatePathsToTarget(overlay, target, 5);
-  auto paths = selectRandomPaths(allPaths, 2);
+  using namespace algorithm;
+  allPaths = basic::random_choose_paths(overlay, target, 5);
+  auto paths = helper::randomChoose(allPaths, 2);
   for (const auto& path : paths) {
     model_load_assignment.assignLoad(path, 1.0);
   }
   return ModelSycnConfTransform(target, model_load_assignment);
 }
 
-GlobalModelSyncConf ConstelTransTopoThinker::ModelSycnConfTransform(
+GlobalModelSyncConf ConstelSimpleThinker::ModelSycnConfTransform(
     int target_id,
     ModelLoadAssignment& model_load_assignment) {
   GlobalModelSyncConf global_model_sync_conf;
@@ -176,7 +86,7 @@ GlobalModelSyncConf ConstelTransTopoThinker::ModelSycnConfTransform(
   return global_model_sync_conf;
 }
 
-StrategyBlock ConstelTransTopoThinker::GenerateStrategyImpl(const StrategyRequest& req) {
+StrategyBlock ConstelSimpleThinker::GenerateStrategyImpl(const StrategyRequest& req) {
   using StrategyReqType = StrategyRequest::StrategyReqType;
 
   auto& overlay = req.overlay->GetReadyOverlay();
@@ -186,12 +96,24 @@ StrategyBlock ConstelTransTopoThinker::GenerateStrategyImpl(const StrategyReques
   auto& global_topo = strategy_block.global_topo_;
   auto& global_sync_conf = strategy_block.global_model_sync_conf_;
 
-    switch (req.type) {
+  switch (req.type) {
     case StrategyReqType::kTopoAndModelSyncConfUpdate: {
       global_sync_conf = deciedModelSyncConf(req);
     }
     case StrategyReqType::kTopoUpdateOnly: {
-      global_topo = decideNewTransTopo(req);
+      if (overlay.size() == 1) {
+        GlobalTransTopo transtopo;
+        NodeTransTopo topo;
+        topo.setoRoot();
+        int node_id = overlay.begin()->first;
+        transtopo.emplace(node_id, topo);
+        global_topo = std::move(transtopo);
+      } else {
+        CHECK_EQ(targets.size(), 1);
+        const auto it = overlay.find(targets[0]);
+        CHECK(it != overlay.end());
+        global_topo = decideNewTransTopo(req);
+      }
       break;
     }
 
