@@ -4,8 +4,7 @@
 #include "../utils/serilite.hpp"
 #include "../overlay/topo_graph.hpp"
 #include "../overlay/node_overlay_manager.h"
-#include "../thinker/ConstelTransTopoThinker.h"
-
+#include "../thinker/SimpleThinker.h"
 #if CONS_NETWORK_AWARE
 #include "clusterRM/smq.h"
 #include "../overlay/network_aware/network_aware.h"
@@ -51,61 +50,6 @@ void ConstelController::run() {
   }
 }
 
-GlobalModelSyncConf ConstelController::ModelSycnConfTransform(
-    int target_id,
-    std::unique_ptr<ModelLoadAssignment> model_load_assignment) {
-  GlobalModelSyncConf global_model_sync_conf;
-  model_load_assignment->normalize();
-  model_load_assignment->groupByFirstNode();
-  int key = 0;
-  uint64_t tot_len = 0;
-  uint64_t cur_len = 0;
-  int full_key_begin = -1;
-  int full_key_end = -1;
-  uint64_t piece;
-  for (size_t i = 0; i < model_load_assignment->paths.size(); i++) {
-    const auto& path = model_load_assignment->getPath(i);
-    const int& node = path[0];
-    const float& load = model_load_assignment->loads[i];
-    uint64_t slice_len = (i < model_load_assignment->paths.size() - 1) ?
-                             std::ceil(load * model_params_total_) :
-                             model_params_total_ - tot_len;
-    auto& model_sc_ = global_model_sync_conf[node];
-    model_sc_.target_node_id.push_back(target_id);
-    model_sc_.paths.emplace_back(path);
-    model_sc_.kvslices.emplace_back();
-    if (cur_len > 0) {
-      piece = std::min(slice_len, model_params_dist_[key] - cur_len);
-      model_sc_.kvslices.back().emplace_back(key, cur_len, piece);
-      cur_len += piece;
-      cur_len %= model_params_dist_[key];
-      tot_len += piece;
-      slice_len -= piece;
-      if (cur_len == 0 && !std_isin(++key, model_params_dist_)) {
-        CHECK_EQ(slice_len, 0);
-        break;
-      }
-    }
-    full_key_begin = key;
-    while (std_isin(key, model_params_dist_) && slice_len >= model_params_dist_[key]) {
-      auto lent = model_params_dist_[key++];
-      slice_len -= lent;
-      tot_len += lent;
-    }
-    full_key_end = key;
-    if (full_key_end > full_key_begin) {
-      model_sc_.kvslices.back().emplace_back(full_key_begin, full_key_end);
-    }
-    if (slice_len > 0) {
-      model_sc_.kvslices.back().emplace_back(key, 0, slice_len);
-      cur_len = slice_len;
-      tot_len += slice_len;
-    }
-  }
-
-  return global_model_sync_conf;
-}
-
 void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleApp* app) {
   kControllerSignal signal = static_cast<kControllerSignal>(recved.head);
   const std::string& body = recved.body;
@@ -121,17 +65,23 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
         break;
       }
       if (ready_signal_body.need_sycn_model) {
+        CHECK(ready_signal_body.keys.size() > 0) << "keys size should be greater than 0";
+        int priv = ready_signal_body.keys[0];
         for (int i = 0; i < ready_signal_body.keys.size(); i++) {
-          const auto& key = ready_signal_body.keys[i];
+          const auto key = ready_signal_body.keys[i];
           const auto& len = ready_signal_body.lens[i];
-          if (model_params_dist_.find(key) == model_params_dist_.end()) {
-            model_params_dist_.emplace(std::make_pair(key, len));
-            model_params_total_ += len;
-            // PS_VLOG(3) << "Key: " << key << " has length: " << len;
-          } else if (model_params_dist_[key] != len) {
-            LOG(WARNING) << "Key: " << key << " has different length: " << len
-                         << " from previous length: " << model_params_dist_[key];
+          if (i != 0) {
+            CHECK_EQ(key, priv + 1)
+                << "keys should be continuous" << "priv: " << priv << " key: " << key;
+            priv = key;
           }
+          if (thinker_->getParamsSize(key) == 0) {
+            thinker_->setParamsDist(key, len);
+          } else if (thinker_->getParamsSize(key) != len) {
+            LOG(WARNING) << "Key: " << key << " has different length: " << len
+                         << " from previous length: " << thinker_->getParamsSize(key);
+          }
+          thinker_->setParamsDist(key, len);
         }
       }
       // get new transtopo
@@ -147,11 +97,9 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
       if (!ready_signal_body.need_sycn_model || node_manager_->isFristReachInitNum()) {
         req.type = StrategyRequest::StrategyReqType::kTopoUpdateOnly;
       }
-      auto& strategy_block = thinker_->GenerateStrategy(req);
+      auto strategy_block = thinker_->GenerateStrategy(req);
       auto& transtopo = strategy_block.global_topo_;
-      auto& model_load_assignment = strategy_block.model_load_assignment_;
-      auto global_model_sync_conf = ModelSycnConfTransform(
-          ready_node_id, std::make_unique<ModelLoadAssignment>(model_load_assignment));
+      auto& global_model_sync_conf = strategy_block.global_model_sync_conf_;
 
       // Decide a new future timestamp
       uint32_t future_timestamp = GetFutureTimtestamp();

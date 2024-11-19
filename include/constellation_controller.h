@@ -3,7 +3,7 @@
 
 #include <functional>
 
-#include "./constellation_thinker.h"
+#include "constellation_thinker.h"
 #include "ps/ps.h"
 
 namespace moniter {
@@ -23,11 +23,6 @@ class ConstelController {
   void run();
 
  private:
-  /**
-   * \brief Transform the ModelLoadAssignment to GlobalModelSyncConf
-   */
-  GlobalModelSyncConf ModelSycnConfTransform(int target_id,
-                                             std::unique_ptr<ModelLoadAssignment> model_load_assignment);
   /**
    * \brief Controller handle for all received request
    */
@@ -52,9 +47,6 @@ class ConstelController {
    * \brief send message to some trainer
    */
   void SendToTrainer(int head, const std::string& body, int recv_id);
-
-  std::unordered_map<int, uint64_t> model_params_dist_;
-  uint64_t model_params_total_ = 0;
 
   std::shared_ptr<ReadyNodeOverlayManager> node_manager_;
 
