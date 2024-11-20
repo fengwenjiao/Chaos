@@ -5,7 +5,6 @@
 namespace constellation {
 
 class ConstelSimpleThinker : public ConstelThinker {
- public:
  protected:
   /**
    * \brief Transform the ModelLoadAssignment to GlobalModelSyncConf

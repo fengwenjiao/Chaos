@@ -4,14 +4,10 @@
 
 namespace constellation {
 
-GlobalModelSyncConf SinglePointConfThinker::deciedModelSyncConf(
-    const StrategyRequest& req) {
+GlobalModelSyncConf SinglePointConfThinker::deciedModelSyncConf(const StrategyRequest& req) {
   auto& overlay = req.overlay->GetReadyOverlay();
   auto& targets = req.targets;
-  CHECK_EQ(targets.size(), 1);
   const auto target = targets[0];
-  const auto it = overlay.find(target);
-  CHECK(it != overlay.end());
 
   ModelLoadAssignment model_load_assignment;
   std::vector<TransPath> allPaths;

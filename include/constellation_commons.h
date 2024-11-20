@@ -118,6 +118,16 @@ struct TransPath {
   TransPath(std::initializer_list<int> list) : path(list) {}
   TransPath(std::vector<int> path) : path(std::move(path)) {}
 
+  std::string debug_string() {
+    std::string s;
+    s += "{";
+    for (auto& i : path) {
+      s += std::to_string(i) + " ";
+    }
+    s += "}";
+    return s;
+  }
+
   // Hash function
   struct PathHash {
     std::size_t operator()(const TransPath& v) const {
