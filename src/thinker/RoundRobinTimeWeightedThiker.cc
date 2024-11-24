@@ -8,7 +8,8 @@
 
 namespace constellation {
 
-size_t chooseMinIndex(const std::vector<float>& vec) {
+template<typename T>
+size_t chooseMinIndex(const std::vector<T>& vec) {
   size_t min_index = 0;
   for (size_t i = 1; i < vec.size(); i++) {
     if (vec[i] < vec[min_index]) {
@@ -37,11 +38,12 @@ GlobalModelSyncConf RoundRobinTimeWeightedThiker::deciedModelSyncConf(const Stra
   loads.reserve(neighbors.size());
   for (auto& neighbor : neighbors) {
     ret[neighbor].target_node_id.emplace_back(neighbor);
-    ret[neighbor].paths.emplace_back({neighbor, target});
-    model_sc_.kvslices.emplace_back();
+    ret[neighbor].paths.emplace_back(std::vector<int>{neighbor, target});
+    ret[neighbor].kvslices.emplace_back();
     float bw = overlay_info->get_edge_property(topo::Edge{neighbor, target});
     if (bw <= 0) {
-      LOG(WARNING) << "path: " << path.debug_string() << " with bandwidth: " << bw;
+      LOG(WARNING) << "path: " << neighbor << " -> " << target << " has invalid bandwidth: " << bw
+                   << ". Set to 1.";
       bw = 1;
     }
     bws.emplace_back(bw);
