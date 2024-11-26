@@ -26,7 +26,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/iperf-cmake)
 
 # add_executable(resource_monitor main.cc)
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/iperf-cmake/iperf/src", "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/json/")
-target_link_libraries(resource_monitor iperf)
+target_link_libraries(resource_monitor PRIVATE iperf)
 target_precompile_headers(resource_monitor PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/3rdparty/iperf-cmake/iperf_config.h)
 
 # link_directories( /home/zzh/resource_monitor/3rdparty/iperf/src/.libs)
@@ -40,7 +40,7 @@ target_include_directories(resource_monitor PUBLIC "${PROJECT_SOURCE_DIR}/includ
 target_link_libraries(resource_monitor PUBLIC ${resource_monitor_LINKER_LIBS})
 target_sources(resource_monitor PRIVATE ${SOURCE})
 
-add_definitions(-DDEBUG)
+# add_definitions(-DDEBUG)
 
 if (CMQ_BUILD_TESTS)
   add_subdirectory(tests)
