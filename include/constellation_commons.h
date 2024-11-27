@@ -32,6 +32,9 @@ bool std_isin(const T& val, const std::unordered_map<T, V>& map) {
 
 /** @brief Overlay topology*/
 using AdjacencyList = std::unordered_map<int, std::vector<int>>;
+
+template <typename T>
+using AdjacencyListT = std::unordered_map<int, std::vector<T>>;
 /** @brief Node transport topology.
  * including member parent and children
  * @param `type`: the `type` of this node, `kRoot` - root node, `kLeaf` - leaf node,
@@ -118,7 +121,7 @@ struct TransPath {
   TransPath(std::initializer_list<int> list) : path(list) {}
   TransPath(std::vector<int> path) : path(std::move(path)) {}
 
-  std::string debug_string() {
+  std::string debug_string() const{
     std::string s;
     s += "{";
     for (auto& i : path) {

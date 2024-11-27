@@ -44,6 +44,9 @@ class NetAWoverlayInfo : public ReadyoverlayInfo {
  public:
   NetAWoverlayInfo() = default;
   explicit NetAWoverlayInfo(AdjacencyList overlay) : ReadyoverlayInfo(overlay) {}
+  float& get_edge_property(int src, int dst) {
+    return edge_property_[topo::Edge{src, dst}];
+  }
   inline float& get_edge_property(const topo::Edge<int>& edge) {
     return edge_property_[edge];
   }

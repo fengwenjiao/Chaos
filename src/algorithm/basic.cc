@@ -162,4 +162,78 @@ std::vector<TransPath> random_choose_paths(AdjacencyList overlay, int target, in
   return result;
 }
 
+std::vector<TransPath> dijsktra_paths(AdjacencyList overlay,
+                                      AdjacencyListT<float> weights,
+                                      int target,
+                                      std::vector<float>* path_weights) {
+  // Reverse the graph
+  std::unordered_map<int, std::vector<std::pair<int, float>>> reversed_weights;
+  for (const auto& [src, edges] : overlay) {
+    const auto& weight_list = weights.at(src);
+    for (size_t i = 0; i < edges.size(); ++i) {
+      int dest = edges[i];
+      float weight = weight_list[i];
+      reversed_weights[dest].emplace_back(src, weight);
+    }
+  }
+
+  // Dijkstra's algorithm initialization
+  std::unordered_map<int, float> dist;
+  std::unordered_map<int, int> next;
+  std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>, std::greater<>> pq;
+
+  for (const auto& [node, _] : overlay) {
+    dist[node] = std::numeric_limits<float>::infinity();
+    next[node] = -1;
+  }
+
+  dist[target] = 0.0;
+  pq.push({0.0, target});
+
+  // Dijkstra's algorithm main loop
+  while (!pq.empty()) {
+    auto [current_dist, u] = pq.top();
+    pq.pop();
+
+    if (current_dist > dist[u])
+      continue;
+
+    for (const auto& [v, weight] : reversed_weights[u]) {
+      float new_dist = current_dist + weight;
+      if (new_dist < dist[v]) {
+        dist[v] = new_dist;
+        next[v] = u;
+        pq.push({new_dist, v});
+      }
+    }
+  }
+  // Recover paths
+  std::vector<TransPath> result;
+  std::vector<float> path_weights_local;
+  for (const auto& [u, _] : overlay) {
+    std::vector<int> path;
+    float total_weight = 0.0f;
+    for (int v = u; v != -1; v = next[v]) {
+      path.push_back(v);
+      if (next[v] != -1) {
+        for (size_t i = 0; i < overlay[v].size(); ++i) {
+          if (overlay[v][i] == next[v]) {
+            total_weight += weights[v][i];
+            break;
+          }
+        }
+      }
+    }
+    if (path.size() > 1) {
+      result.push_back(TransPath(path));
+      path_weights_local.push_back(total_weight);
+    }
+  }
+  if (path_weights) {
+    path_weights->swap(path_weights_local);
+  }
+
+  return result;
+}
+
 }  // namespace constellation::algorithm::basic
