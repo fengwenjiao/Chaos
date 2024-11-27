@@ -25,7 +25,10 @@ add_library(resource_monitor)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/iperf-cmake)
 
 # add_executable(resource_monitor main.cc)
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/iperf-cmake/iperf/src", "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/json/")
+# include_directories("${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/iperf-cmake/iperf/src", "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/json/")
+target_include_directories(resource_monitor PRIVATE "LIBIPERF_HDRS")
+target_include_directories(resource_monitor PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/json/")
+# include_directories($LIBIPERF_HDRS, "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/json/")
 target_link_libraries(resource_monitor PRIVATE iperf)
 target_precompile_headers(resource_monitor PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/3rdparty/iperf-cmake/iperf_config.h)
 
