@@ -1,4 +1,4 @@
-#include "RoundRobinTimeWeightedThiker.h"
+#include "RoundRobinTimeWeightedThinker.h"
 
 #ifndef CONS_NETWORK_AWARE
 #error "Use simple equal model sync configration thinker should enable network aware"
@@ -19,11 +19,11 @@ size_t chooseMinIndex(const std::vector<T>& vec) {
   return min_index;
 }
 
-GlobalModelSyncConf RoundRobinTimeWeightedThiker::deciedModelSyncConf(const StrategyRequest& req) {
+GlobalModelSyncConf RoundRobinTimeWeightedThinker::deciedModelSyncConf(const StrategyRequest& req) {
   auto* overlay_info = dynamic_cast<aware::NetAWoverlayInfo*>(req.overlay.get());
   if (overlay_info == nullptr) {
     throw std::runtime_error(
-        "RoundRobinTimeWeightedThiker only support NetworkAwareOverlay. Please enable network "
+        "RoundRobinTimeWeightedThinker only support NetworkAwareOverlay. Please enable network "
         "aware.");
   }
   auto& overlay = overlay_info->GetReadyOverlay();

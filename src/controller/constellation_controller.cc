@@ -5,6 +5,7 @@
 #include "../overlay/topo_graph.hpp"
 #include "../overlay/node_overlay_manager.h"
 #include "../thinker/SimpleThinker.h"
+#include "../thinker/thinker_factory.h"
 #if CONS_NETWORK_AWARE
 #include "clusterRM/smq.h"
 #include "../overlay/network_aware/network_aware.h"
@@ -14,19 +15,14 @@
 #include <algorithm>
 
 namespace constellation {
-
-ConstelController::ConstelController(ConstelThinker* thinker) {
+ConstelController::ConstelController() {
   ps::StartAsync(0, "ConstelController\0");
   using namespace std::placeholders;
   ps_scheduler_ = new ps::Controller(0);
   ps_scheduler_->set_request_handle(std::bind(&ConstelController::RequestHandle, this, _1, _2));
   ps_scheduler_->set_response_handle(std::bind(&ConstelController::ResponseHandle, this, _1, _2));
 
-  if (thinker == nullptr) {
-    thinker_ = new ConstelSimpleThinker();
-  } else {
-    thinker_ = thinker;
-  }
+  // create node manager
 #if CONS_NETWORK_AWARE
   test_server_ = std::make_unique<moniter::Smq>();
   node_manager_ = std::make_shared<aware::NetworkAwareNodeManager>(test_server_);
@@ -34,6 +30,18 @@ ConstelController::ConstelController(ConstelThinker* thinker) {
   node_manager_ = std::make_shared<ReadyNodeOverlayManager>();
 #endif
 }
+
+ConstelController::ConstelController(ConstelThinker* thinker) : ConstelController() {
+  setThinker(thinker);
+}
+ConstelController::ConstelController(const char* thinker_name) : ConstelController() {
+  setThinker(thinker_name);
+}
+void ConstelController::setThinker(const char* thinker_name) {
+  auto* thinker = ThinkerFactory::CreateThinker(thinker_name);
+  setThinker(thinker);
+}
+
 ConstelController::~ConstelController() {
   ps::Finalize(0, false);
   delete ps_scheduler_;

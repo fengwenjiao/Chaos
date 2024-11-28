@@ -182,9 +182,15 @@ int ConstellationTrainerNumTrainers(ConstelTrainerHandle handle, int* num) {
   API_END();
 }
 
-int ConstelControllerHandleCreate(const char* name, ConstelControllerHandle* handle) {
+int ConstelControllerHandleCreate(ConstelControllerHandle* handle, const char* thinker_name) {
   API_BEGIN();
-  *handle = new ConstelController();
+  *handle = new ConstelController(thinker_name);
+  API_END();
+}
+
+int ConstelControllerSetThinker(ConstelControllerHandle handle, const char* thinker_name) {
+  API_BEGIN();
+  static_cast<ConstelController*>(handle)->setThinker(thinker_name);
   API_END();
 }
 

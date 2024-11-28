@@ -4,7 +4,7 @@
 
 namespace constellation {
 
-class RoundRobinTimeWeightedThiker : public ConstelSimpleThinker {
+class RoundRobinTimeWeightedThinker : public ConstelSimpleThinker {
  private:
   virtual GlobalModelSyncConf deciedModelSyncConf(const StrategyRequest& req) override;
 };

@@ -16,7 +16,16 @@ class ReadyNodeOverlayManager;
 
 class ConstelController {
  public:
-  explicit ConstelController(ConstelThinker* thinker = nullptr);
+  ConstelController();
+  explicit ConstelController(ConstelThinker* thinker);
+  explicit ConstelController(const char* thinker_name);
+
+  inline void setThinker(ConstelThinker* thinker) {
+    CHECK_NOTNULL(thinker);
+    thinker_ = thinker;
+  }
+
+  void setThinker(const char* thinker_name);
 
   ~ConstelController();
 

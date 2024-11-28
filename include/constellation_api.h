@@ -213,11 +213,14 @@ int ConstellationTrainerNumTrainers(ConstelTrainerHandle handle, int* num);
 
 ////////Controller ////////
 /** @brief create a controller handle
- * @param name - the name of the controller
+ * @param thinker_name - the name of the thinker
  * @param handle - the handle of the controller
  * @return 0 - success, -1 - failure
  */
-int ConstelControllerHandleCreate(const char* name, ConstelControllerHandle* handle);
+int ConstelControllerHandleCreate(ConstelControllerHandle* handle,
+                                  const char* thinker_name = nullptr);
+
+int ConstelControllerSetThinker(ConstelControllerHandle handle, const char* thinker_name);
 
 /** @brief free the controller handle
  * @param handle - the handle of the controller
