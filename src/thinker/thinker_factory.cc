@@ -34,7 +34,7 @@ ThinkerFactory::GetThinkerMap() {
 std::unordered_map<std::string, ThinkerFactory::ThinkerCreator>
 ThinkerFactory::InitializeThinkerMap() {
   return {
-      {"SimpleThinker", []() { return new ConstelSimpleThinker(); }},
+      {"ContelSimpleThinker", []() { return new ConstelSimpleThinker(); }},
 
 #ifdef CONS_NETWORK_AWARE
       {"SimpleEqualConfThinker", []() { return new SimpleEqualConfThinker(); }},

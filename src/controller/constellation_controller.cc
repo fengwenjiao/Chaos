@@ -21,9 +21,10 @@ ConstelController::ConstelController() {
   ps_scheduler_ = new ps::Controller(0);
   ps_scheduler_->set_request_handle(std::bind(&ConstelController::RequestHandle, this, _1, _2));
   ps_scheduler_->set_response_handle(std::bind(&ConstelController::ResponseHandle, this, _1, _2));
+  thinker_ = nullptr;
 
   // create node manager
-#if CONS_NETWORK_AWARE
+#ifdef CONS_NETWORK_AWARE
   test_server_ = std::make_unique<moniter::Smq>();
   node_manager_ = std::make_shared<aware::NetworkAwareNodeManager>(test_server_);
 #else
@@ -51,8 +52,9 @@ ConstelController::~ConstelController() {
 void ConstelController::run() {
   if (thinker_ == nullptr) {
     LOG(INFO) << "Thinker is not set, use default thinker";
-    thinker_ = new ConstelSimpleThinker();
+    setThinker("ContelSimpleThinker");
   }
+  CHECK(thinker_ != nullptr) << "Thinker is failed to create";
   while (true) {
     std::this_thread::sleep_for(std::chrono::seconds(1000));
   }
@@ -89,7 +91,6 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
             LOG(WARNING) << "Key: " << key << " has different length: " << len
                          << " from previous length: " << thinker_->getParamsSize(key);
           }
-          thinker_->setParamsDist(key, len);
         }
       }
       // get new transtopo

@@ -57,7 +57,6 @@ GlobalModelSyncConf ConstelSimpleThinker::ModelSycnConfTransform(
       model_sc_.kvslices.back().emplace_back(key, cur_len, piece);
       cur_len += piece;
       cur_len %= getParamsSize(key);
-      ;
       tot_len += piece;
       slice_len -= piece;
       if (cur_len == 0 && getParamsSize(++key) == 0) {
