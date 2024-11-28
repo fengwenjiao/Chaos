@@ -1,11 +1,15 @@
 #include "constellation_thinker.h"
 #include "thinker_factory.h"
-#include "./FAPTEqualConfThinker.h"
-#include "./FAPTTimeWeightedConfThinker.h"
-#include "./RoundRobinTimeWeightedThinker.h"
-#include "./SimpleEqualConfThinker.h"
+
 #include "./SimpleThinker.h"
 #include "./SinglePointConfThinker.h"
+
+#ifdef CONS_NETWORK_AWARE
+#include "./RoundRobinTimeWeightedThinker.h"
+#include "./SimpleEqualConfThinker.h"
+#include "./FAPTEqualConfThinker.h"
+#include "./FAPTTimeWeightedConfThinker.h"
+#endif
 
 namespace constellation {
 
@@ -31,11 +35,14 @@ std::unordered_map<std::string, ThinkerFactory::ThinkerCreator>
 ThinkerFactory::InitializeThinkerMap() {
   return {
       {"SimpleThinker", []() { return new ConstelSimpleThinker(); }},
+
+#ifdef CONS_NETWORK_AWARE
       {"SimpleEqualConfThinker", []() { return new SimpleEqualConfThinker(); }},
       {"SinglePointConfThinker", []() { return new SinglePointConfThinker(); }},
       {"FAPTEqualConfThinker", []() { return new FAPTEqualConfThinker(); }},
       {"FAPTTimeWeightedConfThinker", []() { return new FAPTTimeWeightedConfThinker(); }},
       {"RoundRobinTimeWeightedThinker", []() { return new RoundRobinTimeWeightedThinker(); }},
+#endif
   };
 }
 

@@ -1,14 +1,11 @@
-#include "RoundRobinTimeWeightedThinker.h"
+#ifdef CONS_NETWORK_AWARE
 
-#ifndef CONS_NETWORK_AWARE
-#error "Use simple equal model sync configration thinker should enable network aware"
-#else
+#include "RoundRobinTimeWeightedThinker.h"
 #include "../overlay/network_aware/network_aware.h"
-#endif
 
 namespace constellation {
 
-template<typename T>
+template <typename T>
 size_t chooseMinIndex(const std::vector<T>& vec) {
   size_t min_index = 0;
   for (size_t i = 1; i < vec.size(); i++) {
@@ -69,3 +66,5 @@ GlobalModelSyncConf RoundRobinTimeWeightedThinker::deciedModelSyncConf(const Str
 }
 
 }  // namespace constellation
+
+#endif

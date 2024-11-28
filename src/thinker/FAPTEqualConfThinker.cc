@@ -1,10 +1,9 @@
+#ifdef CONS_NETWORK_AWARE
+
 #include "./FAPTEqualConfThinker.h"
 #include "../algorithm/basic.h"
-#ifndef CONS_NETWORK_AWARE
-#error "Use this thinker should enable network aware"
-#else
+
 #include "../overlay/network_aware/network_aware.h"
-#endif
 
 namespace constellation {
 
@@ -32,6 +31,9 @@ GlobalModelSyncConf FAPTEqualConfThinker::deciedModelSyncConf(const StrategyRequ
   for (const auto& path : paths) {
     model_load_assignment.assignLoad(path, 1.0);
   }
+  return ModelSycnConfTransform(target, model_load_assignment);
 }
 
 }  // namespace constellation
+
+#endif

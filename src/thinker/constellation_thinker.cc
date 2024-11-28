@@ -70,8 +70,9 @@ void ConstelThinker::setParamsDist(int key, uint64_t value) {
   model_params_dist_.emplace(key, value);
   model_params_total_ += value;
 }
-uint64_t ConstelThinker::getParamsSize(int key) const {
-  return model_params_dist_.count(key) ? model_params_dist_.at(key) : 0;
+uint64_t ConstelThinker::getParamsSize(int key) const{
+  const auto it = this->model_params_dist_.find(key);
+  return (it != model_params_dist_.end()) ? it->second : 0;
 }
 uint64_t ConstelThinker::getParamsTotal() const {
   return model_params_total_;

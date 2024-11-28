@@ -1,10 +1,7 @@
-#include "SimpleEqualConfThinker.h"
+#ifdef CONS_NETWORK_AWARE
 
-#ifndef CONS_NETWORK_AWARE
-#error "Use simple equal model sync configration thinker should enable network aware"
-#else
+#include "SimpleEqualConfThinker.h"
 #include "../overlay/network_aware/network_aware.h"
-#endif
 
 namespace constellation {
 
@@ -30,3 +27,4 @@ GlobalModelSyncConf SimpleEqualConfThinker::deciedModelSyncConf(const StrategyRe
 }
 
 }  // namespace constellation
+#endif
