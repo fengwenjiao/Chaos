@@ -127,9 +127,8 @@ class Trainer(ConstelTrainer):
 
             need_notify = False
 
-            st = set(keys_)
             vals_ = [
-                param for i, param in enumerate(self._model.parameters()) if i in st
+                param for i, param in enumerate(self._model.parameters()) if i in keys_
             ]
 
         super().batch_end(keys_, vals_, need_notify)
