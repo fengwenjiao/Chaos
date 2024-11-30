@@ -174,7 +174,7 @@ uint32_t ConstelController::GetFutureTimtestamp() {
     return 0;
   }
   uint32_t future_timestamp = clock_.getLocalTimestamp();
-  return future_timestamp + 3;
+  return future_timestamp + 10;
 }
 
 }  // namespace constellation

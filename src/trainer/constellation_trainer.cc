@@ -189,7 +189,7 @@ void ConstelTrainer::Migrate(const std::vector<int>& keys, const std::vector<CAr
         auto slice_info = KVSlice{key, kvslice.slice, kvslice.slice_len};
         model_sync_conf.kvslices = {{slice_info}};
         auto str = serilite::serialize(model_sync_conf).as_string();
-        LOG(INFO) << "Migrate key: " << key << " to node: " << path.back();
+        // LOG(INFO) << "Migrate key: " << key << " to node: " << path.back();
         int ts = trainer_->ZMove(path[1], keys, *vals_s, *lens, str, cmd, [vals_s, lens]() {
           delete vals_s;
           delete lens;

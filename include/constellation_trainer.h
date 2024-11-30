@@ -188,8 +188,8 @@ class ConstelTrainer {
   std::condition_variable model_sync_cv_;
   std::unordered_map<int, uint64_t> model_info_;
   uint64_t model_size_ = 0;
-  std::vector<int>* wait_recv_keys_;
-  std::vector<CArray*>* wait_recv_vals_;
+  std::vector<int>* wait_recv_keys_ = nullptr;
+  std::vector<CArray*>* wait_recv_vals_ = nullptr;
 
   std::atomic<bool> is_scale_{true};
 
