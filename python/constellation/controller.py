@@ -3,7 +3,7 @@ from .base import ControllerHandle, check_call, _LIB, c_str
 
 import ctypes
 
-__all__ = ["ConstelController"]
+__all__ = ["ConstelController", "run_controller"]
 
 
 def create_controller_handle(thinker_name=""):
@@ -33,12 +33,13 @@ class ConstelController(object):
         check_call(_LIB.ConstellationControllerRun(self.handle))
 
 
-def _run_controller():
+def _run_controller(thinker_name: str = "ContelSimpleThinker"):
     is_trainer = ctypes.c_int()
     check_call(_LIB.ConstellationIsTrainer(ctypes.byref(is_trainer)))
     if not is_trainer:
-        controller = ConstelController()
+        controller = ConstelController(thinker_name=thinker_name)
         controller.run()
 
 
-_run_controller()
+def run_controller(thinker_name: str):
+    _run_controller()
