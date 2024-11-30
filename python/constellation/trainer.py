@@ -186,7 +186,7 @@ class ConstelTrainer(ConstelTrainerBase):
         if size.value == 0:
             return []
         check_call(_LIB.ConstelTrainerGetKeysToMigrate(keys, size))
-        keys_to_migrate = list(set(list(keys)))
+        keys_to_migrate = list(keys)
         keys_to_migrate.sort()
         self._keys_to_migrate = keys_to_migrate.copy()
         return keys_to_migrate
