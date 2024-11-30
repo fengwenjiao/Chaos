@@ -8,8 +8,10 @@ import torchvision.models as models
 import matplotlib.pyplot as plt
 import time
 from torch.utils.data import random_split
-
+from constellation import run_controller
 from constellation.pytorch import Trainer
+
+run_controller('ContelSimpleThinker')
 
 seed  = 48
 torch.manual_seed(seed)
@@ -104,7 +106,7 @@ train_losses = []
 test_accuracies = []
 
 # 训练模型
-num_epochs = 10
+num_epochs = 100
 for epoch in range(num_epochs):
     model.train()
     running_loss = 0.0
@@ -146,6 +148,7 @@ for epoch in range(num_epochs):
         #     print(f"First layer model parameters: {model.model.conv1.weight[1]}")
 
         running_loss += loss.item()
+        trainer.batch_end()
     # print(params[1])
     # if epoch == 1:
     #     for name, param in model.named_parameters():
@@ -157,20 +160,20 @@ for epoch in range(num_epochs):
     )
 
     # 测试模型
-    model.eval()
-    correct = 0
-    total = 0
-    with torch.no_grad():
-        for inputs, labels in testloader:
-            inputs, labels = inputs.to(device), labels.to(device)
-            outputs = model(inputs) # pylint: disable=not-callable
-            _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
+    # model.eval()
+    # correct = 0
+    # total = 0
+    # with torch.no_grad():
+    #     for inputs, labels in testloader:
+    #         inputs, labels = inputs.to(device), labels.to(device)
+    #         outputs = model(inputs) # pylint: disable=not-callable
+    #         _, predicted = torch.max(outputs.data, 1)
+    #         total += labels.size(0)
+    #         correct += (predicted == labels).sum().item()
 
-    accuracy = 100 * correct / total
-    test_accuracies.append(accuracy)
-    print(f"Accuracy of the model on the test images: {accuracy:.2f}%")
+    # accuracy = 100 * correct / total
+    # test_accuracies.append(accuracy)
+    # print(f"Accuracy of the model on the test images: {accuracy:.2f}%")
     
 # 绘制损失和精度曲线
 plt.figure(figsize=(12, 5))

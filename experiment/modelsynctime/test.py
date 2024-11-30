@@ -1,18 +1,19 @@
-# coding: utf-8
-# pylint: disable=invalid-name,missing-function-docstring
-"""Train ResNet-18 on CIFAR-10 with specified GPU."""
-
 import argparse
+import os
+import subprocess
+import time
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
 import torchvision.models as models
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from torch.utils.data import random_split
 
 from constellation.pytorch import Trainer
+from constellation import run_controller
+run_controller('ContelSimpleThinker')
 
 seed = 48
 torch.manual_seed(seed)
@@ -24,7 +25,7 @@ trainer = Trainer.Trainer()
 parser = argparse.ArgumentParser(
     description="Train ResNet-18 on CIFAR-10 with specified GPU."
 )
-parser.add_argument("--gpu", type=int, default=2, help="GPU id to use (default: 0)")
+parser.add_argument("--gpu", type=int, default=0, help="GPU id to use (default: 0)")
 parser.add_argument(
     "--subset",
     type=int,
@@ -46,11 +47,13 @@ transform = transforms.Compose(
     ]
 )
 
+data_path = os.path.join(os.path.dirname(__file__), "../data")
+
 trainset = torchvision.datasets.CIFAR10(
-    root="./data", train=True, download=True, transform=transform
+    root=data_path, train=True, download=False, transform=transform
 )
 testset = torchvision.datasets.CIFAR10(
-    root="./data", train=False, download=True, transform=transform
+    root=data_path, train=False, download=False, transform=transform
 )
 
 # 使用random_split选择部分数据进行训练
@@ -85,14 +88,35 @@ model = ResNet18(num_classes=10).to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(model.parameters(), lr=0.001)
 
+rank = trainer.rank
+
+# exec hostname cmd and print its output
+hostname = subprocess.check_output(['hostname']).decode('utf-8')
+
+log_file = os.path.join(os.path.dirname(__file__), f"resnet18_{hostname}_{rank}.log")
+log = open(log_file, "w")
+
 trainer.init(model_opt=(model, optimizer))
+# print time
+print("Time(finish init): ", time.strftime("%Y-%m-%d %H:%M:%S:%s", time.localtime()), file=log)
+log.flush()
+from constellation.trainer import ConstelTrainer
+
+migrate = ConstelTrainer._migrate
+def _migrate(self, keys, values):
+    print("Time(start migrate): ", time.strftime("%Y-%m-%d %H:%M:%S:%s", time.localtime()), file=log)
+    log.flush()
+    migrate(self, keys, values)
+
+ConstelTrainer._migrate = _migrate
 
 # 记录损失和精度
 train_losses = []
 test_accuracies = []
 
+
 # 训练模型
-num_epochs = 10
+num_epochs = 100
 for epoch in range(num_epochs):
     model.train()
     running_loss = 0.0
@@ -103,47 +127,10 @@ for epoch in range(num_epochs):
         loss = criterion(outputs, labels)
         loss.backward()
         trainer.update()
-
         running_loss += loss.item()
         trainer.batch_end()
     train_losses.append(running_loss / len(trainloader))
     print(
         f"Epoch [{epoch + 1}/{num_epochs}], Loss: {running_loss / len(trainloader):.4f}"
     )
-
-    # 测试模型
-    # model.eval()
-    # correct = 0
-    # total = 0
-    # with torch.no_grad():
-    #     for inputs, labels in testloader:
-    #         inputs, labels = inputs.to(device), labels.to(device)
-    #         outputs = model(inputs)  # pylint: disable=not-callable
-    #         _, predicted = torch.max(outputs.data, 1)
-    #         total += labels.size(0)
-    #         correct += (predicted == labels).sum().item()
-
-    # accuracy = 100 * correct / total
-    # test_accuracies.append(accuracy)
-    # print(f"Accuracy of the model on the test images: {accuracy:.2f}%")
-
-# 绘制损失和精度曲线
-plt.figure(figsize=(12, 5))
-
-plt.subplot(1, 2, 1)
-plt.plot(range(1, num_epochs + 1), train_losses, label="Training Loss")
-plt.xlabel("Epoch")
-plt.ylabel("Loss")
-plt.title("Training Loss over Epochs")
-plt.legend()
-
-plt.subplot(1, 2, 2)
-plt.plot(range(1, num_epochs + 1), test_accuracies, label="Test Accuracy")
-plt.xlabel("Epoch")
-plt.ylabel("Accuracy (%)")
-plt.title("Test Accuracy over Epochs")
-plt.legend()
-
-plt.tight_layout()
-plt.show()
-# plt.savefig("resnet_18_loss_accuracy.png")
+    

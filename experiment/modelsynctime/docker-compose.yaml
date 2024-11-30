@@ -1,0 +1,60 @@
+version: '3.8'
+
+x-worker: &worker_defaults
+  image: constellation:0.0.1
+  volumes:
+    - ../../:/constellation-rt
+  networks:
+    - constellation
+  depends_on:
+    - master
+  tty: true
+  stdin_open: true
+  environment:
+    - DMLC_PS_ROOT_URI=modelsynctime-controller
+    - DMLC_PS_ROOT_PORT=8000
+    - DMLC_ROLE=trainer
+    - DEBUG_OVERLAY=1
+    - PS_VERBOSE=1
+  restart: on-failure
+  runtime: nvidia
+  deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+  working_dir:
+     /constellation-rt/experiment/modelsynctime
+  command: ["./entry_point.sh"]
+  shm_size: '2gb'
+
+services:
+  master:
+    image: constellation:0.0.1
+    container_name: modelsynctime-controller
+    volumes:
+      - ../..:/constellation-rt
+    networks:
+      - constellation
+    working_dir:
+     /constellation-rt/experiment/
+    command: python3 ./start_controller.py  --name SinglePointConfThinker
+    tty: true
+    stdin_open: true
+    environment:
+      - DMLC_PS_ROOT_URI=0.0.0.0
+      - DMLC_PS_ROOT_PORT=8000
+      - DMLC_ROLE=scheduler
+      - START_TRAINER_NUM=6
+      - DEBUG_OVERLAY=3
+      - PS_VERBOSE=1
+    ipc: host
+
+  worker:
+    <<: *worker_defaults
+
+networks:
+  constellation:
+    driver: bridge

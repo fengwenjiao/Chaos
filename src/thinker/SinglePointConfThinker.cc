@@ -14,9 +14,8 @@ GlobalModelSyncConf SinglePointConfThinker::deciedModelSyncConf(const StrategyRe
   using namespace algorithm;
   allPaths = basic::random_choose_paths(overlay, target, 5);
   auto paths = helper::randomChoose(allPaths, 1);
-  for (const auto& path : paths) {
-    model_load_assignment.assignLoad(path, 1.0);
-  }
+  model_load_assignment.assignLoad(paths[0], 1.0);
+
   return ModelSycnConfTransform(target, model_load_assignment);
 }
 

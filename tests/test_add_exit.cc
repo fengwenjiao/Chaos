@@ -15,6 +15,7 @@ int main(int argc, char* argv[]) {
   if (!is_trainer) {
     // start Controller: kvapp layer, process datamsg
     constellation::ConstelController controller;
+    controller.setThinker("SinglePointConfThinker");
     controller.run();
   }
   // for other nodes
