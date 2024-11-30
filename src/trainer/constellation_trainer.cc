@@ -21,7 +21,7 @@ ConstelTrainer::ConstelTrainer() {
   this->trainer_->set_request_handle(std::bind(&ConstelTrainer::DataHandle, this, _1, _2, _3));
 
 #if CONS_NETWORK_AWARE
-  test_client_ = std::make_unique<moniter::Smq>();
+  test_client_ = std::make_unique<moniter::Smq>(ps::Postoffice::Get()->getSchedulerHost());
   test_client_->set_id(ps::Postoffice::Get()->GetMyID());
   auto& ip2nodes = ps::Postoffice::Get()->GetIp2Nodes();
   std::vector<std::string> ips;

@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <thread>
 #include <mutex>
+#include <string>
 #include <atomic>
 #include <condition_variable>
 #include <utility> 
@@ -18,9 +19,6 @@
 #include "base.h"
 #include "dynamic_info.h"
 
-
-#define SERVER_IP "192.168.1.16"
-#define SERVER_PORT 13011
 #define MAX_EVENTS 50
 #define BUFFER_SIZE 1024
 
@@ -56,7 +54,14 @@ struct SmqMeta{
 
 class Smq{
     public:
-        Smq(){}
+        Smq(const char *ip, int port=12093){
+            _server_ip = std::string(ip);
+            _port = port;
+        }
+        Smq(const std::string& ip, int port=12093){
+            _server_ip = ip;
+            _port = port;
+        }
         ~Smq(){}
         /**
          * @brief start the smq server thread
@@ -182,6 +187,8 @@ class Smq{
          */
         void data_handler(const std::string& data);
 
+        std::string _server_ip;
+        int _port ;
 };
 
 

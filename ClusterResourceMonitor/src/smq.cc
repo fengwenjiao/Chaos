@@ -1,8 +1,50 @@
 #include "smq.h"
+#include <netdb.h>
 #include "util.h"
 
 namespace moniter{
+    std::string resolve_hostname(const std::string& server_ip) {
+        // 检查 server_ip 是否是有效的 IP 地址
+        struct sockaddr_in sa;
+        int result = inet_pton(AF_INET, server_ip.c_str(), &(sa.sin_addr));
+        if (result == 1) {
+            // server_ip 是有效的 IPv4 地址
+            return server_ip;
+        }
 
+        // 尝试解析 server_ip 作为域名
+        struct addrinfo hints, *res;
+        memset(&hints, 0, sizeof(hints));
+        hints.ai_family = AF_UNSPEC; // IPv4 或 IPv6
+        hints.ai_socktype = SOCK_STREAM; // TCP
+
+        int status = getaddrinfo(server_ip.c_str(), NULL, &hints, &res);
+        if (status != 0) {
+            std::cerr << "getaddrinfo error: " << gai_strerror(status) << std::endl;
+            return "";
+        }
+
+        // 遍历解析结果，找到第一个有效的 IP 地址
+        for (struct addrinfo *p = res; p != NULL; p = p->ai_next) {
+            void *addr;
+            char ipstr[INET6_ADDRSTRLEN];
+
+            if (p->ai_family == AF_INET) { // IPv4
+                struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
+                addr = &(ipv4->sin_addr);
+            } else { // IPv6
+                struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
+                addr = &(ipv6->sin6_addr);
+            }
+
+            inet_ntop(p->ai_family, addr, ipstr, sizeof(ipstr));
+            freeaddrinfo(res);
+            return std::string(ipstr);
+        }
+
+        freeaddrinfo(res);
+        return "";
+    }
 
     /*overload the to_json and from_json function of nlohmann/json to enable convertation between json and some structures*/
     void to_json(nlohmann::json& j, const moniter::StaticInfo::gpu& g) {
@@ -213,10 +255,18 @@ namespace moniter{
             perror("setsocket failed");
             return ;
         }
-        
+
+        // check _server_ip is ip or hostname        
+        _server_ip = resolve_hostname(_server_ip);
+        if(_server_ip.empty()){
+           throw std::runtime_error("Invalid server ip");
+        }
+        std::cout << "Server ip: " << _server_ip << std::endl;
+
+
         server_addr.sin_family = AF_INET;
-        server_addr.sin_addr.s_addr = inet_addr(SERVER_IP);
-        server_addr.sin_port = htons(SERVER_PORT);
+        server_addr.sin_addr.s_addr = inet_addr(_server_ip.c_str());
+        server_addr.sin_port = htons(_port);
 
         if(bind(server_fd, reinterpret_cast<struct sockaddr*>(&server_addr), sizeof(server_addr))<0){
             perror("bind failed");
@@ -243,9 +293,6 @@ namespace moniter{
             perror("epoll_ctl:  add server_fd failed");
             exit(EXIT_FAILURE);
         }
-
-        LOG("Server is listening on port " << SERVER_PORT);
-        // std::cout << "Server is listening on port " << SERVER_PORT << std::endl;  
         
         std::thread iperf_server_thread([]() { moniter::DynamicInfo::Get().start_bandwidth_test_server(); });
 
@@ -331,15 +378,16 @@ namespace moniter{
             return ;
         }
 
+        // check _server_ip is ip or hostname        
+        _server_ip = resolve_hostname(_server_ip);
+        if(_server_ip.empty()){
+           throw std::runtime_error("Invalid server ip");
+        }
+        std::cout << "Server ip: " << _server_ip << std::endl;
+        
         server_addr.sin_family = AF_INET;
-        server_addr.sin_addr.s_addr = inet_addr(SERVER_IP);
-        server_addr.sin_port = htons(SERVER_PORT);
-
-        // if (inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr) <= 0) {
-        //     perror("Invalid address");
-        //     return -1;
-        // }
-
+        server_addr.sin_addr.s_addr = inet_addr(_server_ip.c_str());
+        server_addr.sin_port = htons(_port);
 
         if (connect(sock, reinterpret_cast<struct sockaddr*>(&server_addr), sizeof(server_addr)) < 0) {
             perror("Connection Failed");

@@ -25,7 +25,7 @@ ConstelController::ConstelController() {
 
   // create node manager
 #ifdef CONS_NETWORK_AWARE
-  test_server_ = std::make_unique<moniter::Smq>();
+  test_server_ = std::make_unique<moniter::Smq>(ps::Postoffice::Get()->getSchedulerHost());
   node_manager_ = std::make_shared<aware::NetworkAwareNodeManager>(test_server_);
 #else
   node_manager_ = std::make_shared<ReadyNodeOverlayManager>();
