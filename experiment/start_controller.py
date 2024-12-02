@@ -2,6 +2,7 @@ import argparse
 from constellation import run_controller
 
 thinker_name = [
+    "ContelSimpleThinker",
     "SimpleEqualConfThinker",
     "SinglePointConfThinker",
     "FAPTEqualConfThinker",

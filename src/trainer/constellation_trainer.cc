@@ -76,7 +76,7 @@ void ConstelTrainer::NotifyReadyAndWait(bool need_sycn_model,
 }
 
 bool ConstelTrainer::BatchEnd(std::vector<int>* keys_to_migrate) {
-  auto& timestamp = this->clock_.getLocalTimestamp();
+  auto timestamp = this->clock_.getLocalTimestamp() + 1;
   auto is_ticked = this->clock_.clockTick();
   if (isRootNode()) {
     NotifySchedulerUpdateClock(timestamp);
