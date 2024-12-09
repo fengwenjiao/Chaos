@@ -1,6 +1,3 @@
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
-
-# set(tests test_iperf test_iperf_api test_static_info   test_smq_server test_smq_client)
 file(GLOB tests "*.cc")
 foreach(test ${tests})
     get_filename_component(test_name ${test} NAME_WE)
