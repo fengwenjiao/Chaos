@@ -45,6 +45,7 @@ target_sources(resource_monitor PRIVATE ${SOURCE})
 
 # add_definitions(-DDEBUG)
 
+add_subdirectory(tests)
 if (CMQ_BUILD_TESTS)
   add_subdirectory(tests)
 endif()

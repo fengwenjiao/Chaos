@@ -2,8 +2,6 @@
 #define MONITER_STATIC_INFO_H_
 
 #include <vector>
-#include <map>
-#include <cstring>
 #include <string>
 
 namespace moniter{
@@ -43,7 +41,11 @@ public:
      *\brief get number of gpus 
      */
     static int get_attached_gpus();
+private:
+    StaticInfo() = delete;
+    ~StaticInfo() = delete;
 };
+
 
 } // namespace moniter
 

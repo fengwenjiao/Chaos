@@ -1,14 +1,49 @@
 #ifndef MONITER_Util_H_
 #define MONITER_Util_H_
 #include <cstdlib>
-#include <fstream>
 #include <iostream>
-#include <array>
-#include <memory>
-#include <sstream>
+#include <cstring>
+
+
 
 #define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
-#define LOG(msg) std::cout << "[" << __FILENAME__ << ":" << __LINE__ << "]:" << msg << std::endl;
+enum LogLevel {
+    LOG_LEVEL_INFO,
+    LOG_LEVEL_WARNING,
+    LOG_LEVEL_ERROR,
+    LOG_LEVEL_NONE
+};
+extern LogLevel currentLogLevel;
+
+#define LOG_INFO_(msg) \
+    do { \
+        if (currentLogLevel <= LOG_LEVEL_INFO) { \
+            std::cout << "[INFO][" << __FILENAME__ << ":" << __LINE__ << "]:" << msg << std::endl; \
+        } \
+    } while (0)
+
+#define LOG_WARNING_(msg) \
+    do { \
+        if (currentLogLevel <= LOG_LEVEL_WARNING) { \
+            std::cout << "[WARNING][" << __FILENAME__ << ":" << __LINE__ << "]:" << msg << std::endl; \
+        } \
+    } while (0)
+
+#define LOG_ERROR_(msg) \
+    do { \
+        if (currentLogLevel <= LOG_LEVEL_ERROR) { \
+            std::cout << "[ERROR][" << __FILENAME__ << ":" << __LINE__ << "] " << msg; \
+            if (errno != 0) { \
+                std::cout << ", errno: " << errno << " (" << strerror(errno) << ")" ; \
+                errno=0; \
+            } \
+            std::cout << std::endl; \
+            std::cout.flush(); \
+            throw std::runtime_error("smq::error");\
+        } \
+    } while (0)
+
+
 namespace moniter{
 
 class Util{

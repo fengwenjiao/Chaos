@@ -1,5 +1,5 @@
-#include "moniter.h"
-#include "smq.h"
+#include "static_info.h"
+#include "util.h"
 using namespace moniter;
 
 // void get_cpu_info(StaticInfo info){
@@ -18,21 +18,18 @@ using namespace moniter;
 // }
 
 int main(int argc, char *argv[]) {
-
     StaticInfo::get_totalram();
     StaticInfo::get_cpu_info();
     StaticInfo::get_gpu_info();
+    StaticInfo::get_attached_gpus();
     
-    // StaticInfo info;
-    // int memunit;
-    // get_cpu_info(info);
-    // get_mem_info(info);
-    // get_gpu_info(info);
-
-    // memunit = info.get_memunit();
-    // printf("%d \n",memunit);
-    // unsigned long totalram = info.get_totalram();
-    // printf("%lu \n",totalram);
-    // // do nothing
+    LOG_INFO_("total ram: " + std::to_string(StaticInfo::get_totalram()) + "GB");
+    LOG_INFO_("attached gpus: " + std::to_string(StaticInfo::get_attached_gpus()));
+    for (auto &cpu : StaticInfo::get_cpu_info()) {
+        LOG_INFO_("cpu: " + std::to_string(cpu.physical_id) + " " + cpu.model_name);
+    }
+    for (auto &gpu : StaticInfo::get_gpu_info()) {
+        LOG_INFO_("gpu: " + std::to_string(gpu.minor_number) + " " + gpu.model_name + " " + std::to_string(gpu.gpu_mem_total)+"GB");
+    }
     return 0;
 }

@@ -1,7 +1,8 @@
-#ifndef BASE_H
-#define BASE_H
+#ifndef MONITER_BASE_H
+#define MONITER_BASE_H
 namespace moniter
 {
+    static const int kSignalRegister = 0;
     /**
      * \brief the signal of gather static info of all clients 
      * mixed info can  be combined:
@@ -13,8 +14,8 @@ namespace moniter
      */
     static const int kSignalDynamic = 2;
     /**
-     * \brief the signal of gather bandwidth info of all clients 
+     * \brief the signal of gather network info of all clients 
      */
-    static const int kSignalBandwidth = 4;
+    static const int kSignalNetwork = 4;
 } // namespace base
-#endif // BASE_H_
+#endif // MONITER_BASE_H

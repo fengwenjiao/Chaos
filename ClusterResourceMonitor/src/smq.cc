@@ -1,436 +1,471 @@
 #include "smq.h"
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include <netdb.h>
+#include <unordered_set>
 #include "util.h"
+#include "net_thinker.h" // Ensure NetThinker is included
+#include "info_parser.h"
+#include "base.h"
+
+#define MAX_EVENTS 50
+#define BUFFER_SIZE 1024
 
 namespace moniter{
-    std::string resolve_hostname(const std::string& server_ip) {
-        // 检查 server_ip 是否是有效的 IP 地址
-        struct sockaddr_in sa;
-        int result = inet_pton(AF_INET, server_ip.c_str(), &(sa.sin_addr));
-        if (result == 1) {
-            // server_ip 是有效的 IPv4 地址
-            return server_ip;
+void Smq::server(int global_id){
+    set_id(global_id);
+    char buffer[BUFFER_SIZE] = {0};
+
+    int server_fd = CreateSocket();
+
+    struct epoll_event ev, events[MAX_EVENTS];
+    
+    int epoll_fd = InitializeEpoll(server_fd, ev, EPOLLIN);
+
+    smq_ready_.store(true);
+    
+    while (true) {
+        int num_fds = epoll_wait(epoll_fd, events, MAX_EVENTS, 100);
+        if(!smq_ready_.load()) break;
+
+        if(num_fds == -1){
+            LOG_ERROR_("epoll_wait() failed");
         }
 
-        // 尝试解析 server_ip 作为域名
-        struct addrinfo hints, *res;
-        memset(&hints, 0, sizeof(hints));
-        hints.ai_family = AF_UNSPEC; // IPv4 或 IPv6
-        hints.ai_socktype = SOCK_STREAM; // TCP
+        for (int n = 0; n < num_fds; ++n) {
+            if (events[n].data.fd == server_fd) {
 
-        int status = getaddrinfo(server_ip.c_str(), NULL, &hints, &res);
-        if (status != 0) {
-            std::cerr << "getaddrinfo error: " << gai_strerror(status) << std::endl;
-            return "";
-        }
+                int new_socket = accept(server_fd, nullptr, nullptr);
+                if (new_socket == -1) {
+                    LOG_ERROR_("Accept new socket failed");
+                }
 
-        // 遍历解析结果，找到第一个有效的 IP 地址
-        for (struct addrinfo *p = res; p != NULL; p = p->ai_next) {
-            void *addr;
-            char ipstr[INET6_ADDRSTRLEN];
+                SetNonBlocking(new_socket);
 
-            if (p->ai_family == AF_INET) { // IPv4
-                struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
-                addr = &(ipv4->sin_addr);
-            } else { // IPv6
-                struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
-                addr = &(ipv6->sin6_addr);
+                ev.events = EPOLLIN | EPOLLET;
+                ev.data.fd = new_socket;
+
+                if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, new_socket, &ev) == -1) {
+                    LOG_ERROR_("epoll_ctl: new_socket error");
+                }
+
+                socket_ids_[new_socket] = -1;
+                LOG_INFO_("New connection established");
+            } else {
+                int client_socket = events[n].data.fd;
+                std::vector<char> recv_data;
+                int ret = ReadData(client_socket, buffer, recv_data);
+                if(ret == 0){
+                    LOG_INFO_("Client disconnected");
+                    socket_ids_.erase(client_socket);
+                    for(auto& id_socket : id_sockets_){
+                        if(id_socket.second == client_socket){
+                            id_sockets_.erase(id_socket.first);
+                            break;
+                        }
+                    }
+                }else{
+                    SignalMeta signal = parse_signal(std::string(recv_data.begin(), recv_data.end()));
+                    if(signal.ksignal == kSignalRegister){
+                        if(socket_ids_[client_socket] != -1){
+                            LOG_WARNING_("Socket already registered");
+                            continue;
+                        }
+                        if(id_sockets_.find(signal.id) != id_sockets_.end()){
+                            LOG_WARNING_("Client id already registered");
+                            continue;
+                        }
+                        if(signal.id == id_){
+                            LOG_WARNING_("Client id conflict with server id");
+                            continue;
+                        }
+                        client_iperf_servers_[signal.id]=std::make_pair(get_ip_from_socket(client_socket), signal.iperf_port);
+                        id_sockets_[signal.id] = client_socket;
+                        socket_ids_[client_socket] = signal.id;
+                        LOG_INFO_("Client registered: fd:"<<client_socket<<" id:" << signal.id<< " ip: " << get_ip_from_socket(client_socket) << " iperf port: " << signal.iperf_port);
+                    }else{
+                        server_data_handler(recv_data);
+                        LOG_INFO_("msg received: " << std::string(nlohmann::json(signal).dump()));
+                    }
+                }
             }
-
-            inet_ntop(p->ai_family, addr, ipstr, sizeof(ipstr));
-            freeaddrinfo(res);
-            return std::string(ipstr);
-        }
-
-        freeaddrinfo(res);
-        return "";
-    }
-
-    /*overload the to_json and from_json function of nlohmann/json to enable convertation between json and some structures*/
-    void to_json(nlohmann::json& j, const moniter::StaticInfo::gpu& g) {
-        j = nlohmann::json{{"minor_number", g.minor_number}, {"model_name", g.model_name}, {"gpu_mem_total", g.gpu_mem_total}};
-    }
-
-    void from_json(const nlohmann::json& j, moniter::StaticInfo::gpu& g) {
-        j.at("minor_number").get_to(g.minor_number);
-        j.at("model_name").get_to(g.model_name);
-        j.at("gpu_mem_total").get_to(g.gpu_mem_total);
-    }
-
-    void to_json(nlohmann::json& j, const moniter::StaticInfo::cpu& c) {
-        j = nlohmann::json{{"physical_id", c.physical_id}, {"model_name", c.model_name}};
-    }
-
-    void from_json(const nlohmann::json& j, moniter::StaticInfo::cpu& c) {
-        j.at("physical_id").get_to(c.physical_id);
-        j.at("model_name").get_to(c.model_name);
-    }
-
-
-    void to_json(nlohmann::json& j, const moniter::DynamicInfo::gpu_usage& g) {
-        j = nlohmann::json{{"minor_number", g.minor_number}, {"gpu_util", g.gpu_util}, {"mem_util", g.mem_util}};
-    }
-
-
-    void from_json(const nlohmann::json& j, moniter::DynamicInfo::gpu_usage& g) {
-        j.at("minor_number").get_to(g.minor_number);
-        j.at("gpu_util").get_to(g.gpu_util);
-        j.at("mem_util").get_to(g.mem_util);
-    }
-
-    void to_json(nlohmann::json& j, const moniter::DynamicInfoMeta& d) {
-        j = nlohmann::json{{"available_ram", d.available_ram}, {"cpu_usage", d.cpu_usage}, {"gpu_usage", d.gpu_usage}};
-    }
-
-    void from_json(const nlohmann::json& j, moniter::DynamicInfoMeta& d) {
-        j.at("available_ram").get_to(d.available_ram);
-        j.at("cpu_usage").get_to(d.cpu_usage);
-        j.at("gpu_usage").get_to(d.gpu_usage);
-    }
-
-    void to_json(nlohmann::json& j, const moniter::StaticInfoMeta& s) {
-        j = nlohmann::json{{"cpu", s.cpu_models}, {"gpu", s.gpu_models}, {"total_ram", s.total_ram}};
-    }
-
-    void from_json(const nlohmann::json& j, moniter::StaticInfoMeta& s) {
-        j.at("cpu").get_to(s.cpu_models);
-        j.at("gpu").get_to(s.gpu_models);
-        j.at("total_ram").get_to(s.total_ram);
-    }
-
-    void to_json(nlohmann::json& j, const moniter::NetworkInfoMeta& n) {
-        j = n.bandwidth;
-    }
-
-    void from_json(const nlohmann::json& j, moniter::NetworkInfoMeta& n) {
-        j.get_to(n.bandwidth);
-    }
-
-    void to_json(nlohmann::json& j, const moniter::SmqMeta& s) {
-        j = nlohmann::json{{"id", s.id}, {"dynamic_info", s.dynamic_info}, {"static_info", s.static_info}, {"network_info", s.network_info}};
-    }
-
-    void from_json(const nlohmann::json& j, moniter::SmqMeta& s) {
-        j.at("id").get_to(s.id);
-                j.at("id").get_to(s.id);
-        if (j.find("dynamic_info") == j.end()|| j.at("dynamic_info").is_null()) {
-            s.dynamic_info = {};
-        } else {
-            j.at("dynamic_info").get_to(s.dynamic_info);
-        }
-        if (j.find("static_info") == j.end() || j.at("static_info").is_null()) {
-            s.static_info = {};
-        } else {
-            j.at("static_info").get_to(s.static_info);
-        }
-        if (j.find("network_info") == j.end() || j.at("network_info").is_null()) {
-            s.network_info = {};
-        } else {
-            j.at("network_info").get_to(s.network_info);
         }
     }
+    
+    close(epoll_fd);
+    close(server_fd);
 
+    LOG_INFO_("Smq server finalized ");
+    return ;
+}
 
+void Smq::client(int global_id){
+    set_id(global_id);
+    char buffer[BUFFER_SIZE] = {0};
 
-    std::string Smq::get_info_with_ksignal(int ksignal){
-        nlohmann::json info;
-        info["id"] = id_;
-        if(ksignal & kSignalStatic ){info["static_info"] = get_static_info();}
-        if(ksignal & kSignalDynamic ){info["dynamic_info"] = get_dynamic_info();}
-        if(ksignal & kSignalBandwidth ){info["network_info"] = get_network_info();}
-        
-        std::string json_string = info.dump(4);
-        // std::cout << json_string<< std::endl;
-        return json_string;
-    }
+    int client_fd = CreateSocket();
 
-    nlohmann::json Smq::get_static_info(){
-        nlohmann::json static_info;
+    std::thread iperf_server_thread([this] { band_.start_bandwidth_test_server(); });
+    
+    while(!band_.is_iperf_server_ready())std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    
+    client_register(client_fd);
 
-        nlohmann::json cpu_json = moniter::DynamicInfo::Get().get_cpu_info_();
-        nlohmann::json gpu_json = moniter::DynamicInfo::Get().get_gpu_info_();
-        nlohmann::json ram_total_json = moniter::DynamicInfo::Get().get_totalram_();
-
-        static_info["cpu"] = cpu_json;
-        static_info["gpu"] = gpu_json;
-        static_info["total_ram"] = ram_total_json;
-
-        //std::string jsonString = static_info.dump(4);
-        // std::cout << jsonString<< std::endl;
-
-        return static_info;
-    }
-
-    nlohmann::json  Smq::get_dynamic_info(){
-        nlohmann::json dynamic_info;
-
-        nlohmann::json cpu_usage_json = moniter::DynamicInfo::Get().get_cpu_usage();
-        nlohmann::json gpu_usage_json = moniter::DynamicInfo::Get().get_gpu_usage();
-        nlohmann::json ram_available_json = moniter::DynamicInfo::Get().get_available_ram();
-
-        
-        dynamic_info["cpu_usage"] = cpu_usage_json;
-        dynamic_info["gpu_usage"] = gpu_usage_json;
-        dynamic_info["available_ram"] = ram_available_json;
-        // dynamic_info["bandwidth"] = banwidth_json;
-        // std::string jsonString = dynamic_info.dump(4);
-        // std::cout << jsonString<< std::endl;
-
-        return dynamic_info;
-    }
-
-    nlohmann::json Smq::get_network_info(){
-        nlohmann::json network_info;
-        nlohmann::json bandwidth;
-        for(const auto& entry : neighbors_){
-            network_info[entry] = moniter::DynamicInfo::Get().test_bandwidth(entry);
+    smq_ready_.store(true);
+    while (smq_ready_.load()) {
+        std::vector<char> recv_data;
+        int ret = ReadData(client_fd, buffer, recv_data);
+        if(ret == 0){
+            LOG_WARNING_("Server disconnected");
+            break;
         }
-        return network_info;
+        SignalMeta signal = parse_signal(std::string(recv_data.begin(), recv_data.end()));
+        LOG_INFO_(signal.id<<" -> "<< id_<<":data:"<<std::string(recv_data.begin(), recv_data.end()));
+        std::string infos = get_info_with_signal(signal);
+        send(client_fd, infos.c_str(), infos.length(), 0);
+        LOG_INFO_(id_<<" -> "<<signal.id <<":data:"<<infos);
+    }
+
+    band_.stop_bandwidth_test_server();
+    iperf_server_thread.join();
+    close(client_fd);
+    
+    LOG_INFO_("Smq client finalized ");
+    return ;
+
+
+}
+
+std::unordered_map<int,SmqMeta>  Smq::gather_info(int ksignal){
+    
+    if((ksignal & kSignalStatic) || (ksignal & kSignalDynamic) || (ksignal & kSignalNetwork)){
+    }else{
+        LOG_WARNING_("Invalid gather info signal");
+        return {};
+    }
+    if(socket_ids_.size() == 0){
+        LOG_WARNING_("No connected client");
+        return {};
     }
 
 
-    const std::vector<std::string>&  Smq::gather_info(int ksignal){
-        
-        std::string signal = std::string("SIGNAL:") + std::to_string(ksignal);
-        send_signal_to_clients(signal.c_str());
-        
+    recved_info_.clear();
+
+    SignalMeta gather_info_signal;
+    gather_info_signal.id = id_;
+
+    int signal = 0;
+    if(ksignal&kSignalStatic)signal+=kSignalStatic;
+    if(ksignal&kSignalDynamic)signal+=kSignalDynamic;
+    
+    if(signal != 0){
+        gather_info_signal.ksignal = signal;
+
+        std::string gather_info_msg = nlohmann::json(gather_info_signal).dump();
+        for (auto& client_socket : id_sockets_) {
+            send(client_socket.second, gather_info_msg.c_str(), gather_info_msg.length(), 0);
+            LOG_INFO_(id_<<" -> "<< client_socket.first<<":signal:"<<gather_info_msg);
+        }
+
         std::unique_lock<std::mutex> lk(tracker_mu_);
-        recved_info_.clear();
-        tracker_ = std::make_pair(client_sockets_.size(),0);
+
+        tracker_ = std::make_pair(socket_ids_.size(),0);
 
         tracker_cond_.wait(lk, [this]{
             return tracker_.first == tracker_.second;
         });
 
-        return recved_info_;
-
     }
-
-    SmqMeta Smq::convert_to_meta(const std::string& info){
-        nlohmann::json j = nlohmann::json::parse(info);
-        SmqMeta smq_meta = j.get<SmqMeta>();
-        return smq_meta;
-    }
-
-    bool Smq::is_loopback(const std::string& ip) {
-      if (ip.find("127") == 0) {
-        return true;
-      }
-      return false;
-    }
-
-    void Smq::send_signal_to_clients(const char* signal) {
-      char buffer[BUFFER_SIZE];
-      // std::cout<<signal<<std::endl;
-
-      if (client_sockets_.size() == 0)
-        LOG("no connected client");
-      for (int client_socket : client_sockets_) {
-        send(client_socket, signal, strlen(signal), 0);
-        LOG("Instruction sent to client socket " << client_socket << ": " << signal);
-      }
-    }
-
-    void Smq::server(){
-        int server_fd;
-        // int epoll_fd_;
-        int num_fds;
-        int opt = 1;
-        
-        struct sockaddr_in server_addr;
-        struct epoll_event ev, events[MAX_EVENTS];
-
-        int new_socket;
-        struct sockaddr_in ns_address;
-        int ns_addrlen = sizeof(ns_address);
-
-        char buffer[BUFFER_SIZE] = {0};
-
-        if((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
-            perror("socket create failed");
-            return ;
-        }
-
-        if(setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))<0){
-            perror("setsocket failed");
-            return ;
-        }
-
-        // check _server_ip is ip or hostname        
-        _server_ip = resolve_hostname(_server_ip);
-        if(_server_ip.empty()){
-           throw std::runtime_error("Invalid server ip");
-        }
-        std::cout << "Server ip: " << _server_ip << std::endl;
-
-
-        server_addr.sin_family = AF_INET;
-        server_addr.sin_addr.s_addr = inet_addr(_server_ip.c_str());
-        server_addr.sin_port = htons(_port);
-
-        if(bind(server_fd, reinterpret_cast<struct sockaddr*>(&server_addr), sizeof(server_addr))<0){
-            perror("bind failed");
-            return ;
-        }
-        
-        if(listen(server_fd, 10 ) < 0){
-            perror("listen failed");
-            return ;
-        }
-
-        setNonBlocking(server_fd);
-
-        epoll_fd_ = epoll_create1(0);
-        if (epoll_fd_ == -1) {
-            perror("epoll_create1 failed");
-            exit(EXIT_FAILURE);
-        }
-
-
-        ev.events = EPOLLIN;
-        ev.data.fd = server_fd;
-        if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, server_fd, &ev) == -1) {
-            perror("epoll_ctl:  add server_fd failed");
-            exit(EXIT_FAILURE);
-        }
-        
-        std::thread iperf_server_thread([]() { moniter::DynamicInfo::Get().start_bandwidth_test_server(); });
-
-        ready_.store(true);
-        while(true){
-            num_fds = epoll_wait(epoll_fd_, events, MAX_EVENTS, 100);
-            if(!ready_.load()){
-                break;
-            }
-            if (num_fds == -1){
-                perror("epoll_wait() failed");
-                exit(EXIT_FAILURE);
-            }
-
-            for (int n = 0; n < num_fds; ++n){
-                
-                if(events[n].data.fd == server_fd){
-                    new_socket = accept(server_fd, (struct sockaddr*)&ns_address, (socklen_t*)&ns_addrlen);
-
-                    if (new_socket == -1) {
-                        perror("accept new socket failed");
-                        exit(EXIT_FAILURE);
+    
+    
+    if(ksignal & kSignalNetwork){
+        int band_test_rounds = band_test_groups.size();
+        if(is_topo_ready_ == false){
+            LOG_WARNING_("topo is not ready, unale to gather network info");
+        }else if(band_test_rounds == 0){
+            LOG_WARNING_("No link to test, unable to gather network info");
+        }else{
+            gather_info_signal.ksignal = kSignalNetwork;
+            for(auto& band_test : band_test_groups){
+                int num = 0;
+                for(auto& sigle_test : band_test){
+                    gather_info_signal.test_targets.clear();
+                    int client_id = sigle_test.first;
+                    int target_id = sigle_test.second;
+                    if ((id_sockets_.find(client_id) == id_sockets_.end())) {
+                        LOG_WARNING_("Client:" << client_id << " not registered");
+                        continue;
+                    }else if(id_sockets_.find(target_id) == id_sockets_.end()){
+                        LOG_WARNING_("Client:" << target_id << " not registered");
+                        continue;
                     }
-                    
-                    setNonBlocking(new_socket);
-                    ev.events = EPOLLIN | EPOLLET; 
-                    ev.data.fd = new_socket;
-                    if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, new_socket, &ev) == -1) {
-                        perror("epoll_ctl: new_socket");
-                        exit(EXIT_FAILURE);
-                    }
-                    client_sockets_.push_back(new_socket);
-
-                    std::cout << "New connection established" << std::endl;
-                }else{
-                    int client_socket = events[n].data.fd;
-                    int valread = read(client_socket, buffer, BUFFER_SIZE);
-                    if (valread == 0) {
-                        std::cout << "Client disconnected" << std::endl;
-                        close(client_socket);
-                        tracker_mu_.lock();
-                        tracker_.first--;
-                        client_sockets_.erase(std::remove(client_sockets_.begin(), client_sockets_.end(), client_socket), client_sockets_.end());
-                        tracker_mu_.unlock();
-                    } else if (valread > 0) {
-                        std::vector<char> recv_data;
-                        recv_data.insert(recv_data.end(), buffer, buffer + valread);
-                        while ((valread = read(client_socket, buffer, BUFFER_SIZE)) > 0) {
-                                std::cout << "Receiving... " << std::endl;
-                                recv_data.insert(recv_data.end(), buffer, buffer + valread);
-                                
-                                if (valread < BUFFER_SIZE) {
-                                    break;
-                                }
-                            }
-                        std::string json_str(recv_data.begin(), recv_data.end());
-                        data_handler(json_str);
-                        // std::cout << "Data received:\n " << json_str << std::endl;
-                        memset(buffer, 0, BUFFER_SIZE);
-                    }
+                    int client_socket = id_sockets_[client_id];
+                    gather_info_signal.test_targets[target_id] = client_iperf_servers_[target_id];
+                    std::string gather_info_msg = nlohmann::json(gather_info_signal).dump();
+                    send(client_socket, gather_info_msg.c_str(), gather_info_msg.length(), 0);
+                    num++;
+                    LOG_INFO_(id_<<" -> "<< client_id<<":signal:"<<gather_info_msg);
                 }
+                std::unique_lock<std::mutex> lk(tracker_mu_);
+                tracker_ = std::make_pair(num,0);
+                tracker_cond_.wait(lk, [this]{
+                    return tracker_.first == tracker_.second;
+                });
             }
-            
+
         }
-        moniter::DynamicInfo::Get().stop_bandwidth_test_server();
-        iperf_server_thread.join();
-        for (int client_socket : client_sockets_) {
-            epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, client_socket, nullptr); 
-            close(client_socket); 
-        }
-        close(epoll_fd_);
-        close(server_fd);
     }
-
-
-    void Smq::client(){
-        int sock = 0;
-        struct sockaddr_in server_addr;
-        char buffer[BUFFER_SIZE] = {0};
-
-        if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-            perror("Socket creation error");
-            return ;
-        }
-
-        // check _server_ip is ip or hostname        
-        _server_ip = resolve_hostname(_server_ip);
-        if(_server_ip.empty()){
-           throw std::runtime_error("Invalid server ip");
-        }
-        std::cout << "Server ip: " << _server_ip << std::endl;
-        
-        server_addr.sin_family = AF_INET;
-        server_addr.sin_addr.s_addr = inet_addr(_server_ip.c_str());
-        server_addr.sin_port = htons(_port);
-
-        if (connect(sock, reinterpret_cast<struct sockaddr*>(&server_addr), sizeof(server_addr)) < 0) {
-            perror("Connection Failed");
-            return ;
-        }
-
-        std::thread iperf_server_thread([]() { moniter::DynamicInfo::Get().start_bandwidth_test_server(); });
-
-        ready_.store(true);
-        while (ready_.load()) {
-            if (read(sock, buffer, BUFFER_SIZE) <= 0) {
-                LOG("Server disconnected");
-                break;
-            }
-            std::string body(buffer);
-            body += std::string("\n");
-            if(body.find("SIGNAL:") != std::string::npos){
-                int ksignal = std::stoi(Util::find_value(body, "SIGNAL:"));
-                LOG("kSignal:"<<ksignal);
-                std::string data = get_info_with_ksignal(ksignal);
-                LOG("data length:"<<data.length());
-                send(sock, data.c_str(), data.length(), 0);
-            }else{
-                std::cout << "Unkown mesage" << std::endl;
-            }
-            memset(buffer, 0, BUFFER_SIZE);
-        }
-
-        moniter::DynamicInfo::Get().stop_bandwidth_test_server();
-        iperf_server_thread.join();
-        close(sock);
-        return ;
-
-    };
-
-    void Smq::data_handler(const std::string& data){
-        std::unique_lock<std::mutex> lk(tracker_mu_);
-        recved_info_.push_back(data);
-        tracker_.second++;
-        std::cout << "Client responded, total responses: " << tracker_.second << std::endl;
-        
-        tracker_cond_.notify_one();
+    LOG_WARNING_("----");
+    for(auto& info : recved_info_){
+        std::string res = nlohmann::json(info.second).dump(4);
+        LOG_WARNING_(res);
     }
+    return recved_info_;
 
 
 }
+
+int Smq::CreateSocket() {
+    int sock_fd;
+    int opt = 1;
+    struct sockaddr_in addr;
+
+    server_ip_ = resolve_hostname(server_ip_);
+    if(server_ip_.empty()){
+        LOG_ERROR_("Invalid Smq server ip");
+    }
+    // LOG_INFO_("Smq server ip: "+ server_ip_);
+
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = inet_addr(server_ip_.c_str());
+    addr.sin_port = htons(server_port_);
+
+    if ((sock_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+        LOG_ERROR_("Socket creation failed");
+    }
+
+    if (is_server_) {
+        if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)) == -1) {
+            LOG_ERROR_("setsockopt() failed");
+        }
+
+        if (bind(sock_fd, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) == -1) {
+            LOG_ERROR_("bind() failed");
+        }
+
+        if(listen(sock_fd, 10 ) < 0){
+            LOG_ERROR_("listen() failed");
+        }
+        SetNonBlocking(sock_fd);
+        LOG_INFO_("Server is listening on port " << server_port_);
+
+    } else {
+        
+        if (connect(sock_fd, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0) {
+            LOG_ERROR_("Connect to server failed");
+        }
+
+        LOG_INFO_("Client connected to server at " << server_ip_ << ":" << server_port_);
+    }
+
+    return sock_fd;
+}
+
+void Smq::SetNonBlocking(int socket) {
+    int flags = fcntl(socket, F_GETFL, 0);
+    if (flags == -1) {
+        LOG_ERROR_("fcntl(F_GETFL) failed, socket: " << socket << ", errno: " << errno);
+    }
+    if(fcntl(socket, F_SETFL, flags | O_NONBLOCK) < 0){
+        LOG_ERROR_("fcntl(F_SETFL) failed to set nonblocking, socket: " << socket << ", errno: " << errno);
+    }
+}
+
+std::string Smq::resolve_hostname(const std::string& server_ip) {
+    // 检查 server_ip 是否是有效的 IP 地址
+    struct sockaddr_in sa;
+    int result = inet_pton(AF_INET, server_ip.c_str(), &(sa.sin_addr));
+    if (result == 1) {
+        // server_ip 是有效的 IPv4 地址
+        return server_ip;
+    }
+
+    // 尝试解析 server_ip 作为域名
+    struct addrinfo hints, *res;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC; // IPv4 或 IPv6
+    hints.ai_socktype = SOCK_STREAM; // TCP
+
+    int status = getaddrinfo(server_ip.c_str(), NULL, &hints, &res);
+    if (status != 0) {
+        std::cerr << "getaddrinfo error: " << gai_strerror(status) << std::endl;
+        return "";
+    }
+
+    // 遍历解析结果，找到第一个有效的 IP 地址
+    for (struct addrinfo *p = res; p != NULL; p = p->ai_next) {
+        void *addr;
+        char ipstr[INET6_ADDRSTRLEN];
+
+        if (p->ai_family == AF_INET) { // IPv4
+            struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
+            addr = &(ipv4->sin_addr);
+        } else { // IPv6
+            struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
+            addr = &(ipv6->sin6_addr);
+        }
+
+        inet_ntop(p->ai_family, addr, ipstr, sizeof(ipstr));
+        freeaddrinfo(res);
+        return std::string(ipstr);
+    }
+
+    freeaddrinfo(res);
+    return "";
+}
+
+int Smq::InitializeEpoll(int target_fd, struct epoll_event &ev, uint32_t events) {
+    int epoll_fd = epoll_create1(0);
+    if (epoll_fd == -1) {
+        LOG_ERROR_("epoll_create1 failed");
+    }
+
+    ev.events = events;
+    ev.data.fd = target_fd;
+
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, target_fd, &ev) == -1) {
+        close(epoll_fd);
+        LOG_ERROR_("epoll_ctl: add target_fd failed");
+    }
+
+    return epoll_fd;
+}
+
+int Smq::ReadData(int socket, char* buffer, std::vector<char>& recv_data) {
+    int valread = read(socket, buffer, BUFFER_SIZE);
+    if(valread == 0) return 0;
+    else if (valread > 0) {
+        recv_data.insert(recv_data.end(), buffer, buffer + valread);
+        //BUG: client can only read once, need to read until no data
+        if(is_server_){
+            while ((valread = read(socket, buffer, BUFFER_SIZE)) > 0) {
+                LOG_INFO_("Smq reading data...");
+                recv_data.insert(recv_data.end(), buffer, buffer + valread);
+                if (valread < BUFFER_SIZE) {
+                    break;  
+                }
+            }
+        }
+        memset(buffer, 0, BUFFER_SIZE);
+        return recv_data.size();
+    }
+    else if (valread == -1) {
+        LOG_ERROR_("Read data error");
+    }
+    LOG_WARNING_("Undefined Behavior");
+
+    return -1;  
+}
+
+void Smq::client_register(int client_fd){
+    int iperf_port = band_.get_server_port();
+    SignalMeta register_signal;
+    register_signal.ksignal = 0;
+    register_signal.id = id_;
+    register_signal.iperf_port = iperf_port;
+    std::string register_msg = nlohmann::json(register_signal).dump(0);
+    int ret = send(client_fd, register_msg.c_str(), register_msg.length(), 0);
+    if(ret == -1){
+        LOG_ERROR_("Send register message failed");
+    }   
+}
+
+std::string Smq::get_info_with_signal(SignalMeta signal){
+    
+    int ksignal = signal.ksignal;
+    std::unordered_map<int, std::pair<std::string, int>> test_targets = signal.test_targets;
+
+    SmqMeta smq_meta;
+    smq_meta.id = id_;
+    if(ksignal & kSignalStatic ){
+        smq_meta.static_info.cpu_models = StaticInfo::get_cpu_info();
+        smq_meta.static_info.gpu_models = StaticInfo::get_gpu_info();
+        smq_meta.static_info.total_ram = StaticInfo::get_totalram();
+    }
+    if(ksignal & kSignalDynamic ){
+        smq_meta.dynamic_info.cpu_usage = DynamicInfo::Get().get_cpu_usage();
+        smq_meta.dynamic_info.gpu_usage = DynamicInfo::Get().get_gpu_usage();
+        smq_meta.dynamic_info.available_ram = DynamicInfo::Get().get_available_ram();
+    }
+    if(ksignal & kSignalNetwork ){
+        for(const auto& [id, ip_port] : test_targets){
+            smq_meta.network_info.bandwidth[id] = band_.test_bandwidth(ip_port.first, ip_port.second);
+        }
+    }
+
+    SignalMeta smq_signal;
+    smq_signal.ksignal = ksignal;
+    smq_signal.id = id_; 
+    smq_signal.smq_meta = smq_meta;
+    std::string json_string = nlohmann::json(smq_signal).dump();
+    return json_string;
+}
+
+std::string Smq::get_ip_from_socket(int client_socket) {
+    struct sockaddr_in peer_addr;
+    socklen_t peer_addr_len = sizeof(peer_addr);
+
+    if (getpeername(client_socket, (struct sockaddr*)&peer_addr, &peer_addr_len) == -1) {
+        LOG_ERROR_("Error getting peer name: ");
+        return "";
+    }
+
+    char ip_str[INET_ADDRSTRLEN];
+    if (inet_ntop(AF_INET, &peer_addr.sin_addr, ip_str, sizeof(ip_str)) == nullptr) {
+        LOG_ERROR_("Error converting IP address: ");
+        return "";
+    }
+
+    return std::string(ip_str);
+}
+
+void Smq::set_topo(std::unordered_map<int, std::vector<int>> topo){
+    if(is_server_){
+        topo_ = topo;
+        band_test_groups = NetThinker::edge_coloring(topo);
+        is_topo_ready_ = true;
+    }else{
+        LOG_WARNING_("Client can not set topo");
+    }
+
+}
+
+void Smq::server_data_handler(std::vector<char> recv_data){
+        SignalMeta data = parse_signal(std::string(recv_data.begin(), recv_data.end()));
+        if(data.id == -1){
+            LOG_WARNING_("Invalid data id");
+            return;
+        }else if(id_sockets_.find(data.id) == id_sockets_.end()){
+            LOG_WARNING_("Client id not registered");
+            return;
+        }
+        if(recved_info_.find(data.id) == recved_info_.end()){
+            recved_info_[data.id] = data.smq_meta;
+        }else{
+            if(data.ksignal & kSignalNetwork){
+                recved_info_[data.id].network_info += data.smq_meta.network_info;
+            }else{
+                LOG_WARNING_("Duplicated data");
+                return;
+            }
+        }
+        std::unique_lock<std::mutex> lk(tracker_mu_);
+        tracker_.second++;
+        tracker_cond_.notify_one();
+}
+
+}
+
