@@ -9,6 +9,7 @@
 #include <sys/epoll.h>
 #include <functional>
 #include "smq_meta.h"
+#include "base.h"
 #include "network_info.h"
 
 namespace moniter {

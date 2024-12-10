@@ -19,31 +19,23 @@ if(UNIX)
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 endif()
 
-add_library(resource_monitor)
+add_library(resource_monitor SHARED "")
 
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/iperf-cmake)
 
-# add_executable(resource_monitor main.cc)
-# include_directories("${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/iperf-cmake/iperf/src", "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/json/")
-target_include_directories(resource_monitor PRIVATE "LIBIPERF_HDRS")
 target_include_directories(resource_monitor PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/json/")
-# include_directories($LIBIPERF_HDRS, "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/json/")
+
 target_link_libraries(resource_monitor PRIVATE iperf)
 target_precompile_headers(resource_monitor PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/3rdparty/iperf-cmake/iperf_config.h)
 
-# link_directories( /home/zzh/resource_monitor/3rdparty/iperf/src/.libs)
 
-# target_link_libraries(resource_monitor libiperf.so)
-
-# build
 file(GLOB_RECURSE SOURCE "src/*.cc")
 
 target_include_directories(resource_monitor PUBLIC "${PROJECT_SOURCE_DIR}/include/clusterRM")
 target_link_libraries(resource_monitor PUBLIC ${resource_monitor_LINKER_LIBS})
-target_sources(resource_monitor PRIVATE ${SOURCE})
 
-# add_definitions(-DDEBUG)
+target_sources(resource_monitor PRIVATE ${SOURCE})
 
 if (CMQ_BUILD_TESTS)
   add_subdirectory(tests)
