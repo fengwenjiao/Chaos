@@ -16,7 +16,7 @@ RUN mkdir build && cd build && cmake .. && cmake --build .
 
 # install the python package
 WORKDIR /constellation/python
-RUN pip3 install -r requirements-dev.txt && pip3 install .
+RUN pip3 install .
 
 RUN apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
 

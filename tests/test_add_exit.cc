@@ -6,8 +6,8 @@
 
 using namespace constellation;
 
-const int KEY_NUM = 200;
-const int TIMES = 200;
+const int KEY_NUM = 20;
+const int TIMES = 200000;
 
 int main(int argc, char* argv[]) {
   test::RandomUtils::set_seed(10);
@@ -47,7 +47,7 @@ int main(int argc, char* argv[]) {
 
     trainer.PushPull(params._ids, params._parameters, params._pointers);
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
     std::vector<int> keys_to_migrate;
     trainer.BatchEnd(&keys_to_migrate);
     if (keys_to_migrate.size() > 0) {

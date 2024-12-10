@@ -3,21 +3,16 @@
 
 import argparse
 import torchvision
+import os
 
 # 解析命令行参数
 parser = argparse.ArgumentParser(
     description="Train ResNet-18 on CIFAR-10 with specified GPU."
 )
-parser.add_argument("--gpu", type=int, default=0, help="GPU id to use (default: 0)")
-parser.add_argument(
-    "--subset",
-    type=int,
-    default=1000,
-    help="Number of samples to use for training (default: 1000)",
-)
 args = parser.parse_args()
 
-data_path = "/data"
+
+data_path = os.path.join(os.path.dirname(__file__), "data")
 
 # 下载ciifar10数据集
 def download_cifar10():
