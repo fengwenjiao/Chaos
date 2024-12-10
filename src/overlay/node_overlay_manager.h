@@ -15,6 +15,19 @@ class ReadyoverlayInfo {
   inline const AdjacencyList& GetReadyOverlay() {
     return overlay_;
   }
+  virtual std::string debug_string() const {
+    std::string str;
+    str += "{";
+    for (const auto& edge : overlay_) {
+      str += std::to_string(edge.first) + " -> [";
+      for (const auto& dst : edge.second) {
+        str += std::to_string(dst) + " ";
+      }
+      str += "] ";
+    }
+    str += "}";
+    return str;
+  }
 
  protected:
   AdjacencyList overlay_;

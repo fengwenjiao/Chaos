@@ -97,6 +97,7 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
       // TODO: now it is just a simple version, need to be improved
       // TODO: if need remote thinker, here should just send, can not get the result immediately
       auto overlay = node_manager_->GetReadyOverlay();
+      PS_VLOG(2) << "Get new overlay: " << overlay->debug_string();
       ModelSycnConf model_sync_conf;
       model_sync_conf.target_node_id = {ready_node_id};
       auto req = StrategyRequest{StrategyRequest::StrategyReqType::kTopoAndModelSyncConfUpdate,

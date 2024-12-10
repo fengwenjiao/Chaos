@@ -40,6 +40,10 @@ struct Edge : EdgeProperty<E> {
     return this->src == other.src && this->dst == other.dst;
   }
 
+  std::string debug_string() const {
+    return "{" + std::to_string(src) + " -> " + std::to_string(dst) + "}";
+  }
+
   T src;
   T dst;
 

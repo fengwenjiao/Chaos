@@ -50,6 +50,14 @@ class NetAWoverlayInfo : public ReadyoverlayInfo {
   inline float& get_edge_property(const topo::Edge<int>& edge) {
     return edge_property_[edge];
   }
+  virtual std::string debug_string() const override {
+    auto str = "topo: {" + ReadyoverlayInfo::debug_string() + " ";
+    for (const auto& [edge, property] : edge_property_) {
+      str += edge.debug_string() + " -> " + std::to_string(property) + " ";
+    }
+    str += "}";
+    return str;
+  }
 
  private:
   std::unordered_map<topo::Edge<int>, float, topo::Edge<int>::Hash> edge_property_;
@@ -59,10 +67,11 @@ class NetworkAwareNodeManager : public ReadyNodeOverlayManager {
  public:
   NetworkAwareNodeManager(std::unique_ptr<moniter::Smq>& test_server) : ReadyNodeOverlayManager() {
     test_server_ = test_server.get();
-    test_server_thread_.reset(new std::thread([this] { test_server_->start_server(); }));
+    test_server_thread_.reset(
+        new std::thread([this] { test_server_->start_server(ps::kScheduler); }));
   }
   virtual ~NetworkAwareNodeManager() override {
-    test_server_->stop();
+    test_server_->stop_smq();
     test_server_thread_->join();
   }
 
@@ -70,16 +79,12 @@ class NetworkAwareNodeManager : public ReadyNodeOverlayManager {
     using namespace moniter;
     auto overlay = ReadyNodeOverlayManager::GetReadyOverlay();
     auto overlayinfo = std::make_unique<NetAWoverlayInfo>(overlay->GetReadyOverlay());
-    auto& infos = test_server_->gather_info(kSignalStatic + kSignalDynamic + kSignalBandwidth);
-    for (auto& info : infos) {
-      auto res = test_server_->convert_to_meta(info);
-      auto id = res.id;
-      auto& bandwith = res.network_info.bandwidth;
-      for (const auto& [ip, bw] : bandwith) {
-        auto& target_ids = ps::Postoffice::Get()->GetIp2Nodes().at(ip);
-        for (auto target_id : target_ids) {
-          overlayinfo->get_edge_property(topo::Edge{id, target_id}) = bw;
-        }
+    test_server_->set_topo(overlay->GetReadyOverlay());
+    auto infos = test_server_->gather_info(kSignalStatic + kSignalDynamic + kSignalNetwork);
+    for (auto& [id, info] : infos) {
+      auto& bandwith = info.network_info.bandwidth;
+      for (const auto& [other_id, bw] : bandwith) {
+        overlayinfo->get_edge_property(topo::Edge{id, other_id}) = bw;
       }
     }
     return overlayinfo;

@@ -5,6 +5,15 @@ import ctypes
 
 __all__ = ["ConstelController", "run_controller"]
 
+THINKER_NAME = [
+    "ContelSimpleThinker",
+    "SimpleEqualConfThinker",
+    "SinglePointConfThinker",
+    "FAPTEqualConfThinker",
+    "FAPTTimeWeightedConfThinker",
+    "RoundRobinTimeWeightedThinker",
+]
+
 
 def create_controller_handle(thinker_name=""):
     handle = ControllerHandle()
@@ -42,4 +51,8 @@ def _run_controller(thinker_name: str = "ContelSimpleThinker"):
 
 
 def run_controller(thinker_name: str):
+    if thinker_name not in THINKER_NAME:
+        raise ValueError(
+            f"Invalid thinker name: {thinker_name}, must be one of {THINKER_NAME}"
+        )
     _run_controller()
