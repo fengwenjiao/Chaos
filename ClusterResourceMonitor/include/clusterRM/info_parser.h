@@ -112,6 +112,9 @@ void to_json(nlohmann::json& j, const moniter::SignalMeta& k) {
   if (k.ksignal != 0) {
     j["smq_meta"] = k.smq_meta;
   }
+  if (!k.ip.empty()) {
+    j["ip"] = k.ip;
+  }
 
   if (!k.test_targets.empty()) {
     j["test_targets"] = k.test_targets;
@@ -135,6 +138,11 @@ void from_json(const nlohmann::json& j, moniter::SignalMeta& k) {
     k.test_targets = {};
   } else {
     j.at("test_targets").get_to(k.test_targets);
+  }
+  if (j.find("ip") == j.end() || j.at("ip").is_null()) {
+    k.ip = {};
+  } else {
+    j.at("ip").get_to(k.ip);
   }
 }
 

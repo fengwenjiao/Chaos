@@ -30,7 +30,7 @@ target_link_libraries(resource_monitor PRIVATE iperf)
 target_precompile_headers(resource_monitor PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/3rdparty/iperf-cmake/iperf_config.h)
 
 
-file(GLOB_RECURSE SOURCE "src/*.cc")
+file(GLOB_RECURSE SOURCE "src/*.cc" "src/*.cpp" "src/*.h")
 
 target_include_directories(resource_monitor PUBLIC "${PROJECT_SOURCE_DIR}/include/clusterRM")
 target_link_libraries(resource_monitor PUBLIC ${resource_monitor_LINKER_LIBS})

@@ -45,6 +45,7 @@ struct SmqMeta {
 struct SignalMeta {
   int ksignal;
   int id;
+  std::string ip;
   int iperf_port;
   SmqMeta smq_meta;
   std::unordered_map<int, std::pair<std::string, int>> test_targets;

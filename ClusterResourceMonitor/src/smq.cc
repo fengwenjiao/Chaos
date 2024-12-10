@@ -10,6 +10,7 @@
 #include "net_thinker.h"  // Ensure NetThinker is included
 #include "info_parser.h"
 #include "base.h"
+#include "network_utils.h"
 
 #define MAX_EVENTS  50
 #define BUFFER_SIZE 1024
@@ -82,12 +83,15 @@ void Smq::server(int global_id) {
               LOG_WARNING_("Client id conflict with server id");
               continue;
             }
+            if (signal.ip.empty()) {
+              throw std::runtime_error("Client ip is empty");
+            }
             client_iperf_servers_[signal.id] =
-                std::make_pair(get_ip_from_socket(client_socket), signal.iperf_port);
+                std::make_pair(signal.ip, signal.iperf_port);
             id_sockets_[signal.id] = client_socket;
             socket_ids_[client_socket] = signal.id;
             LOG_INFO_("Client registered: fd:" << client_socket << " id:" << signal.id
-                                               << " ip: " << get_ip_from_socket(client_socket)
+                                               << " ip: " << signal.ip
                                                << " iperf port: " << signal.iperf_port);
           } else {
             server_data_handler(recv_data);
@@ -369,6 +373,12 @@ void Smq::client_register(int client_fd) {
   SignalMeta register_signal;
   register_signal.ksignal = 0;
   register_signal.id = id_;
+  std::string ip, interface;
+  ps::GetAvailableInterfaceAndIP(&interface, &ip);
+  if (ip.empty()) {
+    throw std::runtime_error("Failed to get ip address");
+  }
+  register_signal.ip = ip;
   register_signal.iperf_port = iperf_port;
   std::string register_msg = nlohmann::json(register_signal).dump(0);
   int ret = send(client_fd, register_msg.c_str(), register_msg.length(), 0);
