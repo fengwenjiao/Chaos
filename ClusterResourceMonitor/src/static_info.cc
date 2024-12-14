@@ -34,7 +34,7 @@ std::vector<StaticInfo::cpu> StaticInfo::get_cpu_info() {
     physical_to_model[physical_id] = model_name;
   }
   for (const auto& entry : physical_to_model) {
-    cpu_info.emplace_back(entry.first, entry.second);
+    cpu_info.emplace_back(StaticInfo::cpu{entry.first, entry.second});
   }
   return cpu_info;
 }
@@ -60,7 +60,7 @@ std::vector<StaticInfo::gpu> StaticInfo::get_gpu_info() {
     pos = shell_output.find("FB Memory Usage", pos);
     std::string gpu_mem_total_str = Util::find_value(shell_output, "Total", pos);
     gpu_mem_total = float(stoi(Util::remove_unit(gpu_mem_total_str))) / 1024;
-    gpu_info.emplace_back(minor_number, model_name, gpu_mem_total);
+    gpu_info.emplace_back(StaticInfo::gpu{minor_number, model_name, gpu_mem_total});
   }
   return gpu_info;
 }

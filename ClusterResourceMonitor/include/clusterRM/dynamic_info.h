@@ -15,10 +15,10 @@ class DynamicInfo {
   }
 
   struct gpu_usage {
+    DEFAULT_SPECIAL_MEMBERS(gpu_usage);
     int minor_number;
     float gpu_util;
     float mem_util;
-    gpu_usage() = default;
     gpu_usage(int minor_number, float gpu_util, float mem_util)
         : minor_number(minor_number), gpu_util(gpu_util), mem_util(mem_util) {}
   };

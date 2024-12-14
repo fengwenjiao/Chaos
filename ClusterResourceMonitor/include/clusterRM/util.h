@@ -4,6 +4,13 @@
 #include <iostream>
 #include <cstring>
 
+#define DEFAULT_SPECIAL_MEMBERS(Type)           \
+  Type() = default;                             \
+  Type(const Type& other) = default;            \
+  Type(Type&& other) noexcept = default;        \
+  Type& operator=(const Type& other) = default; \
+  Type& operator=(Type&& other) noexcept = default;
+
 #define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 enum LogLevel { LOG_LEVEL_INFO, LOG_LEVEL_WARNING, LOG_LEVEL_ERROR, LOG_LEVEL_NONE };
 extern LogLevel currentLogLevel;

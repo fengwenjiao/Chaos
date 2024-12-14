@@ -8,7 +8,7 @@
 #include <unordered_set>
 #include "util.h"
 #include "net_thinker.h"  // Ensure NetThinker is included
-#include "info_parser.h"
+#include "../../src/utils/serilite.hpp"
 #include "base.h"
 #include "network_utils.h"
 
@@ -69,7 +69,15 @@ void Smq::server(int global_id) {
             }
           }
         } else {
-          SignalMeta signal = parse_signal(std::string(recv_data.begin(), recv_data.end()));
+          // SignalMeta signal = parse_signal(std::string(recv_data.begin(), recv_data.end()));
+          SignalMeta signal;
+          try {
+            std::string recv_str(recv_data.begin(), recv_data.end());
+            constellation::serilite::deserialize(recv_str, signal);
+          } catch (const std::exception& e) {
+            LOG_WARNING_("Parse signal failed: " << e.what());
+            continue;
+          }
           if (signal.ksignal == kSignalRegister) {
             if (socket_ids_[client_socket] != -1) {
               LOG_WARNING_("Socket already registered");
@@ -86,8 +94,7 @@ void Smq::server(int global_id) {
             if (signal.ip.empty()) {
               throw std::runtime_error("Client ip is empty");
             }
-            client_iperf_servers_[signal.id] =
-                std::make_pair(signal.ip, signal.iperf_port);
+            client_iperf_servers_[signal.id] = std::make_pair(signal.ip, signal.iperf_port);
             id_sockets_[signal.id] = client_socket;
             socket_ids_[client_socket] = signal.id;
             LOG_INFO_("Client registered: fd:" << client_socket << " id:" << signal.id
@@ -95,7 +102,7 @@ void Smq::server(int global_id) {
                                                << " iperf port: " << signal.iperf_port);
           } else {
             server_data_handler(recv_data);
-            LOG_INFO_("msg received: " << std::string(nlohmann::json(signal).dump()));
+            // LOG_INFO_("msg received: " << std::string(nlohmann::json(signal).dump()));
           }
         }
       }
@@ -130,12 +137,20 @@ void Smq::client(int global_id) {
       LOG_WARNING_("Server disconnected");
       break;
     }
-    SignalMeta signal = parse_signal(std::string(recv_data.begin(), recv_data.end()));
+    // SignalMeta signal = parse_signal(std::string(recv_data.begin(), recv_data.end()));
+    SignalMeta signal;
+    try {
+      std::string recv_str(recv_data.begin(), recv_data.end());
+      constellation::serilite::deserialize(recv_str, signal);
+    } catch (const std::exception& e) {
+      LOG_WARNING_("Parse signal failed: " << e.what());
+      continue;
+    }
     LOG_INFO_(signal.id << " -> " << id_
                         << ":data:" << std::string(recv_data.begin(), recv_data.end()));
     std::string infos = get_info_with_signal(signal);
     send(client_fd, infos.c_str(), infos.length(), 0);
-    LOG_INFO_(id_ << " -> " << signal.id << ":data:" << infos);
+    // LOG_INFO_(id_ << " -> " << signal.id << ":data:" << infos);
   }
 
   band_.stop_bandwidth_test_server();
@@ -171,10 +186,12 @@ std::unordered_map<int, SmqMeta> Smq::gather_info(int ksignal) {
   if (signal != 0) {
     gather_info_signal.ksignal = signal;
 
-    std::string gather_info_msg = nlohmann::json(gather_info_signal).dump();
+    // TODO
+    std::string gather_info_msg =
+        constellation::serilite::serialize(gather_info_signal).as_string();
     for (auto& client_socket : id_sockets_) {
       send(client_socket.second, gather_info_msg.c_str(), gather_info_msg.length(), 0);
-      LOG_INFO_(id_ << " -> " << client_socket.first << ":signal:" << gather_info_msg);
+      // LOG_INFO_(id_ << " -> " << client_socket.first << ":signal:" << gather_info_msg);
     }
 
     std::unique_lock<std::mutex> lk(tracker_mu_);
@@ -207,21 +224,19 @@ std::unordered_map<int, SmqMeta> Smq::gather_info(int ksignal) {
           }
           int client_socket = id_sockets_[client_id];
           gather_info_signal.test_targets[target_id] = client_iperf_servers_[target_id];
-          std::string gather_info_msg = nlohmann::json(gather_info_signal).dump();
+          // TODO:
+          //  std::string gather_info_msg = nlohmann::json(gather_info_signal).dump();
+          std::string gather_info_msg =
+              constellation::serilite::serialize(gather_info_signal).as_string();
           send(client_socket, gather_info_msg.c_str(), gather_info_msg.length(), 0);
           num++;
-          LOG_INFO_(id_ << " -> " << client_id << ":signal:" << gather_info_msg);
+          // LOG_INFO_(id_ << " -> " << client_id << ":signal:" << gather_info_msg);
         }
         std::unique_lock<std::mutex> lk(tracker_mu_);
         tracker_ = std::make_pair(num, 0);
         tracker_cond_.wait(lk, [this] { return tracker_.first == tracker_.second; });
       }
     }
-  }
-  LOG_WARNING_("----");
-  for (auto& info : recved_info_) {
-    std::string res = nlohmann::json(info.second).dump(4);
-    LOG_WARNING_(res);
   }
   return recved_info_;
 }
@@ -380,7 +395,8 @@ void Smq::client_register(int client_fd) {
   }
   register_signal.ip = ip;
   register_signal.iperf_port = iperf_port;
-  std::string register_msg = nlohmann::json(register_signal).dump(0);
+  // std::string register_msg = nlohmann::json(register_signal).dump(0);
+  std::string register_msg = constellation::serilite::serialize(register_signal).as_string();
   int ret = send(client_fd, register_msg.c_str(), register_msg.length(), 0);
   if (ret == -1) {
     LOG_ERROR_("Send register message failed");
@@ -413,7 +429,8 @@ std::string Smq::get_info_with_signal(SignalMeta signal) {
   smq_signal.ksignal = ksignal;
   smq_signal.id = id_;
   smq_signal.smq_meta = smq_meta;
-  std::string json_string = nlohmann::json(smq_signal).dump();
+  // std::string json_string = nlohmann::json(smq_signal).dump();
+  std::string json_string = constellation::serilite::serialize(smq_signal).as_string();
   return json_string;
 }
 
@@ -446,7 +463,15 @@ void Smq::set_topo(std::unordered_map<int, std::vector<int>> topo) {
 }
 
 void Smq::server_data_handler(std::vector<char> recv_data) {
-  SignalMeta data = parse_signal(std::string(recv_data.begin(), recv_data.end()));
+  // SignalMeta data = parse_signal(std::string(recv_data.begin(), recv_data.end()));
+  SignalMeta data;
+  try {
+    std::string recv_str(recv_data.begin(), recv_data.end());
+    constellation::serilite::deserialize(recv_str, data);
+  } catch (const std::exception& e) {
+    LOG_WARNING_("Parse signal failed: " << e.what());
+    return;
+  }
   if (data.id == -1) {
     LOG_WARNING_("Invalid data id");
     return;

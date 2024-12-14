@@ -31,8 +31,9 @@ void BandwidthInfo::start_bandwidth_test_server(){
         iperf_set_test_logfile(test, "/dev/null");
         if (iperf_run_server(test) < 0) {  
             LOG_WARNING_("Error running iperf server: " << iperf_strerror(i_errno));
-            iperf_free_test(test);
-            return;
+            // iperf_free_test(test);
+            // return;
+            sleep(1);
         }
         iperf_free_test(test);
     }while(iperf_server_ready.load());
