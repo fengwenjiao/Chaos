@@ -4,6 +4,7 @@
 #include <atomic>
 
 #include "../../3rdparty/iperf-cmake/iperf/src/iperf_api.h"
+#include "../../3rdparty/iperf-cmake/iperf/src/iperf.h"
 
 namespace moniter {
 
@@ -24,6 +25,8 @@ class BandwidthInfo {
   int iperf_port_ = -1;
   int get_available_port();
   struct iperf_test* create_iperf_client_test(const std::string& ip, const int port);
+
+  int pid_;
 };
 }  // namespace moniter
 #endif  // MONITER_BANDWIDTH_INFO_H_
