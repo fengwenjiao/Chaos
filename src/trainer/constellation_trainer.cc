@@ -201,6 +201,9 @@ void ConstelTrainer::Migrate(const std::vector<int>& keys, const std::vector<CAr
 }
 
 void ConstelTrainer::NotifySchedulerUpdateClock(uint32_t timestamp) {
+  // if (timestamp % 5 != 0) {
+  //   return;
+  // }
   int head = static_cast<int>(kControllerSignal::kUpdateClockSignal);
   int my_id = ps::Postoffice::Get()->GetMyID();
   std::string body = std::to_string(my_id) + "," + std::to_string(timestamp);

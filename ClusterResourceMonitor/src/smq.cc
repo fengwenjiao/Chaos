@@ -146,8 +146,8 @@ void Smq::client(int global_id) {
       LOG_WARNING_("Parse signal failed: " << e.what());
       continue;
     }
-    LOG_INFO_(signal.id << " -> " << id_
-                        << ":data:" << std::string(recv_data.begin(), recv_data.end()));
+    // LOG_INFO_(signal.id << " -> " << id_
+    //                     << ":data:" << std::string(recv_data.begin(), recv_data.end()));
     std::string infos = get_info_with_signal(signal);
     send(client_fd, infos.c_str(), infos.length(), 0);
     // LOG_INFO_(id_ << " -> " << signal.id << ":data:" << infos);

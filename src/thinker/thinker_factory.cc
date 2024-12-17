@@ -35,10 +35,9 @@ std::unordered_map<std::string, ThinkerFactory::ThinkerCreator>
 ThinkerFactory::InitializeThinkerMap() {
   return {
       {"ContelSimpleThinker", []() { return new ConstelSimpleThinker(); }},
-
+      {"SinglePointConfThinker", []() { return new SinglePointConfThinker(); }},
 #ifdef CONS_NETWORK_AWARE
       {"SimpleEqualConfThinker", []() { return new SimpleEqualConfThinker(); }},
-      {"SinglePointConfThinker", []() { return new SinglePointConfThinker(); }},
       {"FAPTEqualConfThinker", []() { return new FAPTEqualConfThinker(); }},
       {"FAPTTimeWeightedConfThinker", []() { return new FAPTTimeWeightedConfThinker(); }},
       {"RoundRobinTimeWeightedThinker", []() { return new RoundRobinTimeWeightedThinker(); }},
