@@ -1,0 +1,15 @@
+FROM constellation-base:latest
+
+# install iproute2
+RUN apt update && apt install -y --no-install-recommends iproute2
+
+# install
+COPY ../.. /constellation
+WORKDIR /constellation
+RUN cd ./python && pip install -e .
+
+# clean up
+RUN apt-get autoremove -y && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# set environment variables
+ENV LD_LIBRARY_PATH=/constellation/build:/constellation/build/ClusterResourceMonitor/:$LD_LIBRARY_PATH

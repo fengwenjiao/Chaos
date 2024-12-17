@@ -1,7 +1,6 @@
 .vscode/
 .idea/
 
-build/
 cmake-build-debug/
 
 tests/test_*

@@ -1,7 +1,9 @@
 version: '3.8'
 
 x-worker: &worker_defaults
-  image: constellation:0.0.1
+  image: constellation-dev
+  cap_add:
+    - NET_ADMIN
   volumes:
     - ../../:/constellation-rt
   networks:
@@ -15,7 +17,7 @@ x-worker: &worker_defaults
     - DMLC_PS_ROOT_PORT=8000
     - DMLC_ROLE=trainer
     - DEBUG_OVERLAY=1
-    - PS_VERBOSE=1
+    - PS_VERBOSE=2
   restart: on-failure
   runtime: nvidia
   deploy:
@@ -32,24 +34,26 @@ x-worker: &worker_defaults
 
 services:
   master:
-    image: constellation:0.0.1
+    image: constellation-dev
+    cap_add:
+      - NET_ADMIN
     container_name: modelsynctime-controller
     volumes:
       - ../..:/constellation-rt
     networks:
       - constellation
     working_dir:
-     /constellation-rt/experiment/
-    command: python3 ./start_controller.py  --name SinglePointConfThinker
+     /constellation-rt/
+    command: python3 ./tests/python/test_controller.py  --name SinglePointConfThinker
     tty: true
     stdin_open: true
     environment:
       - DMLC_PS_ROOT_URI=0.0.0.0
       - DMLC_PS_ROOT_PORT=8000
       - DMLC_ROLE=scheduler
-      - START_TRAINER_NUM=6
+      - START_TRAINER_NUM=5
       - DEBUG_OVERLAY=3
-      - PS_VERBOSE=1
+      - PS_VERBOSE=2
     ipc: host
 
   worker:
