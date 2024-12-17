@@ -93,6 +93,7 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
           }
         }
       }
+      PS_VLOG(2) << "model total size: " << thinker_->getParamsTotal();
       // get new transtopo
       // TODO: now it is just a simple version, need to be improved
       // TODO: if need remote thinker, here should just send, can not get the result immediately
@@ -127,6 +128,8 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
         if (global_model_sync_conf.find(id) != global_model_sync_conf.end()) {
           auto& model_sync_conf = global_model_sync_conf[id];
           tick.model_sync_conf = std::move(model_sync_conf);
+        } else {
+          tick.model_sync_conf.Clear();
         }
         auto serialized_tick = serilite::serialize(tick);
         auto str = serialized_tick.as_string();

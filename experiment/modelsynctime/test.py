@@ -2,6 +2,7 @@ import argparse
 import os
 import subprocess
 import time
+import datetime
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -13,7 +14,6 @@ from torch.utils.data import random_split
 
 from constellation.pytorch import Trainer
 from constellation import run_controller
-run_controller('ContelSimpleThinker')
 
 seed = 48
 torch.manual_seed(seed)
@@ -57,14 +57,14 @@ testset = torchvision.datasets.CIFAR10(
 )
 
 # 使用random_split选择部分数据进行训练
-subset = args.subset
+subset = 10
 train_subset, _ = random_split(trainset, [subset, len(trainset) - subset])
 trainloader = torch.utils.data.DataLoader(
-    train_subset, batch_size=64, shuffle=True, num_workers=2
+    train_subset, batch_size=1, shuffle=True, num_workers=2
 )
 test_subset, _ = random_split(testset, [1000, len(testset) - 1000])
 testloader = torch.utils.data.DataLoader(
-    test_subset, batch_size=64, shuffle=False, num_workers=2
+    test_subset, batch_size=1, shuffle=False, num_workers=2
 )
 
 
@@ -80,9 +80,22 @@ class ResNet18(nn.Module):
     def forward(self, x):
         return self.model(x)
 
+# 定义ResNet-50模型
+class ResNet50(nn.Module):
+    """ResNet-50 model"""
+
+    def __init__(self, num_classes=10):
+        super(ResNet50, self).__init__()
+        self.model = models.resnet50(pretrained=False)
+        self.model.fc = nn.Linear(self.model.fc.in_features, num_classes)
+
+    def forward(self, x):
+        return self.model(x)
+
 
 # 实例化模型并移动到GPU
-model = ResNet18(num_classes=10).to(device)
+# model = ResNet18(num_classes=10).to(device)
+model = ResNet50(num_classes=10).to(device)
 
 # 定义损失函数和优化器
 criterion = nn.CrossEntropyLoss()
@@ -97,14 +110,11 @@ log_file = os.path.join(os.path.dirname(__file__), f"resnet18_{hostname}_{rank}.
 log = open(log_file, "w")
 
 trainer.init(model_opt=(model, optimizer))
-# print time
-print("Time(finish init): ", time.strftime("%Y-%m-%d %H:%M:%S:%s", time.localtime()), file=log)
-log.flush()
 from constellation.trainer import ConstelTrainer
 
 migrate = ConstelTrainer._migrate
 def _migrate(self, keys, values):
-    print("Time(start migrate): ", time.strftime("%Y-%m-%d %H:%M:%S:%s", time.localtime()), file=log)
+    print("Time(start migrate): ",  datetime.datetime.now(), file=log)
     log.flush()
     migrate(self, keys, values)
 
@@ -114,6 +124,9 @@ ConstelTrainer._migrate = _migrate
 train_losses = []
 test_accuracies = []
 
+# print time
+print("Time(finish init): ",  datetime.datetime.now(), file=log)
+log.flush()
 
 # 训练模型
 num_epochs = 100

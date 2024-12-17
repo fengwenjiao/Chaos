@@ -48,6 +48,10 @@ def _run_controller(thinker_name: str = "ContelSimpleThinker"):
     if not is_trainer:
         controller = ConstelController(thinker_name=thinker_name)
         controller.run()
+    else:
+        raise ValueError(
+            "Controller cannot be run. Please set environment variable: DMLC_ROLE=scheduler"
+        )
 
 
 def run_controller(thinker_name: str):
@@ -55,4 +59,4 @@ def run_controller(thinker_name: str):
         raise ValueError(
             f"Invalid thinker name: {thinker_name}, must be one of {THINKER_NAME}"
         )
-    _run_controller()
+    _run_controller(thinker_name)
