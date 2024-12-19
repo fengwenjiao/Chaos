@@ -44,10 +44,71 @@ void ModelLoadAssignment::groupByFirstNode() {
 void ConstelThinker::checkStrategy(const StrategyRequest& req,
                                    const StrategyBlock& strategy_block) {
   const auto& transtopo = strategy_block.global_topo_;
-  // const auto& model_load_assignment = strategy_block.model_load_assignment_;
-  // // TODO: check the strategy
-  // const int& target = req.targets[0];
-  // const auto& overlay = req.overlay->GetReadyOverlay();
+  const auto& model_load_assignment = strategy_block.global_model_sync_conf_;
+  // check the strategy
+  const int& target = req.targets[0];
+  const auto& overlay = req.overlay->GetReadyOverlay();
+  // check the transtopo
+  // check the overlay and transtopo are corresponding
+  if (!algorithm::helper::areElementsUniqueAndCorresponding(overlay, transtopo)) {
+    throw TranstopoInvalidError("Overlay and Transtopo are not corresponding");
+  }
+  int num = transtopo.size();      // the number of nodes in transtopo
+  int root_id = 0;                 // the root node id
+  std::vector<int> ranks(num, 0);  // the rank of each node
+
+  for (const auto& [id, topo] : transtopo) {
+    if (topo.getType() != NodeTransTopo::Type::kLeaf) {
+      // check all children are in overlay
+      for (const auto& child : topo.getChildren()) {
+        if (overlay.find(child) == overlay.end()) {
+          throw NodeNotFoundError("Child node not found in overlay", child);
+        }
+      }
+    }
+    if (topo.getType() != NodeTransTopo::Type::kRoot) {
+      // for non-root
+      int parent = topo.getParent();
+      // check parent is in overlay
+      if (overlay.find(parent) == overlay.end()) {
+        throw NodeNotFoundError("Parent node not found in overlay", parent);
+      }
+      // check parent and id are connected
+      if (std::find(overlay.at(parent).begin(), overlay.at(parent).end(), id) ==
+          overlay.at(parent).end()) {
+        throw NodeNotConnectedError("Two nodes in Transtopo are not connected", parent, id);
+      }
+      // check the node in parent's children
+      if (!transtopo.at(parent).has_child(id)) {
+        throw TransTopoNotConsistentError(std::to_string(parent) + " and " + std::to_string(id));
+      }
+    } else {
+      // for root
+      if (root_id) {
+        throw TranstopoInvalidError("More than one root node " + std::to_string(root_id) + " and " +
+                                    std::to_string(id));
+      }
+      root_id = id;
+    }
+    // check rank and num is set correctly
+    if (topo.num_trainers != num) {
+      throw TranstopoInvalidError("The number of trainers is not set correctly. The node " +
+                                  std::to_string(id) + " has " + std::to_string(topo.num_trainers) +
+                                  " trainers but expected " + std::to_string(num));
+    }
+    if (topo.rank >= num || topo.rank < 0) {
+      throw TranstopoInvalidError("The rank is not set correctly. The node " + std::to_string(id) +
+                                  " has rank " + std::to_string(topo.rank) +
+                                  " but expected less than " + std::to_string(num));
+    }
+    if (ranks[topo.rank]) {
+      throw TranstopoInvalidError("The rank is not unique. Node " + std::to_string(id) +
+                                  " has rank " + std::to_string(topo.rank) + " but Node " +
+                                  std::to_string(ranks[topo.rank]) + " has the same rank");
+    }
+  }
+
+  // check the model load assignment
   // for (size_t i = 0; i < model_load_assignment.paths.size(); i++) {
   //   const auto& path = model_load_assignment.getPath(i);
   //   // check the source and target

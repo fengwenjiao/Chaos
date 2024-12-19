@@ -108,7 +108,13 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
       if (!ready_signal_body.need_sycn_model || node_manager_->isFristReachInitNum()) {
         req.type = StrategyRequest::StrategyReqType::kTopoUpdateOnly;
       }
-      auto strategy_block = thinker_->GenerateStrategy(req);
+      StrategyBlock strategy_block;
+      try {
+        strategy_block = thinker_->GenerateStrategy(req);
+      } catch (StrategyCheckException& e) {
+        LOG(FATAL) << e.what();
+        break;
+      }
       auto& transtopo = strategy_block.global_topo_;
       auto& global_model_sync_conf = strategy_block.global_model_sync_conf_;
 

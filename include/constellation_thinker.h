@@ -2,6 +2,7 @@
 #define _CONSTELLATION_TRANSTOPOTHINKER_H_
 
 #include "constellation_commons.h"
+#include "strategy_exception.h"
 
 namespace constellation {
 
