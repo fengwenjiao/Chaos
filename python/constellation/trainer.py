@@ -280,7 +280,7 @@ class ConstelTrainer(ConstelTrainerBase):
         return num_trainers.value
 
     def _convert_to_carray(self, item, cls_):
-        if isinstance(item, list):
+        if isinstance(item, list) or isinstance(item, tuple):
             return [self._convert_to_carray(sub_item, cls_) for sub_item in item]
         else:
             if id(item) in self._carray_cache:

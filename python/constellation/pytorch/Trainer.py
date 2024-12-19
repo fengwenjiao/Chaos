@@ -36,7 +36,6 @@ class PyTorchTensorMixin(TensorMixinBase):
         return bytes_size
 
     def _data_ptr(self) -> CArrayDataPtr:
-
         return cast(self.tensor_.data_ptr(), CArrayDataPtr)
 
 
@@ -151,7 +150,6 @@ class Trainer(ConstelTrainer):
         model_opt: Optional[Tuple[torch.nn.Module, torch.optim.Optimizer]] = None,
         **kwargs
     ):  # pylint: disable=arguments-differ
-
         keys_, lens_, params_ = None, None, None
         if model_opt is None:
             assert keys is not None, "keys is required if model_opt is not provided"
@@ -186,7 +184,12 @@ class Trainer(ConstelTrainer):
             self._is_model_opt_set
         ), "Model and optimizer have not been set. Please call set_model_opt() first."
 
-        self._grads = [param.grad for param in self._params if param.grad is not None]
-        self.allreduce(self._keys, self._grads)
+        keys_grads = [
+            (i, param.grad)
+            for i, param in enumerate(self._model.parameters())
+            if param.grad is not None
+        ]
+        keys, grads = zip(*keys_grads)
+        self.allreduce(keys, grads)
         self._optimizer.step()
         self._optimizer.zero_grad(set_to_none=False)

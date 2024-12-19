@@ -1,5 +1,6 @@
 import argparse
 import os
+import sys
 import subprocess
 import time
 import datetime
@@ -9,6 +10,9 @@ import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
 import torchvision.models as models
+
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+
 # import matplotlib.pyplot as plt
 from torch.utils.data import random_split
 
@@ -80,6 +84,7 @@ class ResNet18(nn.Module):
     def forward(self, x):
         return self.model(x)
 
+
 # 定义ResNet-50模型
 class ResNet50(nn.Module):
     """ResNet-50 model"""
@@ -101,22 +106,27 @@ model = ResNet50(num_classes=10).to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(model.parameters(), lr=0.001)
 
-rank = trainer.rank
+trainer.init(model_opt=(model, optimizer))
 
+rank = trainer.rank
 # exec hostname cmd and print its output
-hostname = subprocess.check_output(['hostname']).decode('utf-8')
+hostname = subprocess.check_output(["hostname"]).decode("utf-8")
 
 log_file = os.path.join(os.path.dirname(__file__), f"resnet18_{hostname}_{rank}.log")
 log = open(log_file, "w")
 
-trainer.init(model_opt=(model, optimizer))
 from constellation.trainer import ConstelTrainer
 
 migrate = ConstelTrainer._migrate
+
+
 def _migrate(self, keys, values):
-    print("Time(start migrate): ",  datetime.datetime.now(), file=log)
+    print("Time(start migrate): ", datetime.datetime.now(), file=log)
     log.flush()
     migrate(self, keys, values)
+    print("Time(finish migrate): ", datetime.datetime.now(), file=log)
+    log.flush()
+
 
 ConstelTrainer._migrate = _migrate
 
@@ -125,16 +135,26 @@ train_losses = []
 test_accuracies = []
 
 # print time
-print("Time(finish init): ",  datetime.datetime.now(), file=log)
+print("Time(finish init): ", datetime.datetime.now(), file=log)
 log.flush()
+
+from utils import model_parameters_summary
 
 # 训练模型
 num_epochs = 100
 for epoch in range(num_epochs):
     model.train()
     running_loss = 0.0
+    idx = 0
     for inputs, labels in trainloader:
+        # print the input and label
+        print(f"inputs: {inputs}, labels: {labels}", file=log)
         inputs, labels = inputs.to(device), labels.to(device)
+
+        print(f"rank: {trainer.rank}, num trainers {trainer.num_trainers}", file=log)
+
+        print(f"idx: {idx}. \n {model_parameters_summary(model)}", file=log)
+        log.flush()
 
         outputs = model(inputs)  # pylint: disable=not-callable
         loss = criterion(outputs, labels)
@@ -142,8 +162,8 @@ for epoch in range(num_epochs):
         trainer.update()
         running_loss += loss.item()
         trainer.batch_end()
+        idx += 1
     train_losses.append(running_loss / len(trainloader))
     print(
         f"Epoch [{epoch + 1}/{num_epochs}], Loss: {running_loss / len(trainloader):.4f}"
     )
-    
