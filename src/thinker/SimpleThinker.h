@@ -17,7 +17,9 @@ class ConstelSimpleThinker : public ConstelThinker {
 
   virtual GlobalTransTopo decideNewTransTopo(const StrategyRequest& req);
 
-  virtual GlobalModelSyncConf deciedModelSyncConf(const StrategyRequest& req);
+  virtual void setRankAndNum(GlobalTransTopo& transtopo);
+
+  virtual GlobalModelSyncConf decideModelSyncConf(const StrategyRequest& req);
 };
 
 }  // namespace constellation

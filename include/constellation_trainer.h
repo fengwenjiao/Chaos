@@ -102,11 +102,13 @@ class ConstelTrainer {
   }
 
   inline int NumTrainers() const {
-    return ps::Postoffice::Get()->num_trainers();
+    return trans_topo_.num_trainers;
+    // return ps::Postoffice::Get()->num_trainers();
   }
 
   inline int myRank() const {
-    return ps::Postoffice::Get()->myRank();
+    return trans_topo_.rank;
+    // return ps::Postoffice::Get()->myRank();
   }
 
   void NotifyReadyAndWait(bool need_sycn_model = false,

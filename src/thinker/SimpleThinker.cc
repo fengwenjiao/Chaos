@@ -9,10 +9,24 @@ namespace constellation {
 
 GlobalTransTopo ConstelSimpleThinker::decideNewTransTopo(const StrategyRequest& req) {
   auto& overlay = req.overlay->GetReadyOverlay();
-  return algorithm::basic::random_choose_tree(overlay);
+  auto global_topo = algorithm::basic::random_choose_tree(overlay);
+  setRankAndNum(global_topo);
+  return global_topo;
 }
 
-GlobalModelSyncConf ConstelSimpleThinker::deciedModelSyncConf(const StrategyRequest& req) {
+void ConstelSimpleThinker::setRankAndNum(GlobalTransTopo& transtopo) {
+  auto ids = algorithm::helper::extract_elements(transtopo);  // extract the keys from the map
+  std::sort(ids.begin(), ids.end());
+  size_t num = ids.size();
+  for (size_t rank = 0; rank < num; rank++) {
+    auto id = ids[rank];
+    auto& topo = transtopo[id];
+    topo.num_trainers = num;
+    topo.rank = rank;
+  }
+}
+
+GlobalModelSyncConf ConstelSimpleThinker::decideModelSyncConf(const StrategyRequest& req) {
   auto& overlay = req.overlay->GetReadyOverlay();
   auto& targets = req.targets;
 
@@ -97,7 +111,7 @@ StrategyBlock ConstelSimpleThinker::GenerateStrategyImpl(const StrategyRequest& 
 
   switch (req.type) {
     case StrategyReqType::kTopoAndModelSyncConfUpdate: {
-      global_sync_conf = deciedModelSyncConf(req);
+      global_sync_conf = decideModelSyncConf(req);
     }
     case StrategyReqType::kTopoUpdateOnly: {
       if (overlay.size() == 1) {

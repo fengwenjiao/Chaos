@@ -77,6 +77,15 @@ struct NodeTransTopo {
     return children_;
   }
 
+  bool has_child(int child) const {
+    for (const auto& c : children_) {
+      if (c == child) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   bool setoRoot() {
     if (this->parent_ == 0) {
       this->type_ = Type::kRoot;
@@ -107,6 +116,8 @@ struct NodeTransTopo {
   Type type_;
   int parent_;
   std::vector<int> children_;
+  size_t num_trainers = 0;
+  size_t rank = 0;
 };
 
 /** @brief Global transport topology.
@@ -121,7 +132,7 @@ struct TransPath {
   TransPath(std::initializer_list<int> list) : path(list) {}
   TransPath(std::vector<int> path) : path(std::move(path)) {}
 
-  std::string debug_string() const{
+  std::string debug_string() const {
     std::string s;
     s += "{";
     for (auto& i : path) {
