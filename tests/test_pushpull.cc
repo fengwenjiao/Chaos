@@ -87,7 +87,7 @@ int main(int argc, char* argv[]) {
   std::cout << "Bytes transferred per epoch(approximately): " << bytes_M / TIMES << "M"
             << std::endl;
   std::cout << "Average time cost per epoch: " << time_cost / TIMES << "s " << std::endl;
-  std::cout << "speed: " << bytes_M / time_cost << "Mb/s" << std::endl;
+  std::cout << "speed: " << bytes_M / time_cost << "MB/s" << std::endl;
   
   // since exit logic is not implemented, we need to sleep for a while to keep the process alive
   std::this_thread::sleep_for(std::chrono::seconds(5));

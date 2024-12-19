@@ -540,6 +540,7 @@ void ConstelTrainer::DataHandle(const ps::KVMeta& req_meta,
                                            model_sync_conf.kvslices[0][0].key_begin));
         if (idx < wait_recv_keys_->size()) {
           if (model_sync_conf.kvslices[0][0].is_full()) {
+            // TODO: This can be zero copy
             wait_recv_vals_->at(idx)->CopyFrom(req_data.vals.data(), req_data.lens[0]);
           } else {
             wait_recv_vals_->at(idx)->CopyFrom(
@@ -552,19 +553,21 @@ void ConstelTrainer::DataHandle(const ps::KVMeta& req_meta,
           } else if (this->model_size_ < 0) {
             LOG(WARNING) << "model_size_ is less than 0";
           }
-          PS_VLOG(2) << "recv the migrate data: " << model_sync_conf.debug_string();
+          PS_VLOG(2) << "recv the migrate data: " << model_sync_conf.debug_string()
+                     << " kvpairs: " << " lens: "<< req_data.lens[0];
         } else {
           LOG(WARNING) << "Recv data is not in the waiting list";
         }
 
       } else {
-        // forward the data
         int next = model_sync_conf.paths[0][1];
         model_sync_conf.paths[0].erase(model_sync_conf.paths[0].begin());
         auto str = serilite::serialize(model_sync_conf).as_string();
         trainer_->ZMove(next, req_data.keys, req_data.vals, req_data.lens, str, req_meta.cmd);
-        PS_VLOG(2) << "forward the migrate data: " << model_sync_conf.debug_string();
+        PS_VLOG(2) << "forward the migrate data: " << model_sync_conf.debug_string()
+                      << " kvpairs: " <<" lens: "<< req_data.lens[0];
       }
+      trainer_->Response(req_meta, {});
       break;
     default:
       LOG(FATAL) << "Unknown request type";

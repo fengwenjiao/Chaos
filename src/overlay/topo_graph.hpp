@@ -70,7 +70,7 @@ class TopoGraph {
   bool AddEdge(const T& src, const T& dst) {
     if (AddNode(src) || AddNode(dst)) {
       // If either node is new, add it and the edge
-      edges_.insert({src, dst});
+      edges_.insert(E(src, dst));
       return true;
     }
     return edges_.insert(E(src, dst)).second;

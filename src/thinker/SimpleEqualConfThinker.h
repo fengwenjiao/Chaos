@@ -7,6 +7,6 @@
 namespace constellation {
 class SimpleEqualConfThinker : public ConstelSimpleThinker {
  private:
-  virtual GlobalModelSyncConf deciedModelSyncConf(const StrategyRequest& req) override;
+  virtual GlobalModelSyncConf decideModelSyncConf(const StrategyRequest& req) override;
 };
 }  // namespace constellation

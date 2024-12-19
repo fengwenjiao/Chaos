@@ -16,7 +16,7 @@ size_t chooseMinIndex(const std::vector<T>& vec) {
   return min_index;
 }
 
-GlobalModelSyncConf RoundRobinTimeWeightedThinker::deciedModelSyncConf(const StrategyRequest& req) {
+GlobalModelSyncConf RoundRobinTimeWeightedThinker::decideModelSyncConf(const StrategyRequest& req) {
   auto* overlay_info = dynamic_cast<aware::NetAWoverlayInfo*>(req.overlay.get());
   if (overlay_info == nullptr) {
     throw std::runtime_error(

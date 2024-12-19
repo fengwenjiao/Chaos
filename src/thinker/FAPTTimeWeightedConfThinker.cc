@@ -6,7 +6,7 @@
 
 namespace constellation {
 
-GlobalModelSyncConf FAPTTimeWeightedConfThinker::deciedModelSyncConf(const StrategyRequest& req) {
+GlobalModelSyncConf FAPTTimeWeightedConfThinker::decideModelSyncConf(const StrategyRequest& req) {
   auto* overlay_info = dynamic_cast<aware::NetAWoverlayInfo*>(req.overlay.get());
   if (overlay_info == nullptr) {
     throw std::runtime_error(
