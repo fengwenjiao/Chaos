@@ -10,6 +10,7 @@
 #include "./SimpleAdjTimeWeightedConfThinker.h"
 #include "./FAPTEqualConfThinker.h"
 #include "./FAPTTimeWeightedConfThinker.h"
+#include "./LayerwiseTimeWeightedConfThinker.h"
 #endif
 
 namespace constellation {
@@ -43,6 +44,7 @@ ThinkerFactory::InitializeThinkerMap() {
       {"FAPTEqualConfThinker", []() { return new FAPTEqualConfThinker(); }},
       {"FAPTTimeWeightedConfThinker", []() { return new FAPTTimeWeightedConfThinker(); }},
       {"RoundRobinTimeWeightedThinker", []() { return new RoundRobinTimeWeightedThinker(); }},
+      {"LayerwiseTimeWeightedConfThinker", []() { return new LayerwiseTimeWeightedConfThinker(); }},
 #endif
   };
 }

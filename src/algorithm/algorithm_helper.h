@@ -3,6 +3,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <algorithm>
+#include <numeric>
+#include <cassert>
 #include <type_traits>
 #include <random>
 
@@ -198,6 +200,72 @@ bool areElementsUniqueAndCorresponding(const Container1& cont1, const Container2
 
   // Check if elements are corresponding
   return std::equal(sorted1.begin(), sorted1.end(), sorted2.begin());
+}
+
+template <typename T, typename W>
+std::vector<std::pair<T, T>> spilitRange(T begin, T end, size_t num = 0, W* weights = nullptr) {
+  // check if begin < end
+  assert(begin < end && "Begin must be less than end.");
+  std::vector<std::pair<T, T>> ranges;
+  // if num is 0, return empty vector
+  if (num == 0) {
+    return ranges;
+  }
+
+  T total = end - begin;
+
+  // if weights is nullptr, split the range evenly
+  if (weights == nullptr) {
+    T base_size = total / num;
+    T remainder = total % num;
+    T current_start = begin;
+
+    for (size_t i = 0; i < num; ++i) {
+      T current_end = current_start + base_size + (i < remainder ? 1 : 0);
+      // make sure the end of the last range is end
+      if (i == num - 1) {
+        current_end = end;
+      }
+      ranges.emplace_back(std::make_pair(current_start, current_end));
+      current_start = current_end;
+    }
+  } else {
+    // use weights to split the range
+    // calculate the total weight
+    W total_weight = std::accumulate(weights, weights + num, static_cast<W>(0));
+
+    // make sure the total weight is greater than 0
+    assert(total_weight > 0 && "Total weight must be greater than zero.");
+
+    // calculate the size of each range
+    std::vector<T> sizes(num, 0);
+    T accumulated = 0;
+    for (size_t i = 0; i < num; ++i) {
+      // avoid precision loss
+      sizes[i] = static_cast<T>((static_cast<long long>(weights[i]) * total) / total_weight);
+      accumulated += sizes[i];
+    }
+
+    // distribute the remainder
+    T remainder = total - accumulated;
+    for (size_t i = 0; i < num && remainder > 0; ++i, --remainder) {
+      sizes[i] += 1;
+    }
+
+    // generate the ranges
+    T current_start = begin;
+    for (size_t i = 0; i < num; ++i) {
+      T current_end = current_start + sizes[i];
+      // make sure the end of the last range is end
+      if (i == num - 1) {
+        current_end = end;
+      }
+      ranges.emplace_back(std::make_pair(current_start, current_end));
+      current_start = current_end;
+    }
+  }
+
+  return ranges;
 }
 
 }  // namespace constellation::algorithm::helper

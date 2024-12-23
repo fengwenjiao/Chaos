@@ -7,11 +7,13 @@ __all__ = ["ConstelController", "run_controller"]
 
 THINKER_NAME = [
     "ContelSimpleThinker",
-    "SimpleEqualConfThinker",
+    "SimpleAdjEqualConfThinker",
+    "SimpleAdjTimeWeightedConfThinker",
     "SinglePointConfThinker",
     "FAPTEqualConfThinker",
     "FAPTTimeWeightedConfThinker",
     "RoundRobinTimeWeightedThinker",
+    "LayerwiseTimeWeightedConfThinker",
 ]
 
 
