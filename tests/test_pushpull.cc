@@ -4,14 +4,15 @@
 
 #include <chrono>
 #include <iomanip>
+#include <fstream>
 
 using namespace constellation;
 
 constexpr int KEY_NUM = 100;
 constexpr int TIMES = 10;
 
-constexpr int PARAMSIZE_DOWN = 1000000;
-constexpr int PARAMSIZE_UP = 1000000;
+constexpr int PARAMSIZE_DOWN = 100;
+constexpr int PARAMSIZE_UP = 100;
 
 int main(int argc, char* argv[]) {
   test::RandomUtils::set_seed(10);
@@ -27,16 +28,16 @@ int main(int argc, char* argv[]) {
   int sleep_time = test::RandomUtils::generate_random_number(1, 3);
   std::this_thread::sleep_for(std::chrono::seconds(sleep_time));
 
-  int rank = trainer.myRank();
-  // generate test parameters
-  auto params = test::ParameterMock(KEY_NUM, PARAMSIZE_DOWN, PARAMSIZE_UP);
-  params.fill(rank, 0);
   // print
   using namespace test;
+  auto params = test::ParameterMock(KEY_NUM, PARAMSIZE_DOWN, PARAMSIZE_UP);
   trainer.NotifyReadyAndWait(true, params.keys(), params.lens());
-  if (trainer.is_scale()){
+  int rank = trainer.myRank();
+  // generate test parameters
+  params.fill(rank, 0);
+  if (trainer.is_scale()) {
     trainer.Recv(params.keys(), params.pointers());
-  }else{
+  } else {
     trainer.Broadcast(params.keys(), params.pointers());
   }
 
@@ -65,16 +66,17 @@ int main(int argc, char* argv[]) {
       }
       tot /= size;
       tot /= num;
-      //      std::cout << "Test times " << i << " key " << key << " size " << size << " diff " <<
-      //      tot
-      //                << std::endl;
-      if (tot > 1e-4) {
-        std::cout << "Test times " << i << " key " << key << " size " << size << " diff " << tot
-                  << std::endl;
-        //                std::cout<<params;
-        //                std::cout<<expected;
-      }
-      CHECK_LT(tot, 1e-4);
+      // std::cout << "Test times " << i << " key " << key << " size " << size << " diff " << tot
+      //           << std::endl;
+      // if (tot > 1e-7) {
+      //   std::ofstream outfile(std::to_string(trainer.myRank()) + "-output.log");
+      //   outfile << "\nRank" << trainer.myRank() << "\nTest times " << i << " key " << key
+      //     << " size " << size << " diff " << tot << std::endl;
+      //   outfile << params;
+      //   outfile << expected;
+      //   outfile.close();
+      // }
+      CHECK_LT(tot, 1e-7);
     }
   }
   auto finish = std::chrono::high_resolution_clock::now();
@@ -88,7 +90,7 @@ int main(int argc, char* argv[]) {
             << std::endl;
   std::cout << "Average time cost per epoch: " << time_cost / TIMES << "s " << std::endl;
   std::cout << "speed: " << bytes_M / time_cost << "MB/s" << std::endl;
-  
+
   // since exit logic is not implemented, we need to sleep for a while to keep the process alive
   std::this_thread::sleep_for(std::chrono::seconds(5));
 

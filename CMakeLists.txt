@@ -57,7 +57,7 @@ else ()
     add_library(constellation STATIC)
 endif ()
 
-file(GLOB_RECURSE SOURCE "src/*.cc", "src/*.h")
+file(GLOB_RECURSE SOURCE "src/*.cc" "src/*.h")
 
 target_include_directories(constellation PUBLIC "${PROJECT_SOURCE_DIR}/include/")
 target_include_directories(constellation PUBLIC "${PROJECT_SOURCE_DIR}/ps-lite-elastic/include/")

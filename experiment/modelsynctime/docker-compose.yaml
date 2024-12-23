@@ -16,7 +16,7 @@ x-worker: &worker_defaults
     - DMLC_PS_ROOT_URI=modelsynctime-controller
     - DMLC_PS_ROOT_PORT=8000
     - DMLC_ROLE=trainer
-    - DEBUG_OVERLAY=1
+    - DEBUG_OVERLAY=2
     - PS_VERBOSE=2
   restart: on-failure
   runtime: nvidia
@@ -52,7 +52,8 @@ services:
       - DMLC_PS_ROOT_PORT=8000
       - DMLC_ROLE=scheduler
       - START_TRAINER_NUM=5
-      - DEBUG_OVERLAY=3
+      - DEBUG_OVERLAY=2
+      - OVERLAY_SEED=123
       - PS_VERBOSE=2
     ipc: host
 
