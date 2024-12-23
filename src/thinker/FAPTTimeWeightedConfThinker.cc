@@ -20,8 +20,9 @@ GlobalModelSyncConf FAPTTimeWeightedConfThinker::decideModelSyncConf(const Strat
 
   AdjacencyListT<float> weights;
   for (const auto& [src, neighbors] : overlay) {
+    weights[src].resize(neighbors.size());
     for (size_t i = 0; i < neighbors.size(); i++) {
-      weights[src][neighbors[i]] =
+      weights[src][i] =
           1 / overlay_info->get_edge_property(topo::Edge{src, neighbors[i]});
     }
   }
