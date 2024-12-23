@@ -3,10 +3,11 @@
 
 #include "./SimpleThinker.h"
 #include "./SinglePointConfThinker.h"
+#include "./SimpleAdjEqualConfThinker.h"
 
 #ifdef CONS_NETWORK_AWARE
 #include "./RoundRobinTimeWeightedThinker.h"
-#include "./SimpleEqualConfThinker.h"
+#include "./SimpleAdjTimeWeightedConfThinker.h"
 #include "./FAPTEqualConfThinker.h"
 #include "./FAPTTimeWeightedConfThinker.h"
 #endif
@@ -36,8 +37,9 @@ ThinkerFactory::InitializeThinkerMap() {
   return {
       {"ContelSimpleThinker", []() { return new ConstelSimpleThinker(); }},
       {"SinglePointConfThinker", []() { return new SinglePointConfThinker(); }},
+      {"SimpleAdjEqualConfThinker", []() { return new SimpleAdjEqualConfThinker(); }},
 #ifdef CONS_NETWORK_AWARE
-      {"SimpleEqualConfThinker", []() { return new SimpleEqualConfThinker(); }},
+      {"SimpleAdjTimeWeightedConfThinker", []() { return new SimpleAdjTimeWeightedConfThinker(); }},
       {"FAPTEqualConfThinker", []() { return new FAPTEqualConfThinker(); }},
       {"FAPTTimeWeightedConfThinker", []() { return new FAPTTimeWeightedConfThinker(); }},
       {"RoundRobinTimeWeightedThinker", []() { return new RoundRobinTimeWeightedThinker(); }},
