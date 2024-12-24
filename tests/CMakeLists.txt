@@ -1,5 +1,4 @@
 # 设置目录
-set (TEST_OUTPUT "")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 # pthread flag 
@@ -55,15 +54,10 @@ else ()
 endif ()
 
 
-add_executable(test_add_exit test_add_exit.cc)
-list(APPEND TEST_OUTPUT test_add_exit)
-target_link_libraries(test_add_exit constellation)
-
-add_executable(test_pushpull test_pushpull.cc)
-list(APPEND TEST_OUTPUT test_pushpull)
-target_link_libraries(test_pushpull constellation)
-
-# foreach(test_exec ${TEST_OUTPUT})
-#     set_target_properties(${test_exec} PROPERTIES
-#     RUNTIME_OUTPUT_DIRECTORY " ${CMAKE_CURRENT_SOURCE_DIR}")
-# endforeach()
+file(GLOB TEST_SOURCE "*.cc")
+foreach (test_source ${TEST_SOURCE})
+    get_filename_component(test_name ${test_source} NAME_WE)
+    add_executable(${test_name} ${test_source})
+    list(APPEND TEST_OUTPUT ${test_name})
+    target_link_libraries(${test_name} constellation)
+endforeach ()
