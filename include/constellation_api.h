@@ -204,6 +204,13 @@ int ConstelTrainerMigrate(ConstelTrainerHandle handle,
  */
 int ConstellationTrainerRank(ConstelTrainerHandle handle, int* rank);
 
+/** @brief get the id of the trainer
+ * @param handle - the handle of the trainer
+ * @param myid - the id of the trainer
+ * @return 0 - success, -1 - failure
+ */
+int ConstellationTrainerMyid(ConstelTrainerHandle handle, int* myid);
+
 /** @brief get the number of trainers
  * @param handle - the handle of the trainer
  * @param num - the number of trainers

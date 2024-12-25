@@ -96,11 +96,36 @@ class ResNet50(nn.Module):
 
     def forward(self, x):
         return self.model(x)
+    
+class Vgg11(nn.Module):
+    """Vgg11 model"""
+
+    def __init__(self, num_classes=10):
+        super(Vgg11, self).__init__()
+        self.model = models.vgg11(pretrained=False)
+        self.model.classifier[6] = nn.Linear(self.model.classifier[6].in_features, num_classes)
+
+    def forward(self, x):
+        return self.model(x)
+    
+class Vgg16(nn.Module):
+    """Vgg16 model"""
+
+    def __init__(self, num_classes=10):
+        super(Vgg16, self).__init__()
+        self.model = models.vgg16(pretrained=False)
+        self.model.classifier[6] = nn.Linear(self.model.classifier[6].in_features, num_classes)
+
+    def forward(self, x):
+        return self.model(x)
+    
 
 
 # 实例化模型并移动到GPU
 # model = ResNet18(num_classes=10).to(device)
-model = ResNet50(num_classes=10).to(device)
+# model = ResNet50(num_classes=10).to(device)
+# model = Vgg11(num_classes=10).to(device)
+model = Vgg16(num_classes=10).to(device)
 
 # 定义损失函数和优化器
 criterion = nn.CrossEntropyLoss()
@@ -118,7 +143,6 @@ log = open(log_file, "w")
 from constellation.trainer import ConstelTrainer
 
 migrate = ConstelTrainer._migrate
-
 
 def _migrate(self, keys, values):
     print("Time(start migrate): ", datetime.datetime.now(), file=log)
@@ -147,11 +171,9 @@ for epoch in range(num_epochs):
     running_loss = 0.0
     idx = 0
     for inputs, labels in trainloader:
-        # print the input and label
-        print(f"inputs: {inputs}, labels: {labels}", file=log)
         inputs, labels = inputs.to(device), labels.to(device)
 
-        print(f"rank: {trainer.rank}, num trainers {trainer.num_trainers}", file=log)
+        print(f"id: {trainer.myid} rank: {trainer.rank}, num trainers {trainer.num_trainers}", file=log)
 
         print(f"idx: {idx}. \n {model_parameters_summary(model)}", file=log)
         log.flush()

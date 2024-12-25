@@ -111,6 +111,10 @@ class ConstelTrainer {
     // return ps::Postoffice::Get()->myRank();
   }
 
+  inline int myid() const {
+    return ps::Postoffice::Get()->GetMyID();
+  }
+
   void NotifyReadyAndWait(bool need_sycn_model = false,
                           const std::vector<int> keys = {},
                           const std::vector<uint64_t> lens = {});

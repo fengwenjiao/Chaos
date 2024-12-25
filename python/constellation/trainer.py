@@ -64,6 +64,10 @@ class ConstelTrainerBase(object):
     @property
     def rank(self):
         raise NotImplementedError
+    
+    @property
+    def myid(self):
+        raise NotImplementedError
 
     @property
     def num_trainers(self):
@@ -97,6 +101,7 @@ class ConstelTrainer(ConstelTrainerBase):
         self._is_scale = None
         self._need_sync = None
         self._keys_to_migrate = None
+        self._id = None
 
     def __del__(self):
         check_call(_LIB.ConstelTrainerHandleFree(self.handle))
@@ -202,7 +207,9 @@ class ConstelTrainer(ConstelTrainerBase):
                     return False
             return True
 
-        assert len(keys) == len(values)
+        assert (
+            len(keys) == len(values)
+        ), f"len(keys)={len(keys)} != len(values)={len(values)}. Keys: {keys} Values: {values}"
         # check all keys are in keys_to_migrate
         assert check_keys(keys, keys_to_migrate)
         self._migrate(keys, values)
@@ -268,6 +275,15 @@ class ConstelTrainer(ConstelTrainerBase):
         rank = ctypes.c_int()
         check_call(_LIB.ConstellationTrainerRank(self.handle, ctypes.byref(rank)))
         return rank.value
+    
+    @property
+    def myid(self):
+        if self._id is not None:
+            return self._id
+        myid = ctypes.c_int()
+        check_call(_LIB.ConstellationTrainerMyid(self.handle, ctypes.byref(myid)))
+        self._id = myid.value
+        return self._id
 
     @property
     def num_trainers(self):

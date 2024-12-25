@@ -176,6 +176,12 @@ int ConstellationTrainerRank(ConstelTrainerHandle handle, int* rank) {
   API_END();
 }
 
+int ConstellationTrainerMyid(ConstelTrainerHandle handle, int* myid) {
+  API_BEGIN();
+  *myid = static_cast<ConstelTrainer*>(handle)->myid();
+  API_END();
+}
+
 int ConstellationTrainerNumTrainers(ConstelTrainerHandle handle, int* num) {
   API_BEGIN();
   *num = static_cast<ConstelTrainer*>(handle)->NumTrainers();
