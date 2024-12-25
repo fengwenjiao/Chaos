@@ -59,9 +59,12 @@ GlobalModelSyncConf ConstelSimpleThinker::ModelSycnConfTransform(
     const auto& path = model_load_assignment.getPath(i);
     const int& node = path[0];
     const float& load = model_load_assignment.loads[i];
-    uint64_t slice_len = (i < model_load_assignment.paths.size() - 1) ?
-                             std::ceil(load * model_params_total_) :
-                             model_params_total_ - tot_len;
+    uint64_t slice_len ;
+    if (i == model_load_assignment.paths.size() - 1) {
+      slice_len = model_params_total_ - tot_len;
+    } else {
+      slice_len = std::ceil(load * model_params_total_);
+    }
     auto& model_sc_ = global_model_sync_conf[node];
     model_sc_.target_node_id.push_back(target_id);
     model_sc_.paths.emplace_back(path);
