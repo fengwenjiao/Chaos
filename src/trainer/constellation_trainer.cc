@@ -141,6 +141,7 @@ void ConstelTrainer::Migrate(const std::vector<int>& keys, const std::vector<CAr
     ModelSycnConf model_sync_conf;
     model_sync_conf.target_node_id = {path.back()};
     model_sync_conf.paths = {std::vector<int>(path.begin() + 1, path.end())};
+    model_sync_conf.src_id = myid();
     for (const auto& kvslice : this->model_sync_conf_.kvslices[i]) {
       if (kvslice.is_full()) {
         // send the full kv-pair

@@ -228,6 +228,7 @@ struct ModelSycnConf {
   DEFAULT_SPECIAL_MEMBERS(ModelSycnConf);
 
   std::vector<int> target_node_id;
+  int src_id;
 
   std::vector<std::vector<KVSlice>> kvslices;
   std::vector<std::vector<int>> paths;
@@ -240,6 +241,7 @@ struct ModelSycnConf {
 
   std::string debug_string() {
     std::string s;
+    s += "src id: " + std::to_string(src_id) + " ";
     s += "target node id: ";
     for (auto& i : target_node_id) {
       s += std::to_string(i) + " ";
