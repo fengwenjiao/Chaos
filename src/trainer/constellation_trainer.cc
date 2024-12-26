@@ -152,21 +152,16 @@ void ConstelTrainer::Migrate(const std::vector<int>& keys, const std::vector<CAr
           int cmd = GetCommandType(RequestType::kModelSync, vals[idx].dtype);
 
           // auto vals_s = new ps::SArray<char>(vals[idx]);
-          auto vals_s = new ps::SArray<char>(vals[idx].data(), vals[idx].size(), false);
+          auto vals_s = ps::SArray<char>(vals[idx].data(), vals[idx].size(), false);
           auto key_t = static_cast<ps::Key>(key);
           ps::SArray<ps::Key> keys({key_t});
-          auto len_t = static_cast<int>(vals[idx].size());
-          auto lens = new ps::SArray<int>;
-          lens->push_back(len_t);
+          auto lens = ps::SArray<int>({static_cast<int>(vals[idx].size())});
 
           auto slice_info = KVSlice{key, key + 1};
           model_sync_conf.kvslices = {{slice_info}};
 
           auto str = serilite::serialize(model_sync_conf).as_string();
-          int ts = trainer_->ZMove(path[1], keys, *vals_s, *lens, str, cmd, [vals_s, lens]() {
-            delete vals_s;
-            delete lens;
-          });
+          int ts = trainer_->ZMove(path[1], keys, vals_s, lens, str, cmd);
           PS_VLOG(2) << "Begin to Migrate : " << model_sync_conf.debug_string();
         }
       } else {
@@ -177,23 +172,15 @@ void ConstelTrainer::Migrate(const std::vector<int>& keys, const std::vector<CAr
 
         int cmd = GetCommandType(RequestType::kModelSync, vals[idx].dtype);
 
-        // auto vals_s = new ps::SArray<char>(vals[idx].data() + kvslice.slice, kvslice.slice_len);
-        auto vals_s =
-            new ps::SArray<char>(vals[idx].data() + kvslice.slice, kvslice.slice_len, false);
-        auto key_t = static_cast<ps::Key>(key);
-        ps::SArray<ps::Key> keys({key_t});
-        auto len_t = static_cast<int>(kvslice.slice_len);
-        auto lens = new ps::SArray<int>;
-        lens->push_back(len_t);
+        auto vals_s = ps::SArray<char>(vals[idx].data() + kvslice.slice, kvslice.slice_len, false);
+        ps::SArray<ps::Key> keys({static_cast<ps::Key>(key)});
+        auto lens = ps::SArray<int>({static_cast<int>(kvslice.slice_len)});
 
         auto slice_info = KVSlice{key, kvslice.slice, kvslice.slice_len};
         model_sync_conf.kvslices = {{slice_info}};
         auto str = serilite::serialize(model_sync_conf).as_string();
         // LOG(INFO) << "Migrate key: " << key << " to node: " << path.back();
-        int ts = trainer_->ZMove(path[1], keys, *vals_s, *lens, str, cmd, [vals_s, lens]() {
-          delete vals_s;
-          delete lens;
-        });
+        int ts = trainer_->ZMove(path[1], keys, vals_s, lens, str, cmd);
         PS_VLOG(2) << "Begin to Migrate : " << model_sync_conf.debug_string();
       }
     }
@@ -554,7 +541,7 @@ void ConstelTrainer::DataHandle(const ps::KVMeta& req_meta,
             LOG(WARNING) << "model_size_ is less than 0";
           }
           PS_VLOG(2) << "recv the migrate data: " << model_sync_conf.debug_string()
-                     << " kvpairs: " << " lens: "<< req_data.lens[0];
+                     << " kvpairs: " << " lens: " << req_data.lens[0];
         } else {
           LOG(WARNING) << "Recv data is not in the waiting list";
         }
@@ -565,7 +552,7 @@ void ConstelTrainer::DataHandle(const ps::KVMeta& req_meta,
         auto str = serilite::serialize(model_sync_conf).as_string();
         trainer_->ZMove(next, req_data.keys, req_data.vals, req_data.lens, str, req_meta.cmd);
         PS_VLOG(2) << "forward the migrate data: " << model_sync_conf.debug_string()
-                      << " kvpairs: " <<" lens: "<< req_data.lens[0];
+                   << " kvpairs: " << " lens: " << req_data.lens[0];
       }
       trainer_->Response(req_meta, {});
       break;
