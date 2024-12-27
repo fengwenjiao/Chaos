@@ -120,6 +120,10 @@ void ConstelThinker::checkStrategy(const StrategyRequest& req,
   // }
 }
 
+std::shared_ptr<Extra> ConstelThinker::obtainExtra(ConstelController* controller) {
+  return nullptr;
+}
+
 const StrategyBlock& ConstelThinker::GenerateStrategy(const StrategyRequest& req) {
   auto strategy_block = this->GenerateStrategyImpl(req);
   checkStrategy(req, strategy_block);

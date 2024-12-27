@@ -44,11 +44,15 @@ struct StrategyBlock {
   GlobalModelSyncConf global_model_sync_conf_;
 };
 
+class ConstelController;
+
 class ConstelThinker {
  public:
   void setParamsDist(int key, uint64_t value);
   uint64_t getParamsSize(int key) const;
   uint64_t getParamsTotal() const;
+
+  virtual std::shared_ptr<Extra> obtainExtra(ConstelController* controller);
 
   const StrategyBlock& GenerateStrategy(const StrategyRequest& req);
   virtual ~ConstelThinker() = default;

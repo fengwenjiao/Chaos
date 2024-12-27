@@ -268,7 +268,6 @@ struct ModelSycnConf {
 using GlobalModelSyncConf = std::unordered_map<int, ModelSycnConf>;
 
 struct ScaleClock {
- public:
   struct Tick {
     DEFAULT_SPECIAL_MEMBERS(Tick);
 

@@ -101,10 +101,11 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
       PS_VLOG(2) << "Get new overlay: " << overlay->debug_string();
       ModelSycnConf model_sync_conf;
       model_sync_conf.target_node_id = {ready_node_id};
+      auto extra = thinker_->obtainExtra(this);
       auto req = StrategyRequest{StrategyRequest::StrategyReqType::kTopoAndModelSyncConfUpdate,
                                  {ready_node_id},
                                  std::move(overlay),
-                                 nullptr};
+                                 extra};
       if (!ready_signal_body.need_sycn_model || node_manager_->isFristReachInitNum()) {
         req.type = StrategyRequest::StrategyReqType::kTopoUpdateOnly;
       }
@@ -124,6 +125,15 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
       std::unordered_map<int, std::string> data;
       ScaleClock::Tick tick;
       tick.timestamp = future_timestamp;
+
+      // update controller's tick to record the topo
+      if (future_timestamp == 0) {
+        global_transtopo_ = transtopo;
+      } else {
+        tick.transtopo = transtopo;
+        this->clock_.setAlarm(tick);
+      }
+
       GlobalTransTopo topo;
       for (const auto& [id, related_topo] : transtopo) {
         // send to all trainers in the topo
@@ -157,9 +167,16 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
       int node_id = std::stoi(body.substr(0, it));
       uint32_t timestamp = std::stoi(body.substr(it + 1));
 
-      this->clock_.clockTick();
+      bool is_ticked = this->clock_.clockTick();
       clock_.unlock();
-      if (timestamp != this->clock_.getLocalTimestamp()) {
+      auto local_timestamp = this->clock_.getLocalTimestamp();
+
+      if (is_ticked) {
+        // remove the tick
+        global_transtopo_ = clock_.ticks_.at(local_timestamp).transtopo;
+        this->clock_.removeTick(local_timestamp);
+      }
+      if (timestamp != local_timestamp) {
         LOG(WARNING) << "Controller received timestamp: " << timestamp
                      << " but local timestamp is: " << this->clock_.getLocalTimestamp();
         // this->clock_.local_timestamp_ = timestamp;

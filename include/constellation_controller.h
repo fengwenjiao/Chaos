@@ -27,6 +27,10 @@ class ConstelController {
 
   void setThinker(const char* thinker_name);
 
+  inline const GlobalTransTopo& GetGlobalTransTopo() const {
+    return global_transtopo_;
+  }
+
   ~ConstelController();
 
   void run();
@@ -60,6 +64,8 @@ class ConstelController {
   std::shared_ptr<ReadyNodeOverlayManager> node_manager_;
 
   ScaleClock clock_;
+
+  GlobalTransTopo global_transtopo_;
 
   ps::Controller* ps_scheduler_;
 
