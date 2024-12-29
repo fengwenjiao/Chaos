@@ -156,7 +156,7 @@ void ConstelTrainer::Migrate(const std::vector<int>& keys, const std::vector<CAr
           auto vals_s = ps::SArray<char>(vals[idx].data(), vals[idx].size(), false);
           auto key_t = static_cast<ps::Key>(key);
           ps::SArray<ps::Key> keys({key_t});
-          auto lens = ps::SArray<int>({static_cast<int>(vals[idx].size())});
+          auto lens = ps::SArray<uint64_t>({static_cast<uint64_t>(vals[idx].size())});
 
           auto slice_info = KVSlice{key, key + 1};
           model_sync_conf.kvslices = {{slice_info}};
@@ -175,7 +175,7 @@ void ConstelTrainer::Migrate(const std::vector<int>& keys, const std::vector<CAr
 
         auto vals_s = ps::SArray<char>(vals[idx].data() + kvslice.slice, kvslice.slice_len, false);
         ps::SArray<ps::Key> keys({static_cast<ps::Key>(key)});
-        auto lens = ps::SArray<int>({static_cast<int>(kvslice.slice_len)});
+        auto lens = ps::SArray<uint64_t>({kvslice.slice_len});
 
         auto slice_info = KVSlice{key, kvslice.slice, kvslice.slice_len};
         model_sync_conf.kvslices = {{slice_info}};
@@ -337,7 +337,8 @@ void ConstelTrainer::ProcessPushData(const int key,
         } else {
           // pull request to father
           auto key_t = ps::SArray<ps::Key>({static_cast<ps::Key>(key)});
-          auto* len_t = new ps::SArray<int>({static_cast<int>(update_buf->merged.size())});
+          auto* len_t =
+              new ps::SArray<uint64_t>({static_cast<uint64_t>(update_buf->merged.size())});
           // TODO: use another buff to recv
           auto* vals = new ps::SArray<char>(update_buf->merged);
           int cmd = GetCommandType(RequestType::kDefaultInit, update.merged.dtype);
@@ -414,9 +415,7 @@ void ConstelTrainer::ProcessPushData(const int key,
           auto vals = new ps::SArray<char>(update_buf->merged);
           auto key_t = static_cast<ps::Key>(key);
           ps::SArray<ps::Key> keys({key_t});
-          auto len_t = static_cast<int>(update_buf->merged.size());
-          auto lens = new ps::SArray<int>;
-          lens->push_back(len_t);
+          auto lens = new ps::SArray<uint64_t>({static_cast<uint64_t>(update_buf->merged.size())});
           int cmd = GetCommandType(RequestType::kDefaultPushPull, update_buf->merged.dtype);
           int ts = trainer_->ZPushPull(
               keys, *vals, vals, lens, cmd, std::to_string(now), [vals, lens]() {
@@ -513,6 +512,7 @@ void ConstelTrainer::DataHandle(const ps::KVMeta& req_meta,
         break;
       }
       if (model_sync_conf.paths[0].size() == 1 &&
+          model_sync_conf.paths[0][0] == ps::Postoffice::Get()->GetMyID() &&
           model_sync_conf.target_node_id[0] == ps::Postoffice::Get()->GetMyID()) {
         // recv the data
         std::unique_lock<std::mutex> lock(model_sync_mu_);
@@ -527,14 +527,16 @@ void ConstelTrainer::DataHandle(const ps::KVMeta& req_meta,
                                            wait_recv_keys_->end(),
                                            model_sync_conf.kvslices[0][0].key_begin));
         if (idx < wait_recv_keys_->size()) {
+          CHECK_EQ(req_data.lens[0], req_data.vals.size());
           if (model_sync_conf.kvslices[0][0].is_full()) {
             // TODO: This can be zero copy
-            wait_recv_vals_->at(idx)->CopyFrom(req_data.vals.data(), req_data.lens[0]);
+            wait_recv_vals_->at(idx)->CopyFrom(req_data.vals.data(), req_data.vals.size());
           } else {
+            CHECK_EQ(req_data.lens[0], model_sync_conf.kvslices[0][0].slice_len);
             wait_recv_vals_->at(idx)->CopyFrom(
-                req_data.vals.data(), req_data.lens[0], model_sync_conf.kvslices[0][0].slice);
+                req_data.vals.data(), req_data.vals.size(), model_sync_conf.kvslices[0][0].slice);
           }
-          this->model_size_ -= req_data.lens[0];
+          this->model_size_ -= req_data.vals.size();
           if (this->model_size_ == 0) {
             is_model_sync_.store(true);
             model_sync_cv_.notify_all();
@@ -546,14 +548,15 @@ void ConstelTrainer::DataHandle(const ps::KVMeta& req_meta,
         } else {
           LOG(WARNING) << "Recv data is not in the waiting list";
         }
-
-      } else {
+      } else if (model_sync_conf.paths[0].size() > 1) {
         int next = model_sync_conf.paths[0][1];
         model_sync_conf.paths[0].erase(model_sync_conf.paths[0].begin());
         auto str = serilite::serialize(model_sync_conf).as_string();
         trainer_->ZMove(next, req_data.keys, req_data.vals, req_data.lens, str, req_meta.cmd);
         PS_VLOG(2) << "forward the migrate data: " << model_sync_conf.debug_string()
                    << " kvpairs: " << " lens: " << req_data.lens[0];
+      } else {
+        LOG(WARNING) << "ModelSync request is invalid";
       }
       trainer_->Response(req_meta, {});
       break;
