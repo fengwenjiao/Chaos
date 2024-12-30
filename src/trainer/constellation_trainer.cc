@@ -527,21 +527,24 @@ void ConstelTrainer::DataHandle(const ps::KVMeta& req_meta,
                                            wait_recv_keys_->end(),
                                            model_sync_conf.kvslices[0][0].key_begin));
         if (idx < wait_recv_keys_->size()) {
-          CHECK_EQ(req_data.lens[0], req_data.vals.size());
+          auto size = req_data.vals.size();
+          CHECK_EQ(req_data.lens[0], size);
           if (model_sync_conf.kvslices[0][0].is_full()) {
             // TODO: This can be zero copy
-            wait_recv_vals_->at(idx)->CopyFrom(req_data.vals.data(), req_data.vals.size());
+            wait_recv_vals_->at(idx)->CopyFrom(req_data.vals.data(), size);
           } else {
             CHECK_EQ(req_data.lens[0], model_sync_conf.kvslices[0][0].slice_len);
             wait_recv_vals_->at(idx)->CopyFrom(
-                req_data.vals.data(), req_data.vals.size(), model_sync_conf.kvslices[0][0].slice);
+                req_data.vals.data(), size, model_sync_conf.kvslices[0][0].slice);
           }
-          this->model_size_ -= req_data.vals.size();
+          if (model_size_ < size) {
+            LOG(FATAL) << "model_size_ is less than 0";
+          } else {
+            this->model_size_ -= size;
+          }
           if (this->model_size_ == 0) {
             is_model_sync_.store(true);
             model_sync_cv_.notify_all();
-          } else if (this->model_size_ < 0) {
-            LOG(WARNING) << "model_size_ is less than 0";
           }
           PS_VLOG(2) << "recv the migrate data: " << model_sync_conf.debug_string()
                      << " kvpairs: " << " lens: " << req_data.lens[0];
@@ -552,13 +555,13 @@ void ConstelTrainer::DataHandle(const ps::KVMeta& req_meta,
         int next = model_sync_conf.paths[0][1];
         model_sync_conf.paths[0].erase(model_sync_conf.paths[0].begin());
         auto str = serilite::serialize(model_sync_conf).as_string();
-        trainer_->ZMove(next, req_data.keys, req_data.vals, req_data.lens, str, req_meta.cmd);
+        trainer->ZMove(next, req_data.keys, req_data.vals, req_data.lens, str, req_meta.cmd);
         PS_VLOG(2) << "forward the migrate data: " << model_sync_conf.debug_string()
                    << " kvpairs: " << " lens: " << req_data.lens[0];
       } else {
         LOG(WARNING) << "ModelSync request is invalid";
       }
-      trainer_->Response(req_meta, {});
+      trainer->Response(req_meta, {});
       break;
     default:
       LOG(FATAL) << "Unknown request type";

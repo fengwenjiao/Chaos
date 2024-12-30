@@ -88,17 +88,7 @@ struct CArray {
       this->dtype = other.dtype;
     }
   }
-  void CopyFrom(const void* data, size_t size) const {
-    if (this->size() != size) {
-      throw std::runtime_error(
-          "CArray: void CopyFrom(const void* data, size_t size) size mismatch. this->size(): " +
-          std::to_string(this->size()) + ", size: " + std::to_string(size));
-    }
-    if (data && size) {
-      memcpy(this->data(), data, size);
-    }
-  }
-  void CopyFrom(const void* data, size_t size, size_t offset) const {
+  void CopyFrom(const void* data, size_t size, size_t offset = 0) {
     if (this->size() < size + offset) {
       throw std::runtime_error(
           "CArray: void CopyFrom(const void* data, size_t size, size_t offset) size mismatch. "
