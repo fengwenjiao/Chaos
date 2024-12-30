@@ -96,36 +96,80 @@ class ResNet50(nn.Module):
 
     def forward(self, x):
         return self.model(x)
-    
+
+
+class ResNet101(nn.Module):
+    """ResNet-101 model"""
+
+    def __init__(self, num_classes=10):
+        super(ResNet101, self).__init__()
+        self.model = models.resnet101(pretrained=False)
+        self.model.fc = nn.Linear(self.model.fc.in_features, num_classes)
+
+    def forward(self, x):
+        return self.model(x)
+
+
 class Vgg11(nn.Module):
     """Vgg11 model"""
 
     def __init__(self, num_classes=10):
         super(Vgg11, self).__init__()
         self.model = models.vgg11(pretrained=False)
-        self.model.classifier[6] = nn.Linear(self.model.classifier[6].in_features, num_classes)
+        self.model.classifier[6] = nn.Linear(
+            self.model.classifier[6].in_features, num_classes
+        )
 
     def forward(self, x):
         return self.model(x)
-    
+
+
 class Vgg16(nn.Module):
     """Vgg16 model"""
 
     def __init__(self, num_classes=10):
         super(Vgg16, self).__init__()
         self.model = models.vgg16(pretrained=False)
-        self.model.classifier[6] = nn.Linear(self.model.classifier[6].in_features, num_classes)
+        self.model.classifier[6] = nn.Linear(
+            self.model.classifier[6].in_features, num_classes
+        )
 
     def forward(self, x):
         return self.model(x)
-    
 
 
-# 实例化模型并移动到GPU
-# model = ResNet18(num_classes=10).to(device)
-# model = ResNet50(num_classes=10).to(device)
-# model = Vgg11(num_classes=10).to(device)
-model = Vgg16(num_classes=10).to(device)
+class AlexNet(nn.Module):
+    """AlexNet model"""
+
+    def __init__(self, num_classes=10):
+        super(AlexNet, self).__init__()
+        self.model = models.alexnet(pretrained=False)
+        self.model.classifier[6] = nn.Linear(
+            self.model.classifier[6].in_features, num_classes
+        )
+
+    def forward(self, x):
+        return self.model(x)
+
+
+from utils import getenv
+
+env = getenv(os.path.join(os.path.dirname(__file__), "expconfig.env"))
+model_name = env["MODEL_NAME"]
+if model_name == "resnet18":
+    model = ResNet18(num_classes=10).to(device)
+elif model_name == "resnet50":
+    model = ResNet50(num_classes=10).to(device)
+elif model_name == "resnet101":
+    model = ResNet101(num_classes=10).to(device)
+elif model_name == "vgg11":
+    model = Vgg11(num_classes=10).to(device)
+elif model_name == "vgg16":
+    model = Vgg16(num_classes=10).to(device)
+elif model_name == "alexnet":
+    model = AlexNet(num_classes=10).to(device)
+else:
+    raise ValueError(f"Invalid model name: {model_name}")
 
 # 定义损失函数和优化器
 criterion = nn.CrossEntropyLoss()
@@ -143,6 +187,7 @@ log = open(log_file, "w")
 from constellation.trainer import ConstelTrainer
 
 migrate = ConstelTrainer._migrate
+
 
 def _migrate(self, keys, values):
     print("Time(start migrate): ", datetime.datetime.now(), file=log)
@@ -173,7 +218,10 @@ for epoch in range(num_epochs):
     for inputs, labels in trainloader:
         inputs, labels = inputs.to(device), labels.to(device)
 
-        print(f"id: {trainer.myid} rank: {trainer.rank}, num trainers {trainer.num_trainers}", file=log)
+        print(
+            f"id: {trainer.myid} rank: {trainer.rank}, num trainers {trainer.num_trainers}",
+            file=log,
+        )
 
         print(f"idx: {idx}. \n {model_parameters_summary(model)}", file=log)
         log.flush()

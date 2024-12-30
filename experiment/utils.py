@@ -59,3 +59,24 @@ def model_parameters_summary(model: torch.nn.Module, decimal=7):
     summary_str = ", ".join([f"{v:.{decimal}f}" for v in summary_list])
     summary_str = f"hash: {hash_str} \n values: {summary_str}"
     return summary_str
+
+
+def getenv(file_path):
+    """
+    Read environment variables from a file.
+
+    Args:
+        file_path (str): The path to the file containing environment variables.
+
+    Returns:
+        dict: A dictionary containing the environment variables.
+    """
+    env = {}
+    with open(file_path, "r") as f:
+        for line in f:
+            if line.startswith("#"):
+                continue
+            if "=" in line:
+                key, value = line.strip().split("=", 1)
+                env[key] = value
+    return env
