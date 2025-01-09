@@ -11,8 +11,8 @@
 
 namespace constellation {
 namespace test {
-inline unsigned long generateCArraySummary(const char* input) {
-  std::string str(input);
+inline unsigned long generateCArraySummary(const char* input, size_t size) {
+  std::string str(input, size);
 
   std::hash<std::string> hasher;
   unsigned long hash = hasher(str);
@@ -38,9 +38,9 @@ class PRINT_CARRAY {
     const T* ptr = reinterpret_cast<const T*>(arr.data());
     int ele_num = arr.size() / sizeof(T);
     os << "CArray: {" << static_cast<const void*>(ptr)
-       << " Abstract: " << generateCArraySummary(arr.data()) << "}\n[ ";
+       << " Abstract: " << generateCArraySummary(arr.data(), arr.size()) << "}\n[ ";
     os << std::fixed << std::setprecision(5);
-    std::copy(ptr, ptr + ele_num, std::ostream_iterator<T>(os, " "));
+    // std::copy(ptr, ptr + ele_num, std::ostream_iterator<T>(os, " "));
     os << "]";
   }
 };

@@ -18,13 +18,16 @@ int ConstelTrainerHandleFree(ConstelTrainerHandle handle) {
   API_END();
 }
 
-int ConstellationCArrayCreateDefault(ConstellationCArrayHandle* handle, int size, int dtype) {
+int ConstellationCArrayCreateDefault(ConstellationCArrayHandle* handle, uint64_t size, int dtype) {
   API_BEGIN();
   *handle = new CArray(size, dtype);
   API_END();
 }
 
-int ConstellationCArrayCreate(ConstellationCArrayHandle* handle, void* data, int size, int dtype) {
+int ConstellationCArrayCreate(ConstellationCArrayHandle* handle,
+                              void* data,
+                              uint64_t size,
+                              int dtype) {
   API_BEGIN();
   *handle = new CArray(data, size, dtype);
   API_END();
@@ -138,11 +141,13 @@ int ConstelTrainerBatchEnd(ConstelTrainerHandle handle, int* keys_size) {
   API_BEGIN();
   auto& keys_to_migrate = CtypesInfoBuffer::Get()->GetKeysToMigrate();
   static_cast<ConstelTrainer*>(handle)->BatchEnd(&keys_to_migrate);
-  *keys_size = keys_to_migrate.size();
+  if (keys_size != nullptr) {
+    *keys_size = keys_to_migrate.size();
+  }
   API_END();
 }
 
-int ConstelTrainerGetKeysToMigrate(int* keys, const int keys_size) {
+int ConstelTrainerGetKeysToMigrate(int* keys, int keys_size) {
   API_BEGIN();
   auto& keys_to_migrate = CtypesInfoBuffer::Get()->GetKeysToMigrate();
   if (keys_size < keys_to_migrate.size()) {

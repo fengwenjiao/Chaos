@@ -71,7 +71,7 @@ int ConstelTrainerHandleFree(ConstelTrainerHandle handle);
  * @return 0 - success, -1 - failure
  */
 int ConstellationCArrayCreateDefault(ConstellationCArrayHandle* handle,
-                                     int size DEFAULT(0),
+                                     uint64_t  size DEFAULT(0),
                                      int dtype DEFAULT(0));
 
 /** @brief create a CArray handle
@@ -84,7 +84,7 @@ int ConstellationCArrayCreateDefault(ConstellationCArrayHandle* handle,
  */
 int ConstellationCArrayCreate(ConstellationCArrayHandle* handle,
                               void* data,
-                              int size,
+                              uint64_t size,
                               int dtype DEFAULT(0));
 
 /** @brief free the CArray handle
@@ -183,7 +183,7 @@ int ConstelTrainerBatchEnd(ConstelTrainerHandle handle, int* keys_size DEFAULT(n
  * @param keys_size - the size of the keys
  * @return 0 - success, -1 - failure
  */
-int ConstelTrainerGetKeysToMigrate(int* keys, const int keys_size);
+int ConstelTrainerGetKeysToMigrate(int* keys, int keys_size);
 
 /** @brief migrate the keys and values to the trainer
  * @param handle - the handle of the trainer
