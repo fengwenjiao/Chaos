@@ -64,7 +64,7 @@ class ConstelTrainerBase(object):
     @property
     def rank(self):
         raise NotImplementedError
-    
+
     @property
     def myid(self):
         raise NotImplementedError
@@ -96,12 +96,12 @@ class ConstelTrainer(ConstelTrainerBase):
 
     def __init__(self, handle):
         self.handle = handle
-        self._carray_cache = {}
         self._is_ready = False
         self._is_scale = None
         self._need_sync = None
         self._keys_to_migrate = None
         self._id = None
+        self._carray_repo = {}
 
     def __del__(self):
         check_call(_LIB.ConstelTrainerHandleFree(self.handle))
@@ -152,6 +152,19 @@ class ConstelTrainer(ConstelTrainerBase):
         )
         return timestamp.value
 
+    def register_carray(self, carray: CArrayBase, timestamp: int = None):
+        if timestamp is None:
+            timestamp = self._get_timestamp()
+        if timestamp not in self._carray_repo:
+            self._carray_repo[timestamp] = {}
+        self._carray_repo[timestamp][id(carray)] = carray
+
+    def unregister_carray(self, timestamp: int = None):
+        if timestamp is None:
+            timestamp = self._get_timestamp() - 1
+        if timestamp in self._carray_repo:
+            self._carray_repo.pop(timestamp)
+
     def _notify_ready(
         self, model_sync=True, keys: Optional[list] = None, lens: Optional[list] = None
     ):
@@ -184,6 +197,7 @@ class ConstelTrainer(ConstelTrainerBase):
         if get_from_cache:
             assert self._keys_to_migrate is not None
             return self._keys_to_migrate
+        self.unregister_carray()
         size = ctypes.c_int()
         check_call(_LIB.ConstelTrainerBatchEnd(self.handle, ctypes.byref(size)))
         # ConstelTrainerGetKeysToMigrate(int* keys, const int keys_size);
@@ -197,6 +211,8 @@ class ConstelTrainer(ConstelTrainerBase):
         return keys_to_migrate
 
     def batch_end(self, keys, values, _need_notify=True):
+        if (len(keys) == 0) or (len(values) == 0):
+            return
         keys_to_migrate = self._batch_end_get_migrate_keys(not _need_notify)
         if len(keys_to_migrate) == 0:
             return
@@ -275,7 +291,7 @@ class ConstelTrainer(ConstelTrainerBase):
         rank = ctypes.c_int()
         check_call(_LIB.ConstellationTrainerRank(self.handle, ctypes.byref(rank)))
         return rank.value
-    
+
     @property
     def myid(self):
         if self._id is not None:
@@ -295,17 +311,15 @@ class ConstelTrainer(ConstelTrainerBase):
         )
         return num_trainers.value
 
-    def _convert_to_carray(self, item, cls_):
+    def _convert_to_carray(self, item, map_func, *args, **kwargs):
         if isinstance(item, list) or isinstance(item, tuple):
-            return [self._convert_to_carray(sub_item, cls_) for sub_item in item]
+            return [
+                self._convert_to_carray(sub_item, map_func, *args, **kwargs)
+                for sub_item in item
+            ]
         else:
-            if id(item) in self._carray_cache:
-                carray = self._carray_cache[id(item)]()
-                if carray is not None:
-                    carray.sycn_tensor()
-                    return carray
-            carray = cls_(item)
-            self._carray_cache[id(item)] = weakref.ref(carray)
+            carray = map_func(item, *args, **kwargs)
+            self.register_carray(carray)
             return carray
 
 

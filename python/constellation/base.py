@@ -18,9 +18,9 @@ class ConsDataTypeEnum(enum.Enum):
     FLOAT32 = 0
 
 
-ConsDataTypeByteSize = {
-    ConsDataTypeEnum.FLOAT32: 4
-}
+ConsDataTypeByteSize = {ConsDataTypeEnum.FLOAT32: 4}
+
+ConsDataTypeCType = {ConsDataTypeEnum.FLOAT32: ctypes.c_float}
 
 
 def get_basic_type_byte_size(dtype):
@@ -32,9 +32,18 @@ def get_basic_type_byte_size(dtype):
     return ConsDataTypeByteSize[dtype_]
 
 
+def get_basic_type_ctype(dtype):
+    try:
+        dtype_ = ConsDataTypeEnum(int(dtype))
+    except ValueError:
+        raise ValueError("Unsupported data type: " + str(dtype))
+
+    return ConsDataTypeCType[dtype_]
+
+
 # ctypes functions
 def c_str(string):
-    return ctypes.c_char_p(string.encode('utf-8'))
+    return ctypes.c_char_p(string.encode("utf-8"))
 
 
 def c_array(ctype, values):

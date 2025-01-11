@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import torch
-from ctypes import cast
+import numpy as np
+import ctypes
 from typing import List, Tuple, Optional, Union
 
 from ..base import CArrayDataPtr, ConsDataTypeEnum, get_basic_type_byte_size
@@ -18,7 +19,7 @@ class PyTorchTensorMixin(TensorMixinBase):
         if not self.tensor_.is_contiguous():
             raise ValueError("Tensor must be contiguous")
 
-    def _dtype(self) -> int:
+    def dtype(self) -> int:
         try:
             type_ = PYTORCH_TENSOR_TYPE[self.tensor_.dtype]
         except KeyError:
@@ -26,34 +27,62 @@ class PyTorchTensorMixin(TensorMixinBase):
 
         return type_.value
 
-    def _bytes_size(self) -> int:
+    def bytes_size(self) -> int:
         elem_size = self.tensor_.element_size()
-        if elem_size != get_basic_type_byte_size(self._dtype()):
+        if elem_size != get_basic_type_byte_size(self.dtype()):
             raise ValueError(
                 "Tensor element size is not equal to the size of the corresponding data type"
             )
         bytes_size = elem_size * self.tensor_.nelement()
         return bytes_size
 
-    def _data_ptr(self) -> CArrayDataPtr:
-        return cast(self.tensor_.data_ptr(), CArrayDataPtr)
+    def data_ptr(self) -> CArrayDataPtr:
+        return ctypes.cast(self.tensor_.data_ptr(), CArrayDataPtr)
 
 
 class CArray(CArrayBase, PyTorchTensorMixin):
-    def __init__(self, tensor_=None, **kwargs):
-        _tensor = None if tensor_ is None else tensor_.to("cpu").contiguous().detach()
-        super().__init__(_tensor, **kwargs)
-        if self.tensor_ is not tensor_:
-            self.origin_tensor_ = tensor_
+    def __init__(
+        self,
+        tensor_: torch.Tensor,
+        /,
+        *,
+        requires_temp_space: bool = False,
+        **kwargs,
+    ):
+        self.origin_tensor_ = tensor_
+        self.has_temp_tensor = True
+        if tensor_.is_cuda or not tensor_.is_contiguous():
+            tensor = tensor_.to("cpu").contiguous().detach()
+        elif requires_temp_space:
+            tensor = tensor_.clone().contiguous().detach()
         else:
+            tensor = tensor_.detach()
+            self.has_temp_tensor = False
             self.origin_tensor_ = None
+        super().__init__(tensor, **kwargs)
+
+    def clone(self) -> "CArray":
+        carraybase = super().clone()
+        carray = CArray.__new__(CArray)
+        carray.__dict__.update(carraybase.__dict__)
+        # avoid double free
+        carraybase.handle = None
+        del carraybase
+        carray.origin_tensor_ = self.origin_tensor_
+        carray.has_temp_tensor = self.has_temp_tensor
+        type_bytes_size = get_basic_type_byte_size(self.dtype_)
+        buffer_np = np.ctypeslib.as_array(
+            carray.ctypes_data_ptr(), shape=(self.bytes_size_ // type_bytes_size,)
+        )
+        carray.tensor_ = torch.from_numpy(buffer_np).view(self.origin_tensor_.shape)
+        return carray
 
     def _update_tensor(self, scale=1):
         if self.origin_tensor_ is not None:
             with torch.no_grad():
                 self.origin_tensor_.copy_(self.tensor_ / scale)
 
-    def sycn_tensor(self):
+    def sync_tensor(self):
         if self.origin_tensor_ is not None:
             with torch.no_grad():
                 self.tensor_.copy_(self.origin_tensor_)
@@ -84,6 +113,10 @@ class Trainer(ConstelTrainer):
         self._rank = 0
         self._num_trainers = 1
 
+    def __del__(self):
+        self._carray_repo.clear()
+        return super().__del__()
+
     def allreduce(self, keys, values, out=None):
         self._rank = self.rank
         self._num_trainers = self.num_trainers
@@ -107,7 +140,7 @@ class Trainer(ConstelTrainer):
         CArray.update_tensor(values_carray)
 
     def _migrate(self, keys, values):
-        values_carray = self._convert_to_carray(values)
+        values_carray = self._convert_to_carray(values, requires_temp_space=True)
         super()._migrate(keys, values_carray)
 
     def batch_end(self, keys=None, values=None, _need_notify=True):
@@ -116,24 +149,33 @@ class Trainer(ConstelTrainer):
         if keys is not None and values is not None:
             keys_, vals_ = keys, values
         else:
-            assert (
-                self._is_model_opt_set
-            ), "Model and optimizer have not been set. Please call set_model_opt() first."
+            assert self._is_model_opt_set, "Model and optimizer have not been set. Please call set_model_opt() first."
 
             keys_ = self._batch_end_get_migrate_keys(get_from_cache=False)
-            if len(keys_) == 0:
-                return
-
             need_notify = False
-
             vals_ = [
                 param for i, param in enumerate(self._model.parameters()) if i in keys_
             ]
 
         super().batch_end(keys_, vals_, need_notify)
 
-    def _convert_to_carray(self, item, cls_=CArray):
-        return super()._convert_to_carray(item, cls_)
+    def _convert_to_carray(
+        self,
+        item,
+        map_func=None,
+        *args,
+        requires_temp_space=False,
+        **kwargs,
+    ):
+        if map_func is None:
+
+            def map_func(item, *args, **kwargs):
+                carray = CArray(item, *args, **kwargs).clone()
+                return carray
+
+        return super()._convert_to_carray(
+            item, map_func, *args, requires_temp_space=requires_temp_space, **kwargs
+        )
 
     def set_model_opt(self, model, optimizer):
         assert isinstance(model, torch.nn.Module)
@@ -148,7 +190,7 @@ class Trainer(ConstelTrainer):
         keys: Optional[List] = None,
         params: Optional[List[torch.Tensor]] = None,
         model_opt: Optional[Tuple[torch.nn.Module, torch.optim.Optimizer]] = None,
-        **kwargs
+        **kwargs,
     ):  # pylint: disable=arguments-differ
         keys_, lens_, params_ = None, None, None
         if model_opt is None:
