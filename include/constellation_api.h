@@ -24,6 +24,7 @@
 typedef void* ConstelTrainerHandle;
 typedef void* ConstelControllerHandle;
 typedef void* ConstellationCArrayHandle;
+typedef void* ConstellationCArrayDataPtrType;
 
 class CtypesInfoBuffer {
  public:
@@ -71,7 +72,7 @@ int ConstelTrainerHandleFree(ConstelTrainerHandle handle);
  * @return 0 - success, -1 - failure
  */
 int ConstellationCArrayCreateDefault(ConstellationCArrayHandle* handle,
-                                     uint64_t  size DEFAULT(0),
+                                     uint64_t size DEFAULT(0),
                                      int dtype DEFAULT(0));
 
 /** @brief create a CArray handle
@@ -92,6 +93,9 @@ int ConstellationCArrayCreate(ConstellationCArrayHandle* handle,
  * @return 0 - success, -1 - failure
  */
 int ConstellationCArrayFree(ConstellationCArrayHandle handle);
+
+int ConstellationCArrayDataPtr(ConstellationCArrayHandle* handle,
+                               ConstellationCArrayDataPtrType* data);
 
 ////// Trainer //////
 /** @brief push and pull the data from the trainer

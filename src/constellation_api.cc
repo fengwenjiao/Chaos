@@ -39,6 +39,13 @@ int ConstellationCArrayFree(ConstellationCArrayHandle handle) {
   API_END();
 }
 
+int ConstellationCArrayDataPtr(ConstellationCArrayHandle* handle,
+                               ConstellationCArrayDataPtrType* data) {
+  API_BEGIN();
+  *data = static_cast<void*>(static_cast<CArray*>(*handle)->data());
+  API_END();
+}
+
 int ConstellationTrainerPushPull(ConstelTrainerHandle handle,
                                  uint32_t key_num,
                                  const int* keys_in,
