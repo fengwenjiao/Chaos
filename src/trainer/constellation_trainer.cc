@@ -153,7 +153,7 @@ void ConstelTrainer::Migrate(const std::vector<int>& keys, const std::vector<CAr
           int cmd = GetCommandType(RequestType::kModelSync, vals[idx].dtype);
 
           // auto vals_s = new ps::SArray<char>(vals[idx]);
-          auto vals_s = ps::SArray<char>(vals[idx].data(), vals[idx].size(), false);
+          auto vals_s = ps::SArray<char>(vals[idx]);
           auto key_t = static_cast<ps::Key>(key);
           ps::SArray<ps::Key> keys({key_t});
           auto lens = ps::SArray<uint64_t>({static_cast<uint64_t>(vals[idx].size())});
@@ -173,7 +173,8 @@ void ConstelTrainer::Migrate(const std::vector<int>& keys, const std::vector<CAr
 
         int cmd = GetCommandType(RequestType::kModelSync, vals[idx].dtype);
 
-        auto vals_s = ps::SArray<char>(vals[idx].data() + kvslice.slice, kvslice.slice_len, false);
+        auto vals_ = ps::SArray<char>(vals[idx]);
+        auto vals_s = vals_.segment(kvslice.slice, kvslice.slice_len + kvslice.slice);
         ps::SArray<ps::Key> keys({static_cast<ps::Key>(key)});
         auto lens = ps::SArray<uint64_t>({kvslice.slice_len});
 
@@ -327,9 +328,10 @@ void ConstelTrainer::ProcessPushData(const int key,
     case TaskTypeEnum::kBroadcastDefault: {
       if (!update.merged.isNone()) {
         // init request from myself
-        if (update_buf->merged.isNone() || update_buf->merged.size() != update.merged.size()) {
-          update_buf->merged = CArray(update.merged.size());  // alloc the space
-        }
+        // if (update_buf->merged.isNone() || update_buf->merged.size() != update.merged.size()) {
+        //   update_buf->merged = CArray(update.merged.size(),update.merged.dtype);  // alloc the space
+        // }
+        update_buf->merged = CArray(update.merged.size(), update.merged.dtype);
         if (data.isFromRoot) {
           update_buf->merged.CopyFrom(update.merged);
           std::lock_guard<std::mutex> lock(init_waiting_ts_mu_);
@@ -380,9 +382,10 @@ void ConstelTrainer::ProcessPushData(const int key,
     }
     case TaskTypeEnum::kPushPull: {
       if (update_buf->num == 1) {
-        if (update_buf->merged.isNone() || update_buf->merged.size() != update.merged.size()) {
-          update_buf->merged = CArray(update.merged.size());  // alloc the space
-        }
+        // if (update_buf->merged.isNone() || update_buf->merged.size() != update.merged.size()) {
+        //   update_buf->merged = CArray(update.merged.size());  // alloc the space
+        // }
+        update_buf->merged = CArray(update.merged.size());
         // copy the val into merged
         update_buf->merged.CopyFrom(update.merged);
       } else {
