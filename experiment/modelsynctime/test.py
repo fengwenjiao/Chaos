@@ -91,7 +91,7 @@ class ResNet50(nn.Module):
 
     def __init__(self, num_classes=10):
         super(ResNet50, self).__init__()
-        self.model = models.resnet50(pretrained=False)
+        self.model = models.resnet50()
         self.model.fc = nn.Linear(self.model.fc.in_features, num_classes)
 
     def forward(self, x):
@@ -211,6 +211,7 @@ from utils import model_parameters_summary
 
 # 训练模型
 num_epochs = 100
+glb_batch =  0 
 for epoch in range(num_epochs):
     model.train()
     running_loss = 0.0
@@ -230,10 +231,7 @@ for epoch in range(num_epochs):
         loss = criterion(outputs, labels)
         loss.backward()
         trainer.update()
-        running_loss += loss.item()
+        print(f"Loss[{glb_batch}]: {loss.item():.4f}")
         trainer.batch_end()
         idx += 1
-    train_losses.append(running_loss / len(trainloader))
-    print(
-        f"Epoch [{epoch + 1}/{num_epochs}], Loss: {running_loss / len(trainloader):.4f}"
-    )
+        glb_batch += 1
