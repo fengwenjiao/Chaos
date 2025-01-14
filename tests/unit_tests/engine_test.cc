@@ -14,7 +14,9 @@ class ConstelAggEngineTest : public ::testing::Test {
     }
     // Set the data handle function
     engine->set_data_handle(
-        [this](int id, int data, std::shared_ptr<constellation::ReturnOnAgg<int, int>> cb) {
+        [this](int id,
+               int data,
+               std::shared_ptr<constellation::ReturnOnAgg<int, int>> cb) {
           // Simulate some processing
           processed_data[id] += data;
           record[id]++;
@@ -68,7 +70,8 @@ TEST_F(ConstelAggEngineTest, PushAndWaitTest) {
 
 // Test case2 for the PushAndWait function
 TEST_F(ConstelAggEngineTest, PushAsyncTest) {
-  std::thread t([this]() { engine->PushAsync({1, 2, 3, 4}, {10, 20, 30, 40}); });
+  std::thread t(
+      [this]() { engine->PushAsync({1, 2, 3, 4}, {10, 20, 30, 40}); });
 
   engine->PushAndWait({1, 2, 3}, {10, 20, 30}, &res);
 

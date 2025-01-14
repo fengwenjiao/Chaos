@@ -18,7 +18,9 @@ int ConstelTrainerHandleFree(ConstelTrainerHandle handle) {
   API_END();
 }
 
-int ConstellationCArrayCreateDefault(ConstellationCArrayHandle* handle, uint64_t size, int dtype) {
+int ConstellationCArrayCreateDefault(ConstellationCArrayHandle* handle,
+                                     uint64_t size,
+                                     int dtype) {
   API_BEGIN();
   *handle = new CArray(size, dtype);
   API_END();
@@ -67,7 +69,8 @@ int ConstellationTrainerPushPull(ConstelTrainerHandle handle,
   for (uint32_t i = 0; i < key_num_out; ++i) {
     outs_vec[i] = static_cast<CArray*>(outs[i]);
   }
-  static_cast<ConstelTrainer*>(handle)->PushPull(keys_in_vec, values_vec, outs_vec);
+  static_cast<ConstelTrainer*>(handle)->PushPull(
+      keys_in_vec, values_vec, outs_vec);
 
   API_END();
 }
@@ -107,20 +110,24 @@ int ConstellationTrainerIsScale(ConstelTrainerHandle handle, int* is_scale) {
   API_END();
 }
 
-int ConstellationTrainerGetNodeTransTopo(ConstelTrainerHandle handle, char* buffer, uint32_t size) {
+int ConstellationTrainerGetNodeTransTopo(ConstelTrainerHandle handle,
+                                         char* buffer,
+                                         uint32_t size) {
   API_BEGIN();
   auto& topo = static_cast<ConstelTrainer*>(handle)->GetNodeTransTopo();
   auto str = topo.debug_string();
   const char* c_str = str.c_str();
   if (size < str.size()) {
-    throw std::runtime_error("The buffer size is smaller than the size of the debug string.");
+    throw std::runtime_error(
+        "The buffer size is smaller than the size of the debug string.");
   }
   memcpy(buffer, c_str, str.size());
   buffer[str.size()] = '\0';
   API_END();
 }
 
-int ConstellationTrainerGetTimestamp(ConstelTrainerHandle handle, uint32_t* timestamp) {
+int ConstellationTrainerGetTimestamp(ConstelTrainerHandle handle,
+                                     uint32_t* timestamp) {
   API_BEGIN();
   *timestamp = static_cast<ConstelTrainer*>(handle)->GetLocalTimestamp();
   API_END();
@@ -159,7 +166,8 @@ int ConstelTrainerGetKeysToMigrate(int* keys, int keys_size) {
   auto& keys_to_migrate = CtypesInfoBuffer::Get()->GetKeysToMigrate();
   if (keys_size < keys_to_migrate.size()) {
     throw std::runtime_error(
-        "keys_size is smaller than keys_to_migrate.size(). Please call ConstelTrainerBatchEnd "
+        "keys_size is smaller than keys_to_migrate.size(). Please call "
+        "ConstelTrainerBatchEnd "
         "to get the correct size of keys_to_migrate.");
   }
   for (size_t i = 0; i < keys_to_migrate.size(); ++i) {
@@ -200,13 +208,15 @@ int ConstellationTrainerNumTrainers(ConstelTrainerHandle handle, int* num) {
   API_END();
 }
 
-int ConstelControllerHandleCreate(ConstelControllerHandle* handle, const char* thinker_name) {
+int ConstelControllerHandleCreate(ConstelControllerHandle* handle,
+                                  const char* thinker_name) {
   API_BEGIN();
   *handle = new ConstelController(thinker_name);
   API_END();
 }
 
-int ConstelControllerSetThinker(ConstelControllerHandle handle, const char* thinker_name) {
+int ConstelControllerSetThinker(ConstelControllerHandle handle,
+                                const char* thinker_name) {
   API_BEGIN();
   static_cast<ConstelController*>(handle)->setThinker(thinker_name);
   API_END();

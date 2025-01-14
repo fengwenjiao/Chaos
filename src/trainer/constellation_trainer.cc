@@ -58,11 +58,14 @@ ConstelTrainer::ConstelTrainer() {
   this->trainer_ = new ps::KVTrainer<char>(0, 0);  // app_id, customer_id
   using namespace std::placeholders;
   static_cast<ps::SimpleApp*>(this->trainer_)
-      ->set_request_handle(std::bind(&ConstelTrainer::RequestHandle, this, _1, _2));
-  this->trainer_->set_request_handle(std::bind(&ConstelTrainer::DataHandle, this, _1, _2, _3));
+      ->set_request_handle(
+          std::bind(&ConstelTrainer::RequestHandle, this, _1, _2));
+  this->trainer_->set_request_handle(
+      std::bind(&ConstelTrainer::DataHandle, this, _1, _2, _3));
 
 #if CONS_NETWORK_AWARE
-  test_client_ = std::make_unique<moniter::Smq>(ps::Postoffice::Get()->getSchedulerHost());
+  test_client_ =
+      std::make_unique<moniter::Smq>(ps::Postoffice::Get()->getSchedulerHost());
   // auto& ip2nodes = ps::Postoffice::Get()->GetIp2Nodes();
   // std::vector<std::string> ips;
   // for (const auto& ip_nodes : ip2nodes) {
@@ -97,16 +100,19 @@ void ConstelTrainer::NotifyReadyAndWait(bool need_sycn_model,
     int head = static_cast<int>(kControllerSignal::kNodeReadySignal);
     int my_id = ps::Postoffice::Get()->GetMyID();
     if (need_sycn_model) {
-      CHECK(!keys.empty()) << "keys should not be empty when need_sycn_model is true";
-      CHECK(!lens.empty()) << "lens should not be empty when need_sycn_model is true";
-      CHECK_EQ(keys.size(), lens.size()) << "keys and lens should have the same size";
+      CHECK(!keys.empty())
+          << "keys should not be empty when need_sycn_model is true";
+      CHECK(!lens.empty())
+          << "lens should not be empty when need_sycn_model is true";
+      CHECK_EQ(keys.size(), lens.size())
+          << "keys and lens should have the same size";
       for (size_t i = 0; i < keys.size(); i++) {
         model_info_[keys[i]] = lens[i];
         model_size_ += lens[i];
       }
     }
-    auto body =
-        ReadySignalBody{my_id, std::move(need_sycn_model), std::move(keys), std::move(lens)};
+    auto body = ReadySignalBody{
+        my_id, std::move(need_sycn_model), std::move(keys), std::move(lens)};
     std::string body_str = serilite::serialize(body).as_string();
     // no need wait
     trainer_->Request(head, body_str, ps::kScheduler);
@@ -147,7 +153,8 @@ bool ConstelTrainer::BatchEnd(std::vector<int>* keys_to_migrate) {
   clock_.unlock();  // TODO: to be improved
 
   if (!model_sync_conf.paths.empty()) {
-    PS_VLOG(2) << "BatchEnd Model Sync Conf: " << model_sync_conf.debug_string();
+    PS_VLOG(2) << "BatchEnd Model Sync Conf: "
+               << model_sync_conf.debug_string();
     // need migrate the kvs
     if (keys_to_migrate) {
       std::unordered_set<int> keys_to_migrate_set;
@@ -162,7 +169,8 @@ bool ConstelTrainer::BatchEnd(std::vector<int>* keys_to_migrate) {
           }
         }
       }
-      keys_to_migrate->assign(keys_to_migrate_set.begin(), keys_to_migrate_set.end());
+      keys_to_migrate->assign(keys_to_migrate_set.begin(),
+                              keys_to_migrate_set.end());
     }
     model_sync_conf_ = std::move(model_sync_conf);
   }
@@ -171,7 +179,8 @@ bool ConstelTrainer::BatchEnd(std::vector<int>* keys_to_migrate) {
   return true;
 }
 
-void ConstelTrainer::Migrate(const std::vector<int>& keys, const std::vector<CArray>& vals) {
+void ConstelTrainer::Migrate(const std::vector<int>& keys,
+                             const std::vector<CArray>& vals) {
   CHECK_EQ(keys.size(), vals.size());
   int size = this->model_sync_conf_.paths.size();
   for (size_t i = 0; i < size; i++) {
@@ -202,7 +211,8 @@ void ConstelTrainer::MigrateFullSlice(const std::vector<int>& path,
     auto conf = CreateModelSyncConfig(path, myid(), KVSlice{key, key + 1});
     auto conf_str = serilite::serialize(conf).as_string();
 
-    trainer_->ZMove(path[1], kvdata.keys, kvdata.values, kvdata.lens, conf_str, kvdata.cmd);
+    trainer_->ZMove(
+        path[1], kvdata.keys, kvdata.values, kvdata.lens, conf_str, kvdata.cmd);
   }
 }
 
@@ -216,10 +226,12 @@ void ConstelTrainer::MigratePartialSlice(const std::vector<int>& path,
   int idx = std::distance(keys.begin(), it);
 
   auto kvdata = PrepareKVPair(key, vals[idx], kvslice.slice, kvslice.slice_len);
-  auto conf = CreateModelSyncConfig(path, myid(), KVSlice{key, kvslice.slice, kvslice.slice_len});
+  auto conf = CreateModelSyncConfig(
+      path, myid(), KVSlice{key, kvslice.slice, kvslice.slice_len});
   auto conf_str = serilite::serialize(conf).as_string();
 
-  trainer_->ZMove(path[1], kvdata.keys, kvdata.values, kvdata.lens, conf_str, kvdata.cmd);
+  trainer_->ZMove(
+      path[1], kvdata.keys, kvdata.values, kvdata.lens, conf_str, kvdata.cmd);
 }
 
 void ConstelTrainer::NotifySchedulerUpdateClock(uint32_t timestamp) {
@@ -254,7 +266,8 @@ void ConstelTrainer::Broadcast(const std::vector<int>& keys,
   }
 }
 
-void ConstelTrainer::Recv(const std::vector<int>& keys, const std::vector<CArray*>& vals) {
+void ConstelTrainer::Recv(const std::vector<int>& keys,
+                          const std::vector<CArray*>& vals) {
   std::unique_lock<std::mutex> lock(model_sync_mu_);
   wait_recv_keys_ = const_cast<std::vector<int>*>(&keys);
   wait_recv_vals_ = const_cast<std::vector<CArray*>*>(&vals);
@@ -270,11 +283,12 @@ void ConstelTrainer::PushPull(const std::vector<int>& keys,
   CHECK_EQ(vals_push.size(), size);
   CHECK_EQ(vals_pull.size(), size);
   std::unordered_map<int, int> res_map;
-  std::vector<EngineTaskData> vals(size, {UpdateBuf(), TaskTypeEnum::kPushPull, true});
+  std::vector<EngineTaskData> vals(
+      size, {UpdateBuf(), TaskTypeEnum::kPushPull, true});
   // TODO: need consider merge the key-value if there more than one gpus
   for (size_t i = 0; i < size; i++) {
-    // submit the key-value, and get the timestamp which the corresponding merged value is pushed to
-    // the father node
+    // submit the key-value, and get the timestamp which the corresponding
+    // merged value is pushed to the father node
     auto& update = vals[i].update_buf;
     update.merged = vals_push[i];
   }
@@ -297,7 +311,8 @@ void ConstelTrainer::PushPull(const std::vector<int>& keys,
   engine_->PushAndWait(keys, std::move(vals), &res_map);
   for (auto& it : res_map) {
     int key = it.first;
-    auto key_it = std::find_if(keys.begin(), keys.end(), [key](int k) { return k == key; });
+    auto key_it = std::find_if(
+        keys.begin(), keys.end(), [key](int k) { return k == key; });
     CHECK_NE(key_it, keys.end());
     int i = std::distance(keys.begin(), key_it);
     if (it.second > 0) {
@@ -326,14 +341,16 @@ int ConstelTrainer::SimplePushPullDefault(int key, const CArray& val) {
 void ConstelTrainer::InitEngine(size_t num_thread = 8) {
   engine_ = new EngineType(num_thread);
   using namespace std::placeholders;
-  engine_->set_data_handle(std::bind(&ConstelTrainer::ProcessPushData, this, _1, _2, _3));
+  engine_->set_data_handle(
+      std::bind(&ConstelTrainer::ProcessPushData, this, _1, _2, _3));
   //  engine_->set_messure_func();
   engine_->Start();
 }
 
-void ConstelTrainer::ProcessPushData(const int key,
-                                     const EngineTaskData& data,
-                                     std::shared_ptr<ReturnOnAgg<EngineTaskData, int>> rt) {
+void ConstelTrainer::ProcessPushData(
+    const int key,
+    const EngineTaskData& data,
+    std::shared_ptr<ReturnOnAgg<EngineTaskData, int>> rt) {
   auto& update = data.update_buf;
   auto update_buf = GetUpdateBuf(key);
   auto now = clock_.getLocalTimestamp();
@@ -358,8 +375,10 @@ void ConstelTrainer::ProcessPushData(const int key,
     case TaskTypeEnum::kBroadcastDefault: {
       if (!update.merged.isNone()) {
         // init request from myself
-        // if (update_buf->merged.isNone() || update_buf->merged.size() != update.merged.size()) {
-        //   update_buf->merged = CArray(update.merged.size(),update.merged.dtype);  // alloc the
+        // if (update_buf->merged.isNone() || update_buf->merged.size() !=
+        // update.merged.size()) {
+        //   update_buf->merged =
+        //   CArray(update.merged.size(),update.merged.dtype);  // alloc the
         //   space
         // }
         update_buf->merged = CArray(update.merged.size(), update.merged.dtype);
@@ -370,11 +389,12 @@ void ConstelTrainer::ProcessPushData(const int key,
         } else {
           // pull request to father
           auto key_t = ps::SArray<ps::Key>({static_cast<ps::Key>(key)});
-          auto* len_t =
-              new ps::SArray<uint64_t>({static_cast<uint64_t>(update_buf->merged.size())});
+          auto* len_t = new ps::SArray<uint64_t>(
+              {static_cast<uint64_t>(update_buf->merged.size())});
           // TODO: use another buff to recv
           auto* vals = new ps::SArray<char>(update_buf->merged);
-          int cmd = GetCommandType(RequestType::kDefaultInit, update.merged.dtype);
+          int cmd =
+              GetCommandType(RequestType::kDefaultInit, update.merged.dtype);
           int ts = trainer_->ZPull(key_t, vals, len_t, cmd, [vals, len_t]() {
             delete vals;
             delete len_t;
@@ -413,8 +433,10 @@ void ConstelTrainer::ProcessPushData(const int key,
     }
     case TaskTypeEnum::kPushPull: {
       if (update_buf->num == 1) {
-        // if (update_buf->merged.isNone() || update_buf->merged.size() != update.merged.size()) {
-        //   update_buf->merged = CArray(update.merged.size());  // alloc the space
+        // if (update_buf->merged.isNone() || update_buf->merged.size() !=
+        // update.merged.size()) {
+        //   update_buf->merged = CArray(update.merged.size());  // alloc the
+        //   space
         // }
         update_buf->merged = CArray(update.merged.size());
         // copy the val into merged
@@ -442,20 +464,27 @@ void ConstelTrainer::ProcessPushData(const int key,
           // for root node, no need to send, just rt(0)
           (*rt)(0);
         } else {
-          // ps::SArray vals's initialization will create the shared_ptr from the data ptr,
-          // and CArray also hold the shared_ptr of the data, So here `deletable` must be false.
-          // or may cause double free
+          // ps::SArray vals's initialization will create the shared_ptr from
+          // the data ptr, and CArray also hold the shared_ptr of the data, So
+          // here `deletable` must be false. or may cause double free
           // TODO: use another buff to recv
           auto vals = new ps::SArray<char>(update_buf->merged);
           auto key_t = static_cast<ps::Key>(key);
           ps::SArray<ps::Key> keys({key_t});
-          auto lens = new ps::SArray<uint64_t>({static_cast<uint64_t>(update_buf->merged.size())});
-          int cmd = GetCommandType(RequestType::kDefaultPushPull, update_buf->merged.dtype);
-          int ts = trainer_->ZPushPull(
-              keys, *vals, vals, lens, cmd, std::to_string(now), [vals, lens]() {
-                delete vals;
-                delete lens;
-              });
+          auto lens = new ps::SArray<uint64_t>(
+              {static_cast<uint64_t>(update_buf->merged.size())});
+          int cmd = GetCommandType(RequestType::kDefaultPushPull,
+                                   update_buf->merged.dtype);
+          int ts = trainer_->ZPushPull(keys,
+                                       *vals,
+                                       vals,
+                                       lens,
+                                       cmd,
+                                       std::to_string(now),
+                                       [vals, lens]() {
+                                         delete vals;
+                                         delete lens;
+                                       });
           (*rt)(ts);
         }
       }
@@ -466,7 +495,8 @@ void ConstelTrainer::ProcessPushData(const int key,
   }
 }
 
-void ConstelTrainer::RequestHandle(const ps::SimpleData& recved, ps::SimpleApp* app) {
+void ConstelTrainer::RequestHandle(const ps::SimpleData& recved,
+                                   ps::SimpleApp* app) {
   int sender = recved.sender;
   auto signal = static_cast<kControllerSignal>(recved.head);
   const std::string& body = recved.body;
@@ -486,7 +516,8 @@ void ConstelTrainer::RequestHandle(const ps::SimpleData& recved, ps::SimpleApp* 
         int my_id = ps::Postoffice::Get()->GetMyID();
         auto it = transtopo.find(my_id);
         if (fut_timestamp == 0) {
-          CHECK(it != transtopo.end()) << "Node " << my_id << " is not in the transtopo";
+          CHECK(it != transtopo.end())
+              << "Node " << my_id << " is not in the transtopo";
         }
         if (it != transtopo.end()) {
           this->clock_.local_timestamp_ = fut_timestamp;
@@ -530,7 +561,8 @@ void ConstelTrainer::DataHandle(const ps::KVMeta& req_meta,
       updt.request_meta.push_back(req_meta);
       data.type = TaskTypeEnum::kBroadcastDefault;
       //      updt.merged = CArray(req_data.lens[0]);
-      //      updt.merged.CopyFrom((void*)req_data.vals.data(), req_data.lens[0]);
+      //      updt.merged.CopyFrom((void*)req_data.vals.data(),
+      //      req_data.lens[0]);
       engine_->PushAsync({static_cast<int>(req_data.keys[0])}, {data});
       break;
     case RequestType::kModelSync:
@@ -547,7 +579,8 @@ void ConstelTrainer::DataHandle(const ps::KVMeta& req_meta,
       }
       if (model_sync_conf.paths[0].size() == 1 &&
           model_sync_conf.paths[0][0] == ps::Postoffice::Get()->GetMyID() &&
-          model_sync_conf.target_node_id[0] == ps::Postoffice::Get()->GetMyID()) {
+          model_sync_conf.target_node_id[0] ==
+              ps::Postoffice::Get()->GetMyID()) {
         // recv the data
         std::unique_lock<std::mutex> lock(model_sync_mu_);
         while (wait_recv_keys_ == nullptr) {
@@ -556,10 +589,11 @@ void ConstelTrainer::DataHandle(const ps::KVMeta& req_meta,
           lock.lock();
         }
         CHECK_EQ(wait_recv_keys_->size(), wait_recv_vals_->size());
-        auto idx = std::distance(wait_recv_keys_->begin(),
-                                 std::find(wait_recv_keys_->begin(),
-                                           wait_recv_keys_->end(),
-                                           model_sync_conf.kvslices[0][0].key_begin));
+        auto idx =
+            std::distance(wait_recv_keys_->begin(),
+                          std::find(wait_recv_keys_->begin(),
+                                    wait_recv_keys_->end(),
+                                    model_sync_conf.kvslices[0][0].key_begin));
         if (idx < wait_recv_keys_->size()) {
           auto size = req_data.vals.size();
           CHECK_EQ(req_data.lens[0], size);
@@ -567,9 +601,12 @@ void ConstelTrainer::DataHandle(const ps::KVMeta& req_meta,
             // TODO: This can be zero copy
             wait_recv_vals_->at(idx)->CopyFrom(req_data.vals.data(), size);
           } else {
-            CHECK_EQ(req_data.lens[0], model_sync_conf.kvslices[0][0].slice_len);
+            CHECK_EQ(req_data.lens[0],
+                     model_sync_conf.kvslices[0][0].slice_len);
             wait_recv_vals_->at(idx)->CopyFrom(
-                req_data.vals.data(), size, model_sync_conf.kvslices[0][0].slice);
+                req_data.vals.data(),
+                size,
+                model_sync_conf.kvslices[0][0].slice);
           }
           if (model_size_ < size) {
             LOG(FATAL) << "model_size_ is less than 0";
@@ -580,7 +617,8 @@ void ConstelTrainer::DataHandle(const ps::KVMeta& req_meta,
             is_model_sync_.store(true);
             model_sync_cv_.notify_all();
           }
-          PS_VLOG(2) << "recv the migrate data: " << model_sync_conf.debug_string()
+          PS_VLOG(2) << "recv the migrate data: "
+                     << model_sync_conf.debug_string()
                      << " kvpairs: " << " lens: " << req_data.lens[0];
         } else {
           LOG(WARNING) << "Recv data is not in the waiting list";
@@ -589,8 +627,14 @@ void ConstelTrainer::DataHandle(const ps::KVMeta& req_meta,
         int next = model_sync_conf.paths[0][1];
         model_sync_conf.paths[0].erase(model_sync_conf.paths[0].begin());
         auto str = serilite::serialize(model_sync_conf).as_string();
-        trainer->ZMove(next, req_data.keys, req_data.vals, req_data.lens, str, req_meta.cmd);
-        PS_VLOG(2) << "forward the migrate data: " << model_sync_conf.debug_string()
+        trainer->ZMove(next,
+                       req_data.keys,
+                       req_data.vals,
+                       req_data.lens,
+                       str,
+                       req_meta.cmd);
+        PS_VLOG(2) << "forward the migrate data: "
+                   << model_sync_conf.debug_string()
                    << " kvpairs: " << " lens: " << req_data.lens[0];
       } else {
         LOG(WARNING) << "ModelSync request is invalid";

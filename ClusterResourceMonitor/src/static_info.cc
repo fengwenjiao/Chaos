@@ -47,7 +47,8 @@ std::vector<StaticInfo::gpu> StaticInfo::get_gpu_info() {
     return std::vector<StaticInfo::gpu>();
   }
 
-  int attached_gpus = std::stoi(Util::find_value(shell_output, "Attached GPUs"));
+  int attached_gpus =
+      std::stoi(Util::find_value(shell_output, "Attached GPUs"));
 
   std::vector<StaticInfo::gpu> gpu_info;
   int minor_number;
@@ -56,11 +57,14 @@ std::vector<StaticInfo::gpu> StaticInfo::get_gpu_info() {
   for (int i = 0; i < attached_gpus; ++i) {
     pos = shell_output.find("Product Name", pos);
     model_name = Util::find_value(shell_output, "Product Name", pos);
-    minor_number = std::stoi(Util::find_value(shell_output, "Minor Number", pos));
+    minor_number =
+        std::stoi(Util::find_value(shell_output, "Minor Number", pos));
     pos = shell_output.find("FB Memory Usage", pos);
-    std::string gpu_mem_total_str = Util::find_value(shell_output, "Total", pos);
+    std::string gpu_mem_total_str =
+        Util::find_value(shell_output, "Total", pos);
     gpu_mem_total = float(stoi(Util::remove_unit(gpu_mem_total_str))) / 1024;
-    gpu_info.emplace_back(StaticInfo::gpu{minor_number, model_name, gpu_mem_total});
+    gpu_info.emplace_back(
+        StaticInfo::gpu{minor_number, model_name, gpu_mem_total});
   }
   return gpu_info;
 }
@@ -72,7 +76,8 @@ int StaticInfo::get_attached_gpus() {
     LOG_WARNING_("nvidia-smi execution failed");
     return 0;
   }
-  int attached_gpus = std::stoi(Util::find_value(shell_output, "Attached GPUs"));
+  int attached_gpus =
+      std::stoi(Util::find_value(shell_output, "Attached GPUs"));
   return attached_gpus;
 }
 

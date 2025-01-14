@@ -19,23 +19,29 @@ ConstelController::ConstelController() {
   ps::StartAsync(0, "ConstelController\0");
   using namespace std::placeholders;
   ps_scheduler_ = new ps::Controller(0);
-  ps_scheduler_->set_request_handle(std::bind(&ConstelController::RequestHandle, this, _1, _2));
-  ps_scheduler_->set_response_handle(std::bind(&ConstelController::ResponseHandle, this, _1, _2));
+  ps_scheduler_->set_request_handle(
+      std::bind(&ConstelController::RequestHandle, this, _1, _2));
+  ps_scheduler_->set_response_handle(
+      std::bind(&ConstelController::ResponseHandle, this, _1, _2));
   thinker_ = nullptr;
 
   // create node manager
 #ifdef CONS_NETWORK_AWARE
-  test_server_ = std::make_unique<moniter::Smq>(ps::Postoffice::Get()->getSchedulerHost());
-  node_manager_ = std::make_shared<aware::NetworkAwareNodeManager>(test_server_);
+  test_server_ =
+      std::make_unique<moniter::Smq>(ps::Postoffice::Get()->getSchedulerHost());
+  node_manager_ =
+      std::make_shared<aware::NetworkAwareNodeManager>(test_server_);
 #else
   node_manager_ = std::make_shared<ReadyNodeOverlayManager>();
 #endif
 }
 
-ConstelController::ConstelController(ConstelThinker* thinker) : ConstelController() {
+ConstelController::ConstelController(ConstelThinker* thinker)
+    : ConstelController() {
   setThinker(thinker);
 }
-ConstelController::ConstelController(const char* thinker_name) : ConstelController() {
+ConstelController::ConstelController(const char* thinker_name)
+    : ConstelController() {
   setThinker(thinker_name);
 }
 void ConstelController::setThinker(const char* thinker_name) {
@@ -60,7 +66,8 @@ void ConstelController::run() {
   }
 }
 
-void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleApp* app) {
+void ConstelController::RequestHandle(const ps::SimpleData& recved,
+                                      ps::SimpleApp* app) {
   kControllerSignal signal = static_cast<kControllerSignal>(recved.head);
   const std::string& body = recved.body;
   switch (signal) {
@@ -75,38 +82,43 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
         break;
       }
       if (ready_signal_body.need_sycn_model) {
-        CHECK(ready_signal_body.keys.size() > 0) << "keys size should be greater than 0";
+        CHECK(ready_signal_body.keys.size() > 0)
+            << "keys size should be greater than 0";
         int priv = ready_signal_body.keys[0];
         for (int i = 0; i < ready_signal_body.keys.size(); i++) {
           const auto key = ready_signal_body.keys[i];
           const auto& len = ready_signal_body.lens[i];
           if (i != 0) {
-            CHECK_EQ(key, priv + 1)
-                << "keys should be continuous" << "priv: " << priv << " key: " << key;
+            CHECK_EQ(key, priv + 1) << "keys should be continuous"
+                                    << "priv: " << priv << " key: " << key;
             priv = key;
           }
           if (thinker_->getParamsSize(key) == 0) {
             thinker_->setParamsDist(key, len);
           } else if (thinker_->getParamsSize(key) != len) {
             LOG(WARNING) << "Key: " << key << " has different length: " << len
-                         << " from previous length: " << thinker_->getParamsSize(key);
+                         << " from previous length: "
+                         << thinker_->getParamsSize(key);
           }
         }
       }
       PS_VLOG(2) << "model total size: " << thinker_->getParamsTotal();
       // get new transtopo
       // TODO: now it is just a simple version, need to be improved
-      // TODO: if need remote thinker, here should just send, can not get the result immediately
+      // TODO: if need remote thinker, here should just send, can not get the
+      // result immediately
       auto overlay = node_manager_->GetReadyOverlay();
       PS_VLOG(2) << "Get new overlay: " << overlay->debug_string();
       ModelSycnConf model_sync_conf;
       model_sync_conf.target_node_id = {ready_node_id};
       auto extra = thinker_->obtainExtra(this);
-      auto req = StrategyRequest{StrategyRequest::StrategyReqType::kTopoAndModelSyncConfUpdate,
-                                 {ready_node_id},
-                                 std::move(overlay),
-                                 extra};
-      if (!ready_signal_body.need_sycn_model || node_manager_->isFristReachInitNum()) {
+      auto req = StrategyRequest{
+          StrategyRequest::StrategyReqType::kTopoAndModelSyncConfUpdate,
+          {ready_node_id},
+          std::move(overlay),
+          extra};
+      if (!ready_signal_body.need_sycn_model ||
+          node_manager_->isFristReachInitNum()) {
         req.type = StrategyRequest::StrategyReqType::kTopoUpdateOnly;
       }
       StrategyBlock strategy_block;
@@ -150,7 +162,8 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
         auto serialized_tick = serilite::serialize(tick);
         auto str = serialized_tick.as_string();
         data.emplace(std::make_pair(id, str));
-        PS_VLOG(2) << "Send new tick to node: " << id << " with tick: " << tick.debug_string();
+        PS_VLOG(2) << "Send new tick to node: " << id
+                   << " with tick: " << tick.debug_string();
       }
       int head = static_cast<int>(kControllerSignal::kUpdateTransTopoAnouce);
       // send to all trainers and wait for response, should not wait!(dead lock)
@@ -178,7 +191,8 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
       }
       if (timestamp != local_timestamp) {
         LOG(WARNING) << "Controller received timestamp: " << timestamp
-                     << " but local timestamp is: " << this->clock_.getLocalTimestamp();
+                     << " but local timestamp is: "
+                     << this->clock_.getLocalTimestamp();
         // this->clock_.local_timestamp_ = timestamp;
       }
       break;
@@ -191,9 +205,11 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved, ps::SimpleAp
   app->Response(recved);
 }
 
-void ConstelController::ResponseHandle(const ps::SimpleData& recved, ps::SimpleApp* app) {}
+void ConstelController::ResponseHandle(const ps::SimpleData& recved,
+                                       ps::SimpleApp* app) {}
 
-void ConstelController::SchedulerSignalHandle(const ps::SimpleData& recved, ps::SimpleApp* app) {}
+void ConstelController::SchedulerSignalHandle(const ps::SimpleData& recved,
+                                              ps::SimpleApp* app) {}
 
 uint32_t ConstelController::GetFutureTimtestamp() {
   if (!is_sycn_add_finished_) {

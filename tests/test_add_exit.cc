@@ -41,7 +41,8 @@ int main(int argc, char* argv[]) {
     std::cout << "=====================" << test::GetTimestamp(trainer)
               << "=====================" << std::endl;
     auto time = std::chrono::system_clock::to_time_t(start);
-    std::cout << "Time: " << std::put_time(std::localtime(&time), "%H:%M:%S") << std::endl;
+    std::cout << "Time: " << std::put_time(std::localtime(&time), "%H:%M:%S")
+              << std::endl;
     std::cout << "MyRank: " << trainer.myRank() << std::endl;
     std::cout << "NodeTransTopo: " << trainer.GetNodeTransTopo() << std::endl;
 
@@ -56,7 +57,8 @@ int main(int argc, char* argv[]) {
     std::cout << "======================================\n" << std::endl;
   }
 
-  // since exit logic is not implemented, we need to sleep for a while to keep the process alive
+  // since exit logic is not implemented, we need to sleep for a while to keep
+  // the process alive
   std::this_thread::sleep_for(std::chrono::seconds(5));
 
   return 0;

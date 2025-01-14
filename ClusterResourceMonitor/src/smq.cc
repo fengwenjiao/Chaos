@@ -69,7 +69,8 @@ void Smq::server(int global_id) {
             }
           }
         } else {
-          // SignalMeta signal = parse_signal(std::string(recv_data.begin(), recv_data.end()));
+          // SignalMeta signal = parse_signal(std::string(recv_data.begin(),
+          // recv_data.end()));
           SignalMeta signal;
           try {
             std::string recv_str(recv_data.begin(), recv_data.end());
@@ -94,15 +95,17 @@ void Smq::server(int global_id) {
             if (signal.ip.empty()) {
               throw std::runtime_error("Client ip is empty");
             }
-            client_iperf_servers_[signal.id] = std::make_pair(signal.ip, signal.iperf_port);
+            client_iperf_servers_[signal.id] =
+                std::make_pair(signal.ip, signal.iperf_port);
             id_sockets_[signal.id] = client_socket;
             socket_ids_[client_socket] = signal.id;
-            LOG_INFO_("Client registered: fd:" << client_socket << " id:" << signal.id
-                                               << " ip: " << signal.ip
-                                               << " iperf port: " << signal.iperf_port);
+            LOG_INFO_("Client registered: fd:"
+                      << client_socket << " id:" << signal.id << " ip: "
+                      << signal.ip << " iperf port: " << signal.iperf_port);
           } else {
             server_data_handler(recv_data);
-            // LOG_INFO_("msg received: " << std::string(nlohmann::json(signal).dump()));
+            // LOG_INFO_("msg received: " <<
+            // std::string(nlohmann::json(signal).dump()));
           }
         }
       }
@@ -122,7 +125,8 @@ void Smq::client(int global_id) {
 
   int client_fd = CreateSocket();
 
-  std::thread iperf_server_thread([this] { band_.start_bandwidth_test_server(); });
+  std::thread iperf_server_thread(
+      [this] { band_.start_bandwidth_test_server(); });
 
   while (!band_.is_iperf_server_ready())
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -137,7 +141,8 @@ void Smq::client(int global_id) {
       LOG_WARNING_("Server disconnected");
       break;
     }
-    // SignalMeta signal = parse_signal(std::string(recv_data.begin(), recv_data.end()));
+    // SignalMeta signal = parse_signal(std::string(recv_data.begin(),
+    // recv_data.end()));
     SignalMeta signal;
     try {
       std::string recv_str(recv_data.begin(), recv_data.end());
@@ -147,7 +152,8 @@ void Smq::client(int global_id) {
       continue;
     }
     // LOG_INFO_(signal.id << " -> " << id_
-    //                     << ":data:" << std::string(recv_data.begin(), recv_data.end()));
+    //                     << ":data:" << std::string(recv_data.begin(),
+    //                     recv_data.end()));
     std::string infos = get_info_with_signal(signal);
     send(client_fd, infos.c_str(), infos.length(), 0);
     // LOG_INFO_(id_ << " -> " << signal.id << ":data:" << infos);
@@ -162,7 +168,8 @@ void Smq::client(int global_id) {
 }
 
 std::unordered_map<int, SmqMeta> Smq::gather_info(int ksignal) {
-  if ((ksignal & kSignalStatic) || (ksignal & kSignalDynamic) || (ksignal & kSignalNetwork)) {
+  if ((ksignal & kSignalStatic) || (ksignal & kSignalDynamic) ||
+      (ksignal & kSignalNetwork)) {
   } else {
     LOG_WARNING_("Invalid gather info signal");
     return {};
@@ -190,15 +197,20 @@ std::unordered_map<int, SmqMeta> Smq::gather_info(int ksignal) {
     std::string gather_info_msg =
         constellation::serilite::serialize(gather_info_signal).as_string();
     for (auto& client_socket : id_sockets_) {
-      send(client_socket.second, gather_info_msg.c_str(), gather_info_msg.length(), 0);
-      // LOG_INFO_(id_ << " -> " << client_socket.first << ":signal:" << gather_info_msg);
+      send(client_socket.second,
+           gather_info_msg.c_str(),
+           gather_info_msg.length(),
+           0);
+      // LOG_INFO_(id_ << " -> " << client_socket.first << ":signal:" <<
+      // gather_info_msg);
     }
 
     std::unique_lock<std::mutex> lk(tracker_mu_);
 
     tracker_ = std::make_pair(socket_ids_.size(), 0);
 
-    tracker_cond_.wait(lk, [this] { return tracker_.first == tracker_.second; });
+    tracker_cond_.wait(lk,
+                       [this] { return tracker_.first == tracker_.second; });
   }
 
   if (ksignal & kSignalNetwork) {
@@ -223,18 +235,26 @@ std::unordered_map<int, SmqMeta> Smq::gather_info(int ksignal) {
             continue;
           }
           int client_socket = id_sockets_[client_id];
-          gather_info_signal.test_targets[target_id] = client_iperf_servers_[target_id];
+          gather_info_signal.test_targets[target_id] =
+              client_iperf_servers_[target_id];
           // TODO:
-          //  std::string gather_info_msg = nlohmann::json(gather_info_signal).dump();
+          //  std::string gather_info_msg =
+          //  nlohmann::json(gather_info_signal).dump();
           std::string gather_info_msg =
-              constellation::serilite::serialize(gather_info_signal).as_string();
-          send(client_socket, gather_info_msg.c_str(), gather_info_msg.length(), 0);
+              constellation::serilite::serialize(gather_info_signal)
+                  .as_string();
+          send(client_socket,
+               gather_info_msg.c_str(),
+               gather_info_msg.length(),
+               0);
           num++;
-          // LOG_INFO_(id_ << " -> " << client_id << ":signal:" << gather_info_msg);
+          // LOG_INFO_(id_ << " -> " << client_id << ":signal:" <<
+          // gather_info_msg);
         }
         std::unique_lock<std::mutex> lk(tracker_mu_);
         tracker_ = std::make_pair(num, 0);
-        tracker_cond_.wait(lk, [this] { return tracker_.first == tracker_.second; });
+        tracker_cond_.wait(
+            lk, [this] { return tracker_.first == tracker_.second; });
       }
     }
   }
@@ -261,11 +281,17 @@ int Smq::CreateSocket() {
   }
 
   if (is_server_) {
-    if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)) == -1) {
+    if (setsockopt(sock_fd,
+                   SOL_SOCKET,
+                   SO_REUSEADDR | SO_REUSEPORT,
+                   &opt,
+                   sizeof(opt)) == -1) {
       LOG_ERROR_("setsockopt() failed");
     }
 
-    if (bind(sock_fd, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) == -1) {
+    if (bind(sock_fd,
+             reinterpret_cast<struct sockaddr*>(&addr),
+             sizeof(addr)) == -1) {
       LOG_ERROR_("bind() failed");
     }
 
@@ -276,11 +302,14 @@ int Smq::CreateSocket() {
     LOG_INFO_("Server is listening on port " << server_port_);
 
   } else {
-    if (connect(sock_fd, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0) {
+    if (connect(sock_fd,
+                reinterpret_cast<struct sockaddr*>(&addr),
+                sizeof(addr)) < 0) {
       LOG_ERROR_("Connect to server failed");
     }
 
-    LOG_INFO_("Client connected to server at " << server_ip_ << ":" << server_port_);
+    LOG_INFO_("Client connected to server at " << server_ip_ << ":"
+                                               << server_port_);
   }
 
   return sock_fd;
@@ -289,11 +318,12 @@ int Smq::CreateSocket() {
 void Smq::SetNonBlocking(int socket) {
   int flags = fcntl(socket, F_GETFL, 0);
   if (flags == -1) {
-    LOG_ERROR_("fcntl(F_GETFL) failed, socket: " << socket << ", errno: " << errno);
+    LOG_ERROR_("fcntl(F_GETFL) failed, socket: " << socket
+                                                 << ", errno: " << errno);
   }
   if (fcntl(socket, F_SETFL, flags | O_NONBLOCK) < 0) {
-    LOG_ERROR_("fcntl(F_SETFL) failed to set nonblocking, socket: " << socket
-                                                                    << ", errno: " << errno);
+    LOG_ERROR_("fcntl(F_SETFL) failed to set nonblocking, socket: "
+               << socket << ", errno: " << errno);
   }
 }
 
@@ -340,7 +370,9 @@ std::string Smq::resolve_hostname(const std::string& server_ip) {
   return "";
 }
 
-int Smq::InitializeEpoll(int target_fd, struct epoll_event& ev, uint32_t events) {
+int Smq::InitializeEpoll(int target_fd,
+                         struct epoll_event& ev,
+                         uint32_t events) {
   int epoll_fd = epoll_create1(0);
   if (epoll_fd == -1) {
     LOG_ERROR_("epoll_create1 failed");
@@ -396,7 +428,8 @@ void Smq::client_register(int client_fd) {
   register_signal.ip = ip;
   register_signal.iperf_port = iperf_port;
   // std::string register_msg = nlohmann::json(register_signal).dump(0);
-  std::string register_msg = constellation::serilite::serialize(register_signal).as_string();
+  std::string register_msg =
+      constellation::serilite::serialize(register_signal).as_string();
   int ret = send(client_fd, register_msg.c_str(), register_msg.length(), 0);
   if (ret == -1) {
     LOG_ERROR_("Send register message failed");
@@ -405,7 +438,8 @@ void Smq::client_register(int client_fd) {
 
 std::string Smq::get_info_with_signal(SignalMeta signal) {
   int ksignal = signal.ksignal;
-  std::unordered_map<int, std::pair<std::string, int>> test_targets = signal.test_targets;
+  std::unordered_map<int, std::pair<std::string, int>> test_targets =
+      signal.test_targets;
 
   SmqMeta smq_meta;
   smq_meta.id = id_;
@@ -417,11 +451,13 @@ std::string Smq::get_info_with_signal(SignalMeta signal) {
   if (ksignal & kSignalDynamic) {
     smq_meta.dynamic_info.cpu_usage = DynamicInfo::Get().get_cpu_usage();
     smq_meta.dynamic_info.gpu_usage = DynamicInfo::Get().get_gpu_usage();
-    smq_meta.dynamic_info.available_ram = DynamicInfo::Get().get_available_ram();
+    smq_meta.dynamic_info.available_ram =
+        DynamicInfo::Get().get_available_ram();
   }
   if (ksignal & kSignalNetwork) {
     for (const auto& [id, ip_port] : test_targets) {
-      smq_meta.network_info.bandwidth[id] = band_.test_bandwidth(ip_port.first, ip_port.second);
+      smq_meta.network_info.bandwidth[id] =
+          band_.test_bandwidth(ip_port.first, ip_port.second);
     }
   }
 
@@ -430,7 +466,8 @@ std::string Smq::get_info_with_signal(SignalMeta signal) {
   smq_signal.id = id_;
   smq_signal.smq_meta = smq_meta;
   // std::string json_string = nlohmann::json(smq_signal).dump();
-  std::string json_string = constellation::serilite::serialize(smq_signal).as_string();
+  std::string json_string =
+      constellation::serilite::serialize(smq_signal).as_string();
   return json_string;
 }
 
@@ -438,13 +475,15 @@ std::string Smq::get_ip_from_socket(int client_socket) {
   struct sockaddr_in peer_addr;
   socklen_t peer_addr_len = sizeof(peer_addr);
 
-  if (getpeername(client_socket, (struct sockaddr*)&peer_addr, &peer_addr_len) == -1) {
+  if (getpeername(
+          client_socket, (struct sockaddr*)&peer_addr, &peer_addr_len) == -1) {
     LOG_ERROR_("Error getting peer name: ");
     return "";
   }
 
   char ip_str[INET_ADDRSTRLEN];
-  if (inet_ntop(AF_INET, &peer_addr.sin_addr, ip_str, sizeof(ip_str)) == nullptr) {
+  if (inet_ntop(AF_INET, &peer_addr.sin_addr, ip_str, sizeof(ip_str)) ==
+      nullptr) {
     LOG_ERROR_("Error converting IP address: ");
     return "";
   }
@@ -463,7 +502,8 @@ void Smq::set_topo(std::unordered_map<int, std::vector<int>> topo) {
 }
 
 void Smq::server_data_handler(std::vector<char> recv_data) {
-  // SignalMeta data = parse_signal(std::string(recv_data.begin(), recv_data.end()));
+  // SignalMeta data = parse_signal(std::string(recv_data.begin(),
+  // recv_data.end()));
   SignalMeta data;
   try {
     std::string recv_str(recv_data.begin(), recv_data.end());

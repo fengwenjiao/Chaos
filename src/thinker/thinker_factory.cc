@@ -28,7 +28,8 @@ ConstelThinker* ThinkerFactory::CreateThinker(const char* name) {
 // Retrieves the Thinker map
 const std::unordered_map<std::string, ThinkerFactory::ThinkerCreator>&
 ThinkerFactory::GetThinkerMap() {
-  static const std::unordered_map<std::string, ThinkerCreator> thinker_map = InitializeThinkerMap();
+  static const std::unordered_map<std::string, ThinkerCreator> thinker_map =
+      InitializeThinkerMap();
   return thinker_map;
 }
 
@@ -38,13 +39,18 @@ ThinkerFactory::InitializeThinkerMap() {
   return {
       {"ContelSimpleThinker", []() { return new ConstelSimpleThinker(); }},
       {"SinglePointConfThinker", []() { return new SinglePointConfThinker(); }},
-      {"SimpleAdjEqualConfThinker", []() { return new SimpleAdjEqualConfThinker(); }},
+      {"SimpleAdjEqualConfThinker",
+       []() { return new SimpleAdjEqualConfThinker(); }},
 #ifdef CONS_NETWORK_AWARE
-      {"SimpleAdjTimeWeightedConfThinker", []() { return new SimpleAdjTimeWeightedConfThinker(); }},
+      {"SimpleAdjTimeWeightedConfThinker",
+       []() { return new SimpleAdjTimeWeightedConfThinker(); }},
       {"FAPTEqualConfThinker", []() { return new FAPTEqualConfThinker(); }},
-      {"FAPTTimeWeightedConfThinker", []() { return new FAPTTimeWeightedConfThinker(); }},
-      {"RoundRobinTimeWeightedThinker", []() { return new RoundRobinTimeWeightedThinker(); }},
-      {"LayerwiseTimeWeightedConfThinker", []() { return new LayerwiseTimeWeightedConfThinker(); }},
+      {"FAPTTimeWeightedConfThinker",
+       []() { return new FAPTTimeWeightedConfThinker(); }},
+      {"RoundRobinTimeWeightedThinker",
+       []() { return new RoundRobinTimeWeightedThinker(); }},
+      {"LayerwiseTimeWeightedConfThinker",
+       []() { return new LayerwiseTimeWeightedConfThinker(); }},
 #endif
   };
 }

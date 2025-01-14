@@ -7,11 +7,14 @@
 
 namespace constellation {
 
-GlobalModelSyncConf FAPTEqualConfThinker::decideModelSyncConf(const StrategyRequest& req) {
-  auto* overlay_info = dynamic_cast<aware::NetAWoverlayInfo*>(req.overlay.get());
+GlobalModelSyncConf FAPTEqualConfThinker::decideModelSyncConf(
+    const StrategyRequest& req) {
+  auto* overlay_info =
+      dynamic_cast<aware::NetAWoverlayInfo*>(req.overlay.get());
   if (overlay_info == nullptr) {
     throw std::runtime_error(
-        "FAPTEqualConfThinker only support NetworkAwareOverlay. Please enable network aware.");
+        "FAPTEqualConfThinker only support NetworkAwareOverlay. Please enable "
+        "network aware.");
   }
   auto& overlay = overlay_info->GetReadyOverlay();
   auto& targets = req.targets;

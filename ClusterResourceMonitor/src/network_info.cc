@@ -120,14 +120,16 @@ float BandwidthInfo::test_bandwidth(const std::string& ip, const int port) {
     iperf_free_test(test);
     test = create_iperf_client_test(ip, port);
     if (count >= max_retry) {
-      LOG_WARNING_("Failed to test bandwidth " << iperf_strerror(i_errno) << "");
+      LOG_WARNING_("Failed to test bandwidth " << iperf_strerror(i_errno)
+                                               << "");
       iperf_free_test(test);
       return -1;
     }
     count++;
 
     LOG_WARNING_("Error when iperf test with: " << ip << ":" << port << "   "
-                                                << iperf_strerror(i_errno) << ", retrying...");
+                                                << iperf_strerror(i_errno)
+                                                << ", retrying...");
     sleep(2);
   }
   char* json_output = iperf_get_test_json_output_string(test);
@@ -139,10 +141,11 @@ float BandwidthInfo::test_bandwidth(const std::string& ip, const int port) {
   std::string json_str(json_output);
 
   size_t pos = json_str.find("sum_received");
-  std::string bandwidth = moniter::Util::find_value(json_str, "bits_per_second", pos);
+  std::string bandwidth =
+      moniter::Util::find_value(json_str, "bits_per_second", pos);
   float band = std::stof(bandwidth);
-  LOG_INFO_("test with: " << ip << " port:" << port << ", bandwidth " << band / (1000 * 1000)
-                          << "Mbps");
+  LOG_INFO_("test with: " << ip << " port:" << port << ", bandwidth "
+                          << band / (1000 * 1000) << "Mbps");
   iperf_free_test(test);
   return band;
 }
@@ -180,7 +183,9 @@ int BandwidthInfo::get_server_port() {
   }
 }
 
-struct iperf_test* BandwidthInfo::create_iperf_client_test(const std::string& ip, const int port) {
+struct iperf_test* BandwidthInfo::create_iperf_client_test(
+    const std::string& ip,
+    const int port) {
   struct iperf_test* test;
 
   test = iperf_new_test();

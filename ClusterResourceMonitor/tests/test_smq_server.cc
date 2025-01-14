@@ -11,29 +11,37 @@ void print_debug(const std::unordered_map<int, SmqMeta>& infos) {
   for (auto& [id, info] : infos) {
     std::cout << "id: " << id << std::endl;
     std::cout << "Static Info:" << std::endl;
-    std::cout << "  CPU Models Size: " << info.static_info.cpu_models.size() << std::endl;
+    std::cout << "  CPU Models Size: " << info.static_info.cpu_models.size()
+              << std::endl;
     for (auto& cpu : info.static_info.cpu_models) {
-      std::cout << "    CPU Physical ID: " << cpu.physical_id << ", Model Name: " << cpu.model_name << std::endl;
+      std::cout << "    CPU Physical ID: " << cpu.physical_id
+                << ", Model Name: " << cpu.model_name << std::endl;
     }
-    std::cout << "  GPU Models Size: " << info.static_info.gpu_models.size() << std::endl;
+    std::cout << "  GPU Models Size: " << info.static_info.gpu_models.size()
+              << std::endl;
     for (auto& gpu : info.static_info.gpu_models) {
-      std::cout << "    GPU Minor Number: " << gpu.minor_number << ", Model Name: " << gpu.model_name 
+      std::cout << "    GPU Minor Number: " << gpu.minor_number
+                << ", Model Name: " << gpu.model_name
                 << ", Total Memory: " << gpu.gpu_mem_total << std::endl;
     }
     std::cout << "  Total RAM: " << info.static_info.total_ram << std::endl;
 
     std::cout << "Dynamic Info:" << std::endl;
     std::cout << "  CPU Usage: " << info.dynamic_info.cpu_usage << std::endl;
-    std::cout << "  Available RAM: " << info.dynamic_info.available_ram << std::endl;
+    std::cout << "  Available RAM: " << info.dynamic_info.available_ram
+              << std::endl;
     for (auto& gpu : info.dynamic_info.gpu_usage) {
-      std::cout << "    GPU Minor Number: " << gpu.minor_number << ", GPU Utilization: " << gpu.gpu_util 
+      std::cout << "    GPU Minor Number: " << gpu.minor_number
+                << ", GPU Utilization: " << gpu.gpu_util
                 << ", Memory Utilization: " << gpu.mem_util << std::endl;
     }
 
     std::cout << "Network Info:" << std::endl;
-    std::cout << "  Bandwidth Size: " << info.network_info.bandwidth.size() << std::endl;
+    std::cout << "  Bandwidth Size: " << info.network_info.bandwidth.size()
+              << std::endl;
     for (auto& [id, bandwidth] : info.network_info.bandwidth) {
-      std::cout << "    ID: " << id << ", Bandwidth: " << bandwidth << std::endl;
+      std::cout << "    ID: " << id << ", Bandwidth: " << bandwidth
+                << std::endl;
     }
   }
 }

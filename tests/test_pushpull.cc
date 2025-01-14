@@ -66,11 +66,13 @@ int main(int argc, char* argv[]) {
       }
       tot /= size;
       tot /= num;
-      // std::cout << "Test times " << i << " key " << key << " size " << size << " diff " << tot
+      // std::cout << "Test times " << i << " key " << key << " size " << size
+      // << " diff " << tot
       //           << std::endl;
       // if (tot > 1e-7) {
-      //   std::ofstream outfile(std::to_string(trainer.myRank()) + "-output.log");
-      //   outfile << "\nRank" << trainer.myRank() << "\nTest times " << i << " key " << key
+      //   std::ofstream outfile(std::to_string(trainer.myRank()) +
+      //   "-output.log"); outfile << "\nRank" << trainer.myRank() << "\nTest
+      //   times " << i << " key " << key
       //     << " size " << size << " diff " << tot << std::endl;
       //   outfile << params;
       //   outfile << expected;
@@ -80,18 +82,23 @@ int main(int argc, char* argv[]) {
     }
   }
   auto finish = std::chrono::high_resolution_clock::now();
-  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start).count();
+  auto duration =
+      std::chrono::duration_cast<std::chrono::milliseconds>(finish - start)
+          .count();
   auto time_cost = duration / 1e3;
-  auto bytes_M = (PARAMSIZE_DOWN + PARAMSIZE_UP) / 2.0f * sizeof(float) / 1e6 * KEY_NUM * TIMES;
+  auto bytes_M = (PARAMSIZE_DOWN + PARAMSIZE_UP) / 2.0f * sizeof(float) / 1e6 *
+                 KEY_NUM * TIMES;
   std::cout << "Test pass!!" << std::endl;
   std::cout << "Total Epoches: " << TIMES << std::endl;
   std::cout << std::fixed << std::setprecision(3);
-  std::cout << "Bytes transferred per epoch(approximately): " << bytes_M / TIMES << "M"
+  std::cout << "Bytes transferred per epoch(approximately): " << bytes_M / TIMES
+            << "M" << std::endl;
+  std::cout << "Average time cost per epoch: " << time_cost / TIMES << "s "
             << std::endl;
-  std::cout << "Average time cost per epoch: " << time_cost / TIMES << "s " << std::endl;
   std::cout << "speed: " << bytes_M / time_cost << "MB/s" << std::endl;
 
-  // since exit logic is not implemented, we need to sleep for a while to keep the process alive
+  // since exit logic is not implemented, we need to sleep for a while to keep
+  // the process alive
   std::this_thread::sleep_for(std::chrono::seconds(5));
 
   return 0;

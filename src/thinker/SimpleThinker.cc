@@ -7,7 +7,8 @@
 
 namespace constellation {
 
-GlobalTransTopo ConstelSimpleThinker::decideNewTransTopo(const StrategyRequest& req) {
+GlobalTransTopo ConstelSimpleThinker::decideNewTransTopo(
+    const StrategyRequest& req) {
   auto& overlay = req.overlay->GetReadyOverlay();
   auto global_topo = algorithm::basic::random_choose_tree(overlay);
   setRankAndNum(global_topo);
@@ -15,7 +16,8 @@ GlobalTransTopo ConstelSimpleThinker::decideNewTransTopo(const StrategyRequest& 
 }
 
 void ConstelSimpleThinker::setRankAndNum(GlobalTransTopo& transtopo) {
-  auto ids = algorithm::helper::extract_elements(transtopo);  // extract the keys from the map
+  auto ids = algorithm::helper::extract_elements(
+      transtopo);  // extract the keys from the map
   std::sort(ids.begin(), ids.end());
   size_t num = ids.size();
   for (size_t rank = 0; rank < num; rank++) {
@@ -26,7 +28,8 @@ void ConstelSimpleThinker::setRankAndNum(GlobalTransTopo& transtopo) {
   }
 }
 
-GlobalModelSyncConf ConstelSimpleThinker::decideModelSyncConf(const StrategyRequest& req) {
+GlobalModelSyncConf ConstelSimpleThinker::decideModelSyncConf(
+    const StrategyRequest& req) {
   auto& overlay = req.overlay->GetReadyOverlay();
   auto& targets = req.targets;
 
@@ -59,7 +62,7 @@ GlobalModelSyncConf ConstelSimpleThinker::ModelSycnConfTransform(
     const auto& path = model_load_assignment.getPath(i);
     const int& node = path[0];
     const float& load = model_load_assignment.loads[i];
-    uint64_t slice_len ;
+    uint64_t slice_len;
     if (i == model_load_assignment.paths.size() - 1) {
       slice_len = model_params_total_ - tot_len;
     } else {
@@ -102,7 +105,8 @@ GlobalModelSyncConf ConstelSimpleThinker::ModelSycnConfTransform(
   return global_model_sync_conf;
 }
 
-StrategyBlock ConstelSimpleThinker::GenerateStrategyImpl(const StrategyRequest& req) {
+StrategyBlock ConstelSimpleThinker::GenerateStrategyImpl(
+    const StrategyRequest& req) {
   using StrategyReqType = StrategyRequest::StrategyReqType;
 
   auto& overlay = req.overlay->GetReadyOverlay();

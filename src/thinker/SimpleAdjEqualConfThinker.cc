@@ -3,7 +3,8 @@
 
 namespace constellation {
 
-GlobalModelSyncConf SimpleAdjEqualConfThinker::decideModelSyncConf(const StrategyRequest& req) {
+GlobalModelSyncConf SimpleAdjEqualConfThinker::decideModelSyncConf(
+    const StrategyRequest& req) {
   auto& overlay = req.overlay->GetReadyOverlay();
   auto& targets = req.targets;
   const auto target = targets[0];

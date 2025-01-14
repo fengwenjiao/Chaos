@@ -44,13 +44,15 @@ string Util::find_value(const string& text, const string& key, size_t pos) {
   // find ":" and "\n",and judge whether it is legitimate
   size_t colon_pos = text.find(":", pos);
   size_t wrap_pos = text.find("\n", pos);
-  if (colon_pos == string::npos or wrap_pos == string::npos or colon_pos > wrap_pos) {
+  if (colon_pos == string::npos or wrap_pos == string::npos or
+      colon_pos > wrap_pos) {
     LOG_WARNING_("format error: " + key);
     return "";
   }
   // #if DEBUG
-  //         std::cout <<"[util.cc:"<<__LINE__<<"]"<< "colon_pos: "<<colon_pos <<std::endl;
-  //         std::cout <<"[util.cc:"<<__LINE__<<"]"<< "wrap_pos: "<<wrap_pos <<std::endl;
+  //         std::cout <<"[util.cc:"<<__LINE__<<"]"<< "colon_pos: "<<colon_pos
+  //         <<std::endl; std::cout <<"[util.cc:"<<__LINE__<<"]"<< "wrap_pos:
+  //         "<<wrap_pos <<std::endl;
   // #endif
 
   // find the corresponding value. strike the leading and trailing spaces
@@ -60,7 +62,8 @@ string Util::find_value(const string& text, const string& key, size_t pos) {
     return "";
   }
   // #if DEBUG
-  //         std::cout <<"[util.cc:"<<__LINE__<<"]"<< "value_start_pos: "<<value_start_pos
+  //         std::cout <<"[util.cc:"<<__LINE__<<"]"<< "value_start_pos:
+  //         "<<value_start_pos
   //         <<std::endl;
   // #endif
   size_t value_end_pos;
@@ -68,7 +71,8 @@ string Util::find_value(const string& text, const string& key, size_t pos) {
     if (!std::isspace(text[i - 1])) {
       value_end_pos = i;
       // #if DEBUG
-      //         std::cout <<"[util.cc:"<<__LINE__<<"]"<< "value_end_pos: "<<value_end_pos
+      //         std::cout <<"[util.cc:"<<__LINE__<<"]"<< "value_end_pos:
+      //         "<<value_end_pos
       //         <<std::endl;
       // #endif
       return text.substr(value_start_pos, value_end_pos - value_start_pos);

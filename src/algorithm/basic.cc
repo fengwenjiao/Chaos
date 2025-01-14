@@ -67,20 +67,21 @@ GlobalTransTopo random_choose_tree(const AdjacencyList& overlay) {
     }
   }
 
-  auto buildTree = [](int root, const AdjacencyList& mst, GlobalTransTopo& transtopo) {
-    std::unordered_set<int> visited;
-    std::function<void(int)> dfs = [&](int node) {
-      visited.insert(node);
-      for (const int& neighbor : mst.at(node)) {
-        if (visited.find(neighbor) == visited.end()) {
-          transtopo[neighbor].setParent(node);
-          transtopo[node].addChildren(neighbor);
-          dfs(neighbor);
-        }
-      }
-    };
-    dfs(root);
-  };
+  auto buildTree =
+      [](int root, const AdjacencyList& mst, GlobalTransTopo& transtopo) {
+        std::unordered_set<int> visited;
+        std::function<void(int)> dfs = [&](int node) {
+          visited.insert(node);
+          for (const int& neighbor : mst.at(node)) {
+            if (visited.find(neighbor) == visited.end()) {
+              transtopo[neighbor].setParent(node);
+              transtopo[node].addChildren(neighbor);
+              dfs(neighbor);
+            }
+          }
+        };
+        dfs(root);
+      };
 
   int root = *nodes.begin();
 
@@ -131,7 +132,9 @@ void dfs(const AdjacencyList& graph,
   visited.erase(current);
 };
 
-std::vector<TransPath> random_choose_paths(AdjacencyList overlay, int target, int maxPaths) {
+std::vector<TransPath> random_choose_paths(AdjacencyList overlay,
+                                           int target,
+                                           int maxPaths) {
   std::vector<TransPath> allPaths;
   std::vector<TransPath> result;
 
@@ -180,7 +183,10 @@ std::vector<TransPath> dijsktra_paths(AdjacencyList overlay,
   // Dijkstra's algorithm initialization
   std::unordered_map<int, float> dist;
   std::unordered_map<int, int> next;
-  std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>, std::greater<>> pq;
+  std::priority_queue<std::pair<float, int>,
+                      std::vector<std::pair<float, int>>,
+                      std::greater<>>
+      pq;
 
   for (const auto& [node, _] : overlay) {
     dist[node] = std::numeric_limits<float>::infinity();

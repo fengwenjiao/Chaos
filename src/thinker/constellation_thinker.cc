@@ -50,7 +50,8 @@ void ConstelThinker::checkStrategy(const StrategyRequest& req,
   const auto& overlay = req.overlay->GetReadyOverlay();
   // check the transtopo
   // check the overlay and transtopo are corresponding
-  if (!algorithm::helper::areElementsUniqueAndCorresponding(overlay, transtopo)) {
+  if (!algorithm::helper::areElementsUniqueAndCorresponding(overlay,
+                                                            transtopo)) {
     throw TranstopoInvalidError("Overlay and Transtopo are not corresponding");
   }
   int num = transtopo.size();      // the number of nodes in transtopo
@@ -76,35 +77,41 @@ void ConstelThinker::checkStrategy(const StrategyRequest& req,
       // check parent and id are connected
       if (std::find(overlay.at(parent).begin(), overlay.at(parent).end(), id) ==
           overlay.at(parent).end()) {
-        throw NodeNotConnectedError("Two nodes in Transtopo are not connected", parent, id);
+        throw NodeNotConnectedError(
+            "Two nodes in Transtopo are not connected", parent, id);
       }
       // check the node in parent's children
       if (!transtopo.at(parent).has_child(id)) {
-        throw TransTopoNotConsistentError(std::to_string(parent) + " and " + std::to_string(id));
+        throw TransTopoNotConsistentError(std::to_string(parent) + " and " +
+                                          std::to_string(id));
       }
     } else {
       // for root
       if (root_id) {
-        throw TranstopoInvalidError("More than one root node " + std::to_string(root_id) + " and " +
+        throw TranstopoInvalidError("More than one root node " +
+                                    std::to_string(root_id) + " and " +
                                     std::to_string(id));
       }
       root_id = id;
     }
     // check rank and num is set correctly
     if (topo.num_trainers != num) {
-      throw TranstopoInvalidError("The number of trainers is not set correctly. The node " +
-                                  std::to_string(id) + " has " + std::to_string(topo.num_trainers) +
-                                  " trainers but expected " + std::to_string(num));
+      throw TranstopoInvalidError(
+          "The number of trainers is not set correctly. The node " +
+          std::to_string(id) + " has " + std::to_string(topo.num_trainers) +
+          " trainers but expected " + std::to_string(num));
     }
     if (topo.rank >= num || topo.rank < 0) {
-      throw TranstopoInvalidError("The rank is not set correctly. The node " + std::to_string(id) +
-                                  " has rank " + std::to_string(topo.rank) +
-                                  " but expected less than " + std::to_string(num));
+      throw TranstopoInvalidError(
+          "The rank is not set correctly. The node " + std::to_string(id) +
+          " has rank " + std::to_string(topo.rank) +
+          " but expected less than " + std::to_string(num));
     }
     if (ranks[topo.rank]) {
-      throw TranstopoInvalidError("The rank is not unique. Node " + std::to_string(id) +
-                                  " has rank " + std::to_string(topo.rank) + " but Node " +
-                                  std::to_string(ranks[topo.rank]) + " has the same rank");
+      throw TranstopoInvalidError(
+          "The rank is not unique. Node " + std::to_string(id) + " has rank " +
+          std::to_string(topo.rank) + " but Node " +
+          std::to_string(ranks[topo.rank]) + " has the same rank");
     }
   }
 
@@ -120,11 +127,13 @@ void ConstelThinker::checkStrategy(const StrategyRequest& req,
   // }
 }
 
-std::shared_ptr<Extra> ConstelThinker::obtainExtra(ConstelController* controller) {
+std::shared_ptr<Extra> ConstelThinker::obtainExtra(
+    ConstelController* controller) {
   return nullptr;
 }
 
-const StrategyBlock& ConstelThinker::GenerateStrategy(const StrategyRequest& req) {
+const StrategyBlock& ConstelThinker::GenerateStrategy(
+    const StrategyRequest& req) {
   auto strategy_block = this->GenerateStrategyImpl(req);
   checkStrategy(req, strategy_block);
   this->strategy_block_ = std::move(strategy_block);

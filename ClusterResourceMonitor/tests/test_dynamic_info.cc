@@ -21,11 +21,14 @@ int main(int argc, char* argv[]) {
   DynamicInfo::Get().get_cpu_usage();
   DynamicInfo::Get().get_gpu_usage();
   DynamicInfo::Get().get_available_ram();
-  LOG_INFO_("cpu usage: " + std::to_string(DynamicInfo::Get().get_cpu_usage()) + "%");
-  LOG_INFO_("available ram: " + std::to_string(DynamicInfo::Get().get_available_ram()) + "GB");
+  LOG_INFO_("cpu usage: " + std::to_string(DynamicInfo::Get().get_cpu_usage()) +
+            "%");
+  LOG_INFO_("available ram: " +
+            std::to_string(DynamicInfo::Get().get_available_ram()) + "GB");
   for (auto& gpu : DynamicInfo::Get().get_gpu_usage()) {
-    LOG_INFO_("gpu: " + std::to_string(gpu.minor_number) + " " + std::to_string(gpu.gpu_util) +
-              "% " + std::to_string(gpu.mem_util) + "%");
+    LOG_INFO_("gpu: " + std::to_string(gpu.minor_number) + " " +
+              std::to_string(gpu.gpu_util) + "% " +
+              std::to_string(gpu.mem_util) + "%");
   }
   return 0;
 }

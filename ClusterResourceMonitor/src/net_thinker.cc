@@ -52,9 +52,10 @@ std::vector<std::vector<std::pair<int, int>>> NetThinker::edge_coloring(
   return result;
 }
 
-void NetThinker::topo_parser(const std::unordered_map<int, std::vector<int>>& topo,
-                             std::unordered_set<Edge, EdgeHash>& edges,
-                             std::unordered_set<int>& node_set) {
+void NetThinker::topo_parser(
+    const std::unordered_map<int, std::vector<int>>& topo,
+    std::unordered_set<Edge, EdgeHash>& edges,
+    std::unordered_set<int>& node_set) {
   node_set.clear();
   edges.clear();
 
@@ -68,7 +69,8 @@ void NetThinker::topo_parser(const std::unordered_map<int, std::vector<int>>& to
         Edge e(u, v);
         edges.insert(e);
       } else {
-        LOG_WARNING_("Self loop detected: " + std::to_string(u) + " ,remove this loop");
+        LOG_WARNING_("Self loop detected: " + std::to_string(u) +
+                     " ,remove this loop");
       }
     }
   }

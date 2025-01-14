@@ -7,11 +7,15 @@ namespace moniter {
 struct DynamicInfo::cpu_times_stat DynamicInfo::get_cpu_times() {
   std::string proc_stat = Util::open_file("/proc/stat");
   std::string proc_stat_first_line = proc_stat.substr(0, proc_stat.find("/n"));
-  std::string times = proc_stat_first_line.substr(proc_stat_first_line.find(" "));
+  std::string times =
+      proc_stat_first_line.substr(proc_stat_first_line.find(" "));
   std::istringstream iss(times);
-  unsigned long user, nice, system, idle, iowait, irq, softirq, steal, guest, guest_nice;
-  iss >> user >> nice >> system >> idle >> iowait >> irq >> softirq >> steal >> guest >> guest_nice;
-  unsigned long total_time = user + nice + system + idle + iowait + irq + softirq + steal;
+  unsigned long user, nice, system, idle, iowait, irq, softirq, steal, guest,
+      guest_nice;
+  iss >> user >> nice >> system >> idle >> iowait >> irq >> softirq >> steal >>
+      guest >> guest_nice;
+  unsigned long total_time =
+      user + nice + system + idle + iowait + irq + softirq + steal;
   struct cpu_times_stat cpu_times(total_time, idle);
   return cpu_times;
 };
@@ -38,7 +42,8 @@ std::vector<DynamicInfo::gpu_usage> DynamicInfo::get_gpu_usage() {
 
   std::vector<DynamicInfo::gpu_usage> gpu_usage_;
   for (int i = 0; i < StaticInfo::get_attached_gpus(); ++i) {
-    std::string cmd = std::string("nvidia-smi -i ") + std::to_string(i) + " -q -d UTILIZATION";
+    std::string cmd = std::string("nvidia-smi -i ") + std::to_string(i) +
+                      " -q -d UTILIZATION";
     std::string shell_output = Util::exec(cmd);
     std::string gpu_util_str = Util::find_value(shell_output, "Gpu");
     float gpu_util = std::stof(Util::remove_unit(gpu_util_str));

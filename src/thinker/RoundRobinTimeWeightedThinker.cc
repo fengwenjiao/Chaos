@@ -16,11 +16,14 @@ size_t chooseMinIndex(const std::vector<T>& vec) {
   return min_index;
 }
 
-GlobalModelSyncConf RoundRobinTimeWeightedThinker::decideModelSyncConf(const StrategyRequest& req) {
-  auto* overlay_info = dynamic_cast<aware::NetAWoverlayInfo*>(req.overlay.get());
+GlobalModelSyncConf RoundRobinTimeWeightedThinker::decideModelSyncConf(
+    const StrategyRequest& req) {
+  auto* overlay_info =
+      dynamic_cast<aware::NetAWoverlayInfo*>(req.overlay.get());
   if (overlay_info == nullptr) {
     throw std::runtime_error(
-        "RoundRobinTimeWeightedThinker only support NetworkAwareOverlay. Please enable network "
+        "RoundRobinTimeWeightedThinker only support NetworkAwareOverlay. "
+        "Please enable network "
         "aware.");
   }
   auto& overlay = overlay_info->GetReadyOverlay();
@@ -39,8 +42,8 @@ GlobalModelSyncConf RoundRobinTimeWeightedThinker::decideModelSyncConf(const Str
     ret[neighbor].kvslices.emplace_back();
     float bw = overlay_info->get_edge_property(topo::Edge{neighbor, target});
     if (bw <= 0) {
-      LOG(WARNING) << "path: " << neighbor << " -> " << target << " has invalid bandwidth: " << bw
-                   << ". Set to 1.";
+      LOG(WARNING) << "path: " << neighbor << " -> " << target
+                   << " has invalid bandwidth: " << bw << ". Set to 1.";
       bw = 1;
     }
     bws.emplace_back(bw);
@@ -54,7 +57,7 @@ GlobalModelSyncConf RoundRobinTimeWeightedThinker::decideModelSyncConf(const Str
     }
     auto index = chooseMinIndex(loads);
     auto& kvslice = ret[neighbors[index]].kvslices.back();
-    kvslice.emplace_back(key, key+1);
+    kvslice.emplace_back(key, key + 1);
     ++key;
     // update loads
     if (loads[index] < 0) {

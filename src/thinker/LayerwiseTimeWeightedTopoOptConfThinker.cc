@@ -12,9 +12,10 @@ std::shared_ptr<Extra> LayerwiseTimeWeightedTopoOptConfThinker::obtainExtra(
   return extra;
 }
 
-GlobalModelSyncConf LayerwiseTimeWeightedTopoOptConfThinker::decideModelSyncConf(
+GlobalModelSyncConf
+LayerwiseTimeWeightedTopoOptConfThinker::decideModelSyncConf(
     const StrategyRequest& req) {
-  //TODO: implement this function
+  // TODO: implement this function
 }
 }  // namespace constellation
 

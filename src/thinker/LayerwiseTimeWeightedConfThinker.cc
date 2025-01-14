@@ -6,14 +6,17 @@
 
 namespace constellation {
 
-std::vector<KVSlice> slice(int key, uint64_t key_total, std::vector<float> weights) {
+std::vector<KVSlice> slice(int key,
+                           uint64_t key_total,
+                           std::vector<float> weights) {
   std::vector<KVSlice> slices(weights.size());
   float sum = 0;
   for (size_t i = 0; i < weights.size(); i++) {
     sum += weights[i];
   }
   using algorithm::helper::spilitRange;
-  auto rngs = spilitRange(static_cast<uint64_t>(0), key_total, weights.size(), weights.data());
+  auto rngs = spilitRange(
+      static_cast<uint64_t>(0), key_total, weights.size(), weights.data());
   for (size_t i = 0; i < weights.size(); i++) {
     slices[i] = KVSlice(key, rngs[i].first, rngs[i].second - rngs[i].first);
   }
@@ -22,10 +25,12 @@ std::vector<KVSlice> slice(int key, uint64_t key_total, std::vector<float> weigh
 
 GlobalModelSyncConf LayerwiseTimeWeightedConfThinker::decideModelSyncConf(
     const StrategyRequest& req) {
-  auto* overlay_info = dynamic_cast<aware::NetAWoverlayInfo*>(req.overlay.get());
+  auto* overlay_info =
+      dynamic_cast<aware::NetAWoverlayInfo*>(req.overlay.get());
   if (overlay_info == nullptr) {
     throw std::runtime_error(
-        "LayerwiseTimeWeightedConfThinker only support NetworkAwareOverlay. Please enable network "
+        "LayerwiseTimeWeightedConfThinker only support NetworkAwareOverlay. "
+        "Please enable network "
         "aware.");
   }
   auto& overlay = overlay_info->GetReadyOverlay();
@@ -41,8 +46,8 @@ GlobalModelSyncConf LayerwiseTimeWeightedConfThinker::decideModelSyncConf(
     ret[neighbor].kvslices.emplace_back();
     float bw = overlay_info->get_edge_property(topo::Edge{neighbor, target});
     if (bw <= 0) {
-      LOG(WARNING) << "path: " << neighbor << " -> " << target << " has invalid bandwidth: " << bw
-                   << ". Set to 1.";
+      LOG(WARNING) << "path: " << neighbor << " -> " << target
+                   << " has invalid bandwidth: " << bw << ". Set to 1.";
       bw = 1;
     }
     bws.emplace_back(bw);
