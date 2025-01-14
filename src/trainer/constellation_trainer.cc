@@ -12,6 +12,47 @@
 
 namespace constellation {
 
+// utils functions
+namespace {
+struct KVPairData {
+  ps::SArray<ps::Key> keys;
+  ps::SArray<char> values;
+  ps::SArray<uint64_t> lens;
+  int cmd;
+};
+
+KVPairData PrepareKVPair(int key,
+                         const CArray& value,
+                         uint64_t slice_start = 0,
+                         uint64_t slice_len = 0) {
+  KVPairData data;
+  data.keys = ps::SArray<ps::Key>({static_cast<ps::Key>(key)});
+
+  auto vals = ps::SArray<char>(value);
+  if (slice_len > 0) {
+    data.values = vals.segment(slice_start, slice_len + slice_start);
+    data.lens = ps::SArray<uint64_t>({slice_len});
+  } else {
+    data.values = vals;
+    data.lens = ps::SArray<uint64_t>({static_cast<uint64_t>(value.size())});
+  }
+
+  data.cmd = GetCommandType(RequestType::kModelSync, value.dtype);
+  return data;
+}
+
+ModelSycnConf CreateModelSyncConfig(const std::vector<int>& path,
+                                    int src_id,
+                                    const KVSlice& slice) {
+  ModelSycnConf conf;
+  conf.target_node_id = {path.back()};
+  conf.paths = {std::vector<int>(path.begin() + 1, path.end())};
+  conf.src_id = src_id;
+  conf.kvslices = {{slice}};
+  return conf;
+}
+}  // namespace
+
 ConstelTrainer::ConstelTrainer() {
   ps::StartAsync(0, "ConstelTrainer");
   this->trainer_ = new ps::KVTrainer<char>(0, 0);  // app_id, customer_id
@@ -138,61 +179,50 @@ void ConstelTrainer::Migrate(const std::vector<int>& keys, const std::vector<CAr
     if (path.size() < 2 || path[0] != ps::Postoffice::Get()->GetMyID()) {
       continue;
     }
-    ModelSycnConf model_sync_conf;
-    model_sync_conf.target_node_id = {path.back()};
-    model_sync_conf.paths = {std::vector<int>(path.begin() + 1, path.end())};
-    model_sync_conf.src_id = myid();
     for (const auto& kvslice : this->model_sync_conf_.kvslices[i]) {
       if (kvslice.is_full()) {
-        // send the full kv-pair
-        for (int key = kvslice.key_begin; key < kvslice.key_end; key++) {
-          auto it = std::find(keys.begin(), keys.end(), key);
-          CHECK(it != keys.end()) << "key " << key << " is not in the keys";
-          int idx = std::distance(keys.begin(), it);
-
-          int cmd = GetCommandType(RequestType::kModelSync, vals[idx].dtype);
-
-          // auto vals_s = new ps::SArray<char>(vals[idx]);
-          auto vals_s = ps::SArray<char>(vals[idx]);
-          auto key_t = static_cast<ps::Key>(key);
-          ps::SArray<ps::Key> keys({key_t});
-          auto lens = ps::SArray<uint64_t>({static_cast<uint64_t>(vals[idx].size())});
-
-          auto slice_info = KVSlice{key, key + 1};
-          model_sync_conf.kvslices = {{slice_info}};
-
-          auto str = serilite::serialize(model_sync_conf).as_string();
-          int ts = trainer_->ZMove(path[1], keys, vals_s, lens, str, cmd);
-          PS_VLOG(2) << "Begin to Migrate : " << model_sync_conf.debug_string();
-        }
+        MigrateFullSlice(path, keys, vals, kvslice);
       } else {
-        int key = kvslice.key_begin;
-        CHECK(std::find(keys.begin(), keys.end(), key) != keys.end())
-            << "key " << key << " is not in the keys";
-        int idx = std::distance(keys.begin(), std::find(keys.begin(), keys.end(), key));
-
-        int cmd = GetCommandType(RequestType::kModelSync, vals[idx].dtype);
-
-        auto vals_ = ps::SArray<char>(vals[idx]);
-        auto vals_s = vals_.segment(kvslice.slice, kvslice.slice_len + kvslice.slice);
-        ps::SArray<ps::Key> keys({static_cast<ps::Key>(key)});
-        auto lens = ps::SArray<uint64_t>({kvslice.slice_len});
-
-        auto slice_info = KVSlice{key, kvslice.slice, kvslice.slice_len};
-        model_sync_conf.kvslices = {{slice_info}};
-        auto str = serilite::serialize(model_sync_conf).as_string();
-        // LOG(INFO) << "Migrate key: " << key << " to node: " << path.back();
-        int ts = trainer_->ZMove(path[1], keys, vals_s, lens, str, cmd);
-        PS_VLOG(2) << "Begin to Migrate : " << model_sync_conf.debug_string();
+        MigratePartialSlice(path, keys, vals, kvslice);
       }
     }
   }
 }
 
+void ConstelTrainer::MigrateFullSlice(const std::vector<int>& path,
+                                      const std::vector<int>& keys,
+                                      const std::vector<CArray>& vals,
+                                      const KVSlice& kvslice) {
+  for (int key = kvslice.key_begin; key < kvslice.key_end; key++) {
+    auto it = std::find(keys.begin(), keys.end(), key);
+    CHECK(it != keys.end()) << "key " << key << " is not in the keys";
+    int idx = std::distance(keys.begin(), it);
+
+    auto kvdata = PrepareKVPair(key, vals[idx]);
+    auto conf = CreateModelSyncConfig(path, myid(), KVSlice{key, key + 1});
+    auto conf_str = serilite::serialize(conf).as_string();
+
+    trainer_->ZMove(path[1], kvdata.keys, kvdata.values, kvdata.lens, conf_str, kvdata.cmd);
+  }
+}
+
+void ConstelTrainer::MigratePartialSlice(const std::vector<int>& path,
+                                         const std::vector<int>& keys,
+                                         const std::vector<CArray>& vals,
+                                         const KVSlice& kvslice) {
+  int key = kvslice.key_begin;
+  auto it = std::find(keys.begin(), keys.end(), key);
+  CHECK(it != keys.end()) << "key " << key << " is not in the keys";
+  int idx = std::distance(keys.begin(), it);
+
+  auto kvdata = PrepareKVPair(key, vals[idx], kvslice.slice, kvslice.slice_len);
+  auto conf = CreateModelSyncConfig(path, myid(), KVSlice{key, kvslice.slice, kvslice.slice_len});
+  auto conf_str = serilite::serialize(conf).as_string();
+
+  trainer_->ZMove(path[1], kvdata.keys, kvdata.values, kvdata.lens, conf_str, kvdata.cmd);
+}
+
 void ConstelTrainer::NotifySchedulerUpdateClock(uint32_t timestamp) {
-  // if (timestamp % 5 != 0) {
-  //   return;
-  // }
   int head = static_cast<int>(kControllerSignal::kUpdateClockSignal);
   int my_id = ps::Postoffice::Get()->GetMyID();
   std::string body = std::to_string(my_id) + "," + std::to_string(timestamp);
@@ -329,7 +359,8 @@ void ConstelTrainer::ProcessPushData(const int key,
       if (!update.merged.isNone()) {
         // init request from myself
         // if (update_buf->merged.isNone() || update_buf->merged.size() != update.merged.size()) {
-        //   update_buf->merged = CArray(update.merged.size(),update.merged.dtype);  // alloc the space
+        //   update_buf->merged = CArray(update.merged.size(),update.merged.dtype);  // alloc the
+        //   space
         // }
         update_buf->merged = CArray(update.merged.size(), update.merged.dtype);
         if (data.isFromRoot) {

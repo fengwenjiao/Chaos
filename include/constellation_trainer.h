@@ -220,6 +220,16 @@ class ConstelTrainer {
     trans_topo_ = topo;
   }
 
+  void MigrateFullSlice(const std::vector<int>& path,
+                        const std::vector<int>& keys,
+                        const std::vector<CArray>& vals,
+                        const KVSlice& kvslice);
+
+  void MigratePartialSlice(const std::vector<int>& path,
+                           const std::vector<int>& keys,
+                           const std::vector<CArray>& vals,
+                           const KVSlice& kvslice);
+
   int SimplePushPullDefault(int key, const CArray& val);
 
   void NotifySchedulerUpdateClock(uint32_t timestamp);
