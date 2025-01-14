@@ -77,8 +77,8 @@ int ConstellationCArrayCreateDefault(ConstellationCArrayHandle* handle,
 
 /** @brief create a CArray handle
  * @param handle - the handle of the CArray
- * @param data - the data of the CArray, must be allocated by the caller. Usually borrowed from
- * other AI framework, such as torch.tensor
+ * @param data - the data of the CArray, must be allocated by the caller.
+ * Usually borrowed from other AI framework, such as torch.tensor
  * @param size - the size of the CArray
  * @param dtype - the data type of the CArray
  * @return 0 - success, -1 - failure
@@ -154,14 +154,17 @@ int ConstellationTrainerIsScale(ConstelTrainerHandle handle, int* is_scale);
  * @param children_size - the size of the children
  * @return 0 - success, -1 - failure
  */
-int ConstellationTrainerGetNodeTransTopo(ConstelTrainerHandle handle, char* buffer, uint32_t size);
+int ConstellationTrainerGetNodeTransTopo(ConstelTrainerHandle handle,
+                                         char* buffer,
+                                         uint32_t size);
 
 /** @brief get the timestamp of the trainer
  * @param handle - the handle of the trainer
  * @param timestamp - the timestamp of the trainer
  * @return 0 - success, -1 - failure
  */
-int ConstellationTrainerGetTimestamp(ConstelTrainerHandle handle, uint32_t* timestamp);
+int ConstellationTrainerGetTimestamp(ConstelTrainerHandle handle,
+                                     uint32_t* timestamp);
 
 /** @brief send the ready signal to the trainer
  * @param handle - the handle of the trainer
@@ -180,7 +183,8 @@ int ConstelTrainerNotifyReadyAndWait(ConstelTrainerHandle handle,
  * @param key_num - the number of keys to migrate
  * @return 0 - success, -1 - failure
  */
-int ConstelTrainerBatchEnd(ConstelTrainerHandle handle, int* keys_size DEFAULT(nullptr));
+int ConstelTrainerBatchEnd(ConstelTrainerHandle handle,
+                           int* keys_size DEFAULT(nullptr));
 
 /** @brief get the keys to migrate, must be called after ConstelTrainerBatchEnd
  * @param keys - the keys to migrate
@@ -231,7 +235,8 @@ int ConstellationTrainerNumTrainers(ConstelTrainerHandle handle, int* num);
 int ConstelControllerHandleCreate(ConstelControllerHandle* handle,
                                   const char* thinker_name = nullptr);
 
-int ConstelControllerSetThinker(ConstelControllerHandle handle, const char* thinker_name);
+int ConstelControllerSetThinker(ConstelControllerHandle handle,
+                                const char* thinker_name);
 
 /** @brief free the controller handle
  * @param handle - the handle of the controller

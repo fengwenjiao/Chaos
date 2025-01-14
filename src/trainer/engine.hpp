@@ -33,7 +33,8 @@ template <typename Data, typename ResType>
 class ConstelAggEngine {
  public:
   using ReturnOnAggType = ReturnOnAgg<Data, ResType>;
-  using DataHandle = std::function<void(const int, const Data&, std::shared_ptr<ReturnOnAggType>)>;
+  using DataHandle = std::function<
+      void(const int, const Data&, std::shared_ptr<ReturnOnAggType>)>;
 
   using MessureFunc = std::function<int(int, Data)>;
 
@@ -63,12 +64,15 @@ class ConstelAggEngine {
     auto callback = std::make_shared<ReturnOnAggType>();
     callback->engine_ = this;
     using namespace std::placeholders;
-    callback->return_handle_ = std::bind(&ConstelAggEngine::CallBackReturnHandle, this, _1, _2, _3);
+    callback->return_handle_ =
+        std::bind(&ConstelAggEngine::CallBackReturnHandle, this, _1, _2, _3);
     callback->id = id;
     return callback;
   }
 
-  void CallBackReturnHandle(ConstelAggEngine* engine, const int id, const ResType& res) {
+  void CallBackReturnHandle(ConstelAggEngine* engine,
+                            const int id,
+                            const ResType& res) {
     std::unique_lock<std::mutex> lock(engine->return_mu_);
     if (engine->expected_ids_.count(id) != 0) {
       if (engine->res_ptr_) {
@@ -125,7 +129,8 @@ class ConstelAggEngine {
 
     PushAsync(ids, std::move(data));
     std::unique_lock<std::mutex> return_mu(return_mu_);
-    return_cv_.wait(return_mu, [this]() { return num_ready_ == expected_ids_.size(); });
+    return_cv_.wait(return_mu,
+                    [this]() { return num_ready_ == expected_ids_.size(); });
     expected_ids_.clear();
     num_ready_ = 0;
   }
@@ -161,7 +166,9 @@ class ConstelAggEngine {
       }
     }
     // find the least loaded thread
-    int taskload = (data == nullptr || messure_func_ == nullptr) ? 1 : messure_func_(id, *data);
+    int taskload = (data == nullptr || messure_func_ == nullptr) ?
+                       1 :
+                       messure_func_(id, *data);
     int min_load = std::numeric_limits<int>::max();
     size_t min_load_id = 0;
     for (auto& load : load_map_) {

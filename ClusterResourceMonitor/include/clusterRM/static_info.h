@@ -22,7 +22,8 @@ class StaticInfo {
     std::string model_name;
     float gpu_mem_total;
     // gpu(int minor_number, std::string model_name, float gpu_mem_total)
-    //     : model_name(model_name), minor_number(minor_number), gpu_mem_total(gpu_mem_total) {}
+    //     : model_name(model_name), minor_number(minor_number),
+    //     gpu_mem_total(gpu_mem_total) {}
   };
 
   /**

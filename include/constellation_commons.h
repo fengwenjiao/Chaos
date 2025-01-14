@@ -37,8 +37,8 @@ template <typename T>
 using AdjacencyListT = std::unordered_map<int, std::vector<T>>;
 /** @brief Node transport topology.
  * including member parent and children
- * @param `type`: the `type` of this node, `kRoot` - root node, `kLeaf` - leaf node,
- * `kInner` - inner node and `kUnset` - unset
+ * @param `type`: the `type` of this node, `kRoot` - root node, `kLeaf` - leaf
+ * node, `kInner` - inner node and `kUnset` - unset
  * - parent: the parent of this node, only valid for inner and leaf nodes
  * - children: the children of this node
  */
@@ -198,7 +198,8 @@ struct KVSlice {
   int key_begin, key_end;
   uint64_t slice = 0;
   uint64_t slice_len = 0;
-  KVSlice(const int& key_begin, const int& key_end) : key_begin(key_begin), key_end(key_end) {}
+  KVSlice(const int& key_begin, const int& key_end)
+      : key_begin(key_begin), key_end(key_end) {}
   KVSlice(const int& key, const uint64_t& slice, const uint64_t& slice_len)
       : key_begin(key), key_end(key), slice(slice), slice_len(slice_len) {}
   void inc_range() {
@@ -211,8 +212,10 @@ struct KVSlice {
   }
   std::string debug_string() {
     std::string s;
-    s += "keys: " + std::to_string(key_begin) + "-" + std::to_string(key_end) + " ";
-    s += "slice: " + std::to_string(slice) + " slice len:" + std::to_string(slice_len);
+    s += "keys: " + std::to_string(key_begin) + "-" + std::to_string(key_end) +
+         " ";
+    s += "slice: " + std::to_string(slice) +
+         " slice len:" + std::to_string(slice_len);
     return s;
   }
 };

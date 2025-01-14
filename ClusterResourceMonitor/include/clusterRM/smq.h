@@ -29,8 +29,8 @@ class Smq {
    */
   inline void start_server(int global_id) {
     is_server_ = true;
-    smq_thread_ =
-        std::unique_ptr<std::thread>(new std::thread(std::bind(&Smq::server, this, global_id)));
+    smq_thread_ = std::unique_ptr<std::thread>(
+        new std::thread(std::bind(&Smq::server, this, global_id)));
   }
 
   /**
@@ -38,8 +38,8 @@ class Smq {
    */
   inline void start_client(int global_id) {
     is_server_ = false;
-    smq_thread_ =
-        std::unique_ptr<std::thread>(new std::thread(std::bind(&Smq::client, this, global_id)));
+    smq_thread_ = std::unique_ptr<std::thread>(
+        new std::thread(std::bind(&Smq::client, this, global_id)));
   }
 
   std::unordered_map<int, SmqMeta> gather_info(int ksignal);

@@ -23,14 +23,14 @@ class RandomUtils {
     if (min > max) {
       throw std::invalid_argument("min should be less than or equal to max");
     }
-    using distribution_type = std::conditional_t<std::is_integral<T>::value,
-                                                 std::uniform_int_distribution<T>,
-                                                 std::uniform_real_distribution<T>>;
+    using distribution_type =
+        std::conditional_t<std::is_integral<T>::value,
+                           std::uniform_int_distribution<T>,
+                           std::uniform_real_distribution<T>>;
     distribution_type distrib(min, max);
     return distrib(engine());
   }
 };
-
 
 }  // namespace test
 }  // namespace constellation

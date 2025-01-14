@@ -43,7 +43,8 @@ using AwareEdge = topo::Edge<int, LinkProperty>;
 class NetAWoverlayInfo : public ReadyoverlayInfo {
  public:
   NetAWoverlayInfo() = default;
-  explicit NetAWoverlayInfo(AdjacencyList overlay) : ReadyoverlayInfo(overlay) {}
+  explicit NetAWoverlayInfo(AdjacencyList overlay)
+      : ReadyoverlayInfo(overlay) {}
   float& get_edge_property(int src, int dst) {
     return edge_property_[topo::Edge{src, dst}];
   }
@@ -60,15 +61,17 @@ class NetAWoverlayInfo : public ReadyoverlayInfo {
   }
 
  private:
-  std::unordered_map<topo::Edge<int>, float, topo::Edge<int>::Hash> edge_property_;
+  std::unordered_map<topo::Edge<int>, float, topo::Edge<int>::Hash>
+      edge_property_;
 };
 
 class NetworkAwareNodeManager : public ReadyNodeOverlayManager {
  public:
-  NetworkAwareNodeManager(std::unique_ptr<moniter::Smq>& test_server) : ReadyNodeOverlayManager() {
+  NetworkAwareNodeManager(std::unique_ptr<moniter::Smq>& test_server)
+      : ReadyNodeOverlayManager() {
     test_server_ = test_server.get();
-    test_server_thread_.reset(
-        new std::thread([this] { test_server_->start_server(ps::kScheduler); }));
+    test_server_thread_.reset(new std::thread(
+        [this] { test_server_->start_server(ps::kScheduler); }));
   }
   virtual ~NetworkAwareNodeManager() override {
     test_server_->stop_smq();
@@ -78,9 +81,11 @@ class NetworkAwareNodeManager : public ReadyNodeOverlayManager {
   virtual std::unique_ptr<ReadyoverlayInfo> GetReadyOverlay() override {
     using namespace moniter;
     auto overlay = ReadyNodeOverlayManager::GetReadyOverlay();
-    auto overlayinfo = std::make_unique<NetAWoverlayInfo>(overlay->GetReadyOverlay());
+    auto overlayinfo =
+        std::make_unique<NetAWoverlayInfo>(overlay->GetReadyOverlay());
     test_server_->set_topo(overlay->GetReadyOverlay());
-    auto infos = test_server_->gather_info(kSignalStatic + kSignalDynamic + kSignalNetwork);
+    auto infos = test_server_->gather_info(kSignalStatic + kSignalDynamic +
+                                           kSignalNetwork);
     for (auto& [id, info] : infos) {
       auto& bandwith = info.network_info.bandwidth;
       for (const auto& [other_id, bw] : bandwith) {

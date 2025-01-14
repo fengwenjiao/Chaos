@@ -58,7 +58,8 @@ class ConstelThinker {
   virtual ~ConstelThinker() = default;
 
  protected:
-  virtual void checkStrategy(const StrategyRequest& req, const StrategyBlock& strategy_block);
+  virtual void checkStrategy(const StrategyRequest& req,
+                             const StrategyBlock& strategy_block);
 
   StrategyBlock strategy_block_;
   GlobalTransTopo& glb_topo_ = strategy_block_.global_topo_;

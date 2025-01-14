@@ -9,11 +9,13 @@ class ConstelSimpleThinker : public ConstelThinker {
   /**
    * \brief Transform the ModelLoadAssignment to GlobalModelSyncConf
    */
-  virtual GlobalModelSyncConf ModelSycnConfTransform(int target_id,
-                                                     ModelLoadAssignment& model_load_assignment);
+  virtual GlobalModelSyncConf ModelSycnConfTransform(
+      int target_id,
+      ModelLoadAssignment& model_load_assignment);
 
  private:
-  virtual StrategyBlock GenerateStrategyImpl(const StrategyRequest& req) override;
+  virtual StrategyBlock GenerateStrategyImpl(
+      const StrategyRequest& req) override;
 
   virtual GlobalTransTopo decideNewTransTopo(const StrategyRequest& req);
 

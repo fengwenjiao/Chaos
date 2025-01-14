@@ -24,7 +24,8 @@ class BandwidthInfo {
   std::atomic<bool> iperf_server_ready{false};
   int iperf_port_ = -1;
   int get_available_port();
-  struct iperf_test* create_iperf_client_test(const std::string& ip, const int port);
+  struct iperf_test* create_iperf_client_test(const std::string& ip,
+                                              const int port);
 
   int pid_;
 };

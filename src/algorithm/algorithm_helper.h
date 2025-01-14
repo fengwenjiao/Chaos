@@ -16,10 +16,10 @@ template <typename T, typename = void>
 struct has_iter_value : std::false_type {};
 
 template <typename T>
-struct has_iter_value<
-    T,
-    std::void_t<typename T::iterator, typename T::const_iterator, typename T::value_type>>
-    : std::true_type {};
+struct has_iter_value<T,
+                      std::void_t<typename T::iterator,
+                                  typename T::const_iterator,
+                                  typename T::value_type>> : std::true_type {};
 
 // Alias for has_iter_value<T>::value.
 template <typename T>
@@ -30,9 +30,9 @@ template <typename T, typename = void>
 struct is_iterable : std::false_type {};
 
 template <typename T>
-struct is_iterable<
-    T,
-    std::void_t<decltype(std::begin(std::declval<T>()) == std::end(std::declval<T>()))>>
+struct is_iterable<T,
+                   std::void_t<decltype(std::begin(std::declval<T>()) ==
+                                        std::end(std::declval<T>()))>>
     : std::bool_constant<has_iter_value_v<T>> {};
 
 // Alias for is_iterable<T>::value.
@@ -82,7 +82,8 @@ class UnionFind {
   /* @brief Union two sets
    * @param x The first node
    * @param y The second node
-   * @return true if the two sets are unioned, false if they are already in the same set
+   * @return true if the two sets are unioned, false if they are already in the
+   * same set
    */
   bool unionSets(const Node& x, const Node& y) {
     const auto& rootX = find(x);
@@ -112,7 +113,8 @@ bool checkUnique(const std::vector<T>& vec) {
 
 template <typename T,
           typename std::enable_if_t<details::is_iterable_v<T>, int> = 0,
-          typename V = typename std::decay_t<decltype(*std::declval<const T&>().begin())>>
+          typename V = typename std::decay_t<
+              decltype(*std::declval<const T&>().begin())>>
 std::vector<V> randomChoose(const T& container, size_t num) {
   size_t size = std::min(container.size(), num);
   if (size == 0) {
@@ -139,14 +141,16 @@ std::vector<V> randomChoose(const T& container, size_t num) {
 }
 
 template <typename T>
-std::vector<T> randomChoose(const std::initializer_list<T>& container, size_t num) {
+std::vector<T> randomChoose(const std::initializer_list<T>& container,
+                            size_t num) {
   return randomChoose<std::initializer_list<T>>(container, num);
 }
 
 // Extract keys from unordered_map or return the vector itself
 template <typename Container>
 auto extract_elements(const Container& container) ->
-    typename std::enable_if<!details::is_unordered_map_v<Container>, const Container&>::type {
+    typename std::enable_if<!details::is_unordered_map_v<Container>,
+                            const Container&>::type {
   return container;
 }
 
@@ -162,9 +166,11 @@ auto extract_elements(const Container& container) ->
   return keys;
 }
 
-// Template function to check if two containers have unique and corresponding elements
+// Template function to check if two containers have unique and corresponding
+// elements
 template <typename Container1, typename Container2>
-bool areElementsUniqueAndCorresponding(const Container1& cont1, const Container2& cont2) {
+bool areElementsUniqueAndCorresponding(const Container1& cont1,
+                                       const Container2& cont2) {
   // Extract elements (keys if unordered_map)
   auto elements1 = extract_elements(cont1);
   auto elements2 = extract_elements(cont2);
@@ -203,7 +209,10 @@ bool areElementsUniqueAndCorresponding(const Container1& cont1, const Container2
 }
 
 template <typename T, typename W>
-std::vector<std::pair<T, T>> spilitRange(T begin, T end, size_t num = 0, W* weights = nullptr) {
+std::vector<std::pair<T, T>> spilitRange(T begin,
+                                         T end,
+                                         size_t num = 0,
+                                         W* weights = nullptr) {
   // check if begin < end
   assert(begin < end && "Begin must be less than end.");
   std::vector<std::pair<T, T>> ranges;
@@ -242,7 +251,8 @@ std::vector<std::pair<T, T>> spilitRange(T begin, T end, size_t num = 0, W* weig
     T accumulated = 0;
     for (size_t i = 0; i < num; ++i) {
       // avoid precision loss
-      sizes[i] = static_cast<T>((static_cast<long long>(weights[i]) * total) / total_weight);
+      sizes[i] = static_cast<T>((static_cast<long long>(weights[i]) * total) /
+                                total_weight);
       accumulated += sizes[i];
     }
 

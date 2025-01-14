@@ -38,7 +38,8 @@ class PRINT_CARRAY {
     const T* ptr = reinterpret_cast<const T*>(arr.data());
     int ele_num = arr.size() / sizeof(T);
     os << "CArray: {" << static_cast<const void*>(ptr)
-       << " Abstract: " << generateCArraySummary(arr.data(), arr.size()) << "}\n[ ";
+       << " Abstract: " << generateCArraySummary(arr.data(), arr.size())
+       << "}\n[ ";
     os << std::fixed << std::setprecision(5);
     // std::copy(ptr, ptr + ele_num, std::ostream_iterator<T>(os, " "));
     os << "]";
@@ -50,7 +51,8 @@ inline std::ostream& operator<<(std::ostream& os, const CArray& arr) {
 
 template <typename T>
 inline std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec) {
-  os << "Vector of " << typeid(T).name() << "{ Address: " << &vec << " Size:" << vec.size() << " }";
+  os << "Vector of " << typeid(T).name() << "{ Address: " << &vec
+     << " Size:" << vec.size() << " }";
   os << "[ ";
   for (const auto& val : vec) {
     os << val << " ";
@@ -60,8 +62,10 @@ inline std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec) {
 }
 
 template <>
-inline std::ostream& operator<<(std::ostream& os, const std::vector<CArray>& vec) {
-  os << "Vector of CArray" << "{ Address: " << &vec << " Size:" << vec.size() << " }\n";
+inline std::ostream& operator<<(std::ostream& os,
+                                const std::vector<CArray>& vec) {
+  os << "Vector of CArray" << "{ Address: " << &vec << " Size:" << vec.size()
+     << " }\n";
   os << "---------------------------------------------------\n";
   int i = 0;
   for (const auto& arr : vec) {
@@ -80,8 +84,8 @@ inline std::ostream& operator<<(std::ostream& os, const NodeTransTopo& topo) {
       {NodeType::kLeaf, "Leaf"},
       {NodeType::kRoot, "Root"},
   };
-  os << "{NodeType: " << type_map[topo.getType()] << ", Parent: [" << topo.getParent()
-     << "] ,Children: [" << topo.getChildren() << "]}";
+  os << "{NodeType: " << type_map[topo.getType()] << ", Parent: ["
+     << topo.getParent() << "] ,Children: [" << topo.getChildren() << "]}";
 
   return os;
 }

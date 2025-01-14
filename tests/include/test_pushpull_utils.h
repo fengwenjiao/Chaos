@@ -21,13 +21,13 @@ inline bool IsTrainer() {
 /**
  * Generates a vector of random value sizes.
  *
- * This function generates a collection of random sizes corresponding to a given number of keys.
- * Each value size is randomly set between 1 and 100.
+ * This function generates a collection of random sizes corresponding to a given
+ * number of keys. Each value size is randomly set between 1 and 100.
  *
- * @param key_num The number of keys for which value sizes need to be generated. This parameter
- * determines the length of the vector.
- * @return Returns a vector containing the random sizes of the values. Each element represents the
- * size of a value corresponding to a key.
+ * @param key_num The number of keys for which value sizes need to be generated.
+ * This parameter determines the length of the vector.
+ * @return Returns a vector containing the random sizes of the values. Each
+ * element represents the size of a value corresponding to a key.
  */
 std::vector<int> value_sizes_generator(int key_num, int down, int up) {
   if (down > up) {
@@ -53,20 +53,27 @@ std::vector<int> value_sizes_generator(int key_num, int down, int up) {
  * parameter values, useful for testing purposes.
  */
 struct ParameterMock {
-  int _size;             /**< The size of the parameter collection, i.e., the number of ids. */
+  int _size; /**< The size of the parameter collection, i.e., the number of ids.
+              */
   std::vector<int> _ids; /**< Vector storing the ids of the parameters. */
-  std::vector<int> _value_sizes;   /**< Vector storing the sizes of each parameter value. */
+  std::vector<int>
+      _value_sizes; /**< Vector storing the sizes of each parameter value. */
   std::vector<CArray> _parameters; /**< Vector storing the parameter values. */
-  std::vector<CArray*> _pointers;  /**< Vector storing pointers to the parameter values. */
+  std::vector<CArray*>
+      _pointers; /**< Vector storing pointers to the parameter values. */
 
   /**
    * @brief Constructor, initializes the parameter mock.
    *
    * @param num The number of the parameters collection.
-   * @param paramsize_down The lower bound for the random size of each parameter value.
-   * @param paramsize_up The upper bound for the random size of each parameter value.
+   * @param paramsize_down The lower bound for the random size of each parameter
+   * value.
+   * @param paramsize_up The upper bound for the random size of each parameter
+   * value.
    */
-  explicit ParameterMock(int num, int paramsize_down = 10, int paramsize_up = 100) {
+  explicit ParameterMock(int num,
+                         int paramsize_down = 10,
+                         int paramsize_up = 100) {
     _size = num;
     _value_sizes = value_sizes_generator(num, paramsize_down, paramsize_up);
     _parameters.resize(num);
@@ -100,7 +107,8 @@ struct ParameterMock {
 
   /**
    * Overloaded assignment operator for the ParameterMock class.
-   * Assigns the contents of one ParameterMock object to another, implementing deep copy.
+   * Assigns the contents of one ParameterMock object to another, implementing
+   * deep copy.
    *
    * @param other The ParameterMock object whose contents are to be assigned.
    */
@@ -148,7 +156,7 @@ struct ParameterMock {
     return _parameters;
   }
 
-  std::vector<uint64_t> lens(){
+  std::vector<uint64_t> lens() {
     std::vector<uint64_t> lens;
     for (int i = 0; i < _size; ++i) {
       lens.push_back(_parameters[i].size());
@@ -172,12 +180,13 @@ struct ParameterMock {
    *
    * This method fills each parameter value with the result of a specific
    * mathematical formula based on the given rank and timestamp.
-   * If the size of the parameter collection does not match expectations or there
-   * are uninitialized parameters, a runtime error will be thrown.
+   * If the size of the parameter collection does not match expectations or
+   * there are uninitialized parameters, a runtime error will be thrown.
    */
   void fill(int rank = 0, int ts = 0) {
     if (_parameters.size() != _size || _parameters[_size - 1].isNone()) {
-      throw std::runtime_error("ParameterMock::fill() called with invalid parameters");
+      throw std::runtime_error(
+          "ParameterMock::fill() called with invalid parameters");
     }
     for (int key = 0; key < _size; ++key) {
       auto* data = (float*)_parameters[key].data();
@@ -191,14 +200,15 @@ struct ParameterMock {
    * Constructs a parameter mock object with preset values for testing purposes.
    *
    * This function is primarily used in tests to create a parameter mock object
-   * with predefined values that can be compared against the results of actual function calls.
-   * By calculating the total possible ranks and populating these ranks,
-   * the mock object behaves predictably in specific test scenarios.
+   * with predefined values that can be compared against the results of actual
+   * function calls. By calculating the total possible ranks and populating
+   * these ranks, the mock object behaves predictably in specific test
+   * scenarios.
    *
-   * @param num The number of ranks, which determines the total rank calculation and the size of the
-   * mock object.
-   * @param ts An optional timestamp parameter used to further customize how the mock object is
-   * populated.
+   * @param num The number of ranks, which determines the total rank calculation
+   * and the size of the mock object.
+   * @param ts An optional timestamp parameter used to further customize how the
+   * mock object is populated.
    * @return Returns a parameter mock object filled with expected values.
    */
   ParameterMock expected_values(int num, int ts = 0) {
@@ -207,7 +217,8 @@ struct ParameterMock {
     for (int key = 0; key < _size; ++key) {
       auto* data = reinterpret_cast<float*>(expected._parameters[key].data());
       for (int i = 0; i < _value_sizes[key]; ++i) {
-        data[i] = total_rank * 2.0f + (ts * 0.8f + i * 0.004f + key * 0.022f) * num;
+        data[i] =
+            total_rank * 2.0f + (ts * 0.8f + i * 0.004f + key * 0.022f) * num;
       }
     }
     return expected;
@@ -231,7 +242,8 @@ struct ParameterMock {
 /**
  * @brief Overloaded output stream operator for ParameterMock class.
  */
-std::ostream& operator<<(std::ostream& os, const constellation::test::ParameterMock& mock) {
+std::ostream& operator<<(std::ostream& os,
+                         const constellation::test::ParameterMock& mock) {
   os << mock._parameters;
   return os;
 }

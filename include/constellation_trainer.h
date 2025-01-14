@@ -41,8 +41,9 @@ struct DataHandleType {
 /*!
  * Refer to MXNet
  * Uses Cantor pairing function to generate a unique number given two numbers.
- * This number can also be inverted to find the unique pair whose Cantor value is this number.
- * Ref: https://en.wikipedia.org/wiki/Pairing_function#Cantor_pairing_function
+ * This number can also be inverted to find the unique pair whose Cantor value
+ * is this number. Ref:
+ * https://en.wikipedia.org/wiki/Pairing_function#Cantor_pairing_function
  * \param requestType RequestType
  * \param dtype integer
  * \return Cantor value of arguments
@@ -123,7 +124,8 @@ class ConstelTrainer {
 
   void Migrate(const std::vector<int>& keys, const std::vector<CArray>& vals);
 
-  void Broadcast(const std::vector<int>& keys, const std::vector<CArray*>& vals_init);
+  void Broadcast(const std::vector<int>& keys,
+                 const std::vector<CArray*>& vals_init);
 
   void Recv(const std::vector<int>& keys, const std::vector<CArray*>& vals);
 
@@ -168,14 +170,15 @@ class ConstelTrainer {
   };
 
   /**
-   * \brief update_buf_ is used to store the request meta from the son(include itself) and merged
-   * gradient
+   * \brief update_buf_ is used to store the request meta from the son(include
+   * itself) and merged gradient
    */
   std::unordered_map<int, UpdateBuf> update_buf_;
 
   std::unordered_map<int, int> init_waiting_ts_;
 
-  std::unordered_map<uint32_t, std::vector<std::pair<int, EngineTaskData>>> cached_kv_;
+  std::unordered_map<uint32_t, std::vector<std::pair<int, EngineTaskData>>>
+      cached_kv_;
   std::mutex cached_kv_mu_;
 
   ScaleClock clock_;
@@ -216,7 +219,8 @@ class ConstelTrainer {
 
   inline void SetNodeTransTopo(const NodeTransTopo& topo) {
     std::unique_lock<std::mutex> lock(trans_topo_mu_);
-    ps::Postoffice::Get()->UpdateLocalTrans(topo.getParent(), topo.getChildren());
+    ps::Postoffice::Get()->UpdateLocalTrans(topo.getParent(),
+                                            topo.getChildren());
     trans_topo_ = topo;
   }
 

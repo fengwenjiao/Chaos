@@ -12,12 +12,14 @@ struct TranTopoExtra : public Extra {
   GlobalTransTopo transtopo;
 };
 
-class LayerwiseTimeWeightedTopoOptConfThinker : public LayerwiseTimeWeightedConfThinker {
+class LayerwiseTimeWeightedTopoOptConfThinker
+    : public LayerwiseTimeWeightedConfThinker {
  public:
   std::shared_ptr<Extra> obtainExtra(ConstelController* controller) override;
 
  private:
-  virtual GlobalModelSyncConf decideModelSyncConf(const StrategyRequest& req) override;
+  virtual GlobalModelSyncConf decideModelSyncConf(
+      const StrategyRequest& req) override;
 };
 
 }  // namespace constellation

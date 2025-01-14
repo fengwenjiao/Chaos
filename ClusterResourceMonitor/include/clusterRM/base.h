@@ -5,7 +5,8 @@ static const int kSignalRegister = 0;
 /**
  * \brief the signal of gather static info of all clients
  * mixed info can  be combined:
- * - kSignalStatic + kSignalDynamic means gather dynamic and sattic info at the same time
+ * - kSignalStatic + kSignalDynamic means gather dynamic and sattic info at the
+ * same time
  * */
 static const int kSignalStatic = 1;
 /**

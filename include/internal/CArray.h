@@ -4,7 +4,8 @@
 #include <memory>
 
 namespace constellation {
-// reffer to byteps: https://github.com/bytedance/byteps/blob/master/byteps/common/common.h
+// reffer to byteps:
+// https://github.com/bytedance/byteps/blob/master/byteps/common/common.h
 // TODO: Add more data type
 enum class ConstelDataType {
   CONSTEL_FLOAT32 = 0,
@@ -49,7 +50,10 @@ struct CArray {
       : dtype(dtype), size_(size), sptr_(std::make_shared<DataTrunk>(size)) {}
   // for other AI framework, such as torch.tensor
   explicit CArray(const void* data, size_t size, int dtype = 0)
-      : borrowed_data(const_cast<void*>(data)), size_(size), dtype(dtype), sptr_(nullptr) {}
+      : borrowed_data(const_cast<void*>(data)),
+        size_(size),
+        dtype(dtype),
+        sptr_(nullptr) {}
   CArray(CArray&& other) = default;
   CArray(const CArray& other) = default;
   CArray& operator=(CArray&& other) = default;
@@ -70,7 +74,8 @@ struct CArray {
 
   inline const std::shared_ptr<DataTrunk>& ptr() const {
     if (borrowed_data) {
-      throw std::runtime_error("Could not get shared ptr when the CArray is borrowed!");
+      throw std::runtime_error(
+          "Could not get shared ptr when the CArray is borrowed!");
     }
     return sptr_;
   }
@@ -80,8 +85,10 @@ struct CArray {
     if (other.data() && other.size()) {
       if (this->size() != other.size()) {
         throw std::runtime_error(
-            "CArray: void CopyFrom(const CArray& other) size mismatch. this->size(): " +
-            std::to_string(this->size()) + ", other.size(): " + std::to_string(other.size()));
+            "CArray: void CopyFrom(const CArray& other) size mismatch. "
+            "this->size(): " +
+            std::to_string(this->size()) +
+            ", other.size(): " + std::to_string(other.size()));
       }
 
       memcpy(this->data(), other.data(), other.size());
@@ -91,7 +98,8 @@ struct CArray {
   void CopyFrom(const void* data, size_t size, size_t offset = 0) {
     if (this->size() < size + offset) {
       throw std::runtime_error(
-          "CArray: void CopyFrom(const void* data, size_t size, size_t offset) size mismatch. "
+          "CArray: void CopyFrom(const void* data, size_t size, size_t offset) "
+          "size mismatch. "
           "this->size(): " +
           std::to_string(this->size()) + ", size: " + std::to_string(size) +
           ", offset: " + std::to_string(offset));

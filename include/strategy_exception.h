@@ -31,16 +31,19 @@ class TransTopoNotConsistentError : public TranstopoInvalidError {
 
 // class NodeNumberError : public TranstopoInvalidError {
 //  public:
-//   explicit NodeNumberError(const std::string& msg, size_t num, size_t expected)
+//   explicit NodeNumberError(const std::string& msg, size_t num, size_t
+//   expected)
 //       : TranstopoInvalidError(msg) {
-//     msg_ += ". The number of nodes is " + std::to_string(num) + " but expected " +
+//     msg_ += ". The number of nodes is " + std::to_string(num) + " but
+//     expected " +
 //             std::to_string(expected);
 //   }
 // };
 
 class NodeNotFoundError : public TranstopoInvalidError {
  public:
-  explicit NodeNotFoundError(const std::string& msg, int id) : TranstopoInvalidError(msg) {
+  explicit NodeNotFoundError(const std::string& msg, int id)
+      : TranstopoInvalidError(msg) {
     msg_ += ". The node with id " + std::to_string(id) + " is not found";
   }
 };
@@ -49,8 +52,8 @@ class NodeNotConnectedError : public TranstopoInvalidError {
  public:
   explicit NodeNotConnectedError(const std::string& msg, int id1, int id2)
       : TranstopoInvalidError(msg) {
-    msg_ += ". The node with id " + std::to_string(id1) + " and " + std::to_string(id2) +
-            " are not connected";
+    msg_ += ". The node with id " + std::to_string(id1) + " and " +
+            std::to_string(id2) + " are not connected";
   }
 };
 

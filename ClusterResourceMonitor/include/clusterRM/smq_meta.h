@@ -28,7 +28,8 @@ struct NetworkInfoMeta {
   NetworkInfoMeta& operator+=(const NetworkInfoMeta& other) {
     for (const auto& pair : other.bandwidth) {
       if (this->bandwidth.find(pair.first) != this->bandwidth.end()) {
-        LOG_WARNING_("Warning: Key " << pair.first << " already exists. Original value: "
+        LOG_WARNING_("Warning: Key " << pair.first
+                                     << " already exists. Original value: "
                                      << this->bandwidth[pair.first]
                                      << ", Adding value: " << pair.second);
       }

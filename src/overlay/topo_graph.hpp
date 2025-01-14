@@ -34,7 +34,8 @@ struct Edge : EdgeProperty<E> {
   using Node = T;
   Edge() {}
   Edge(const Edge& other) : src(other.src), dst(other.dst) {}
-  Edge(const T& src, const T& dst) : src(src < dst ? src : dst), dst(src < dst ? dst : src) {}
+  Edge(const T& src, const T& dst)
+      : src(src < dst ? src : dst), dst(src < dst ? dst : src) {}
   virtual ~Edge() {}
   bool operator==(const Edge& other) const {
     return this->src == other.src && this->dst == other.dst;
@@ -77,7 +78,9 @@ class TopoGraph {
   }
 
   template <typename P = E, std::enable_if_t<has_prop_type_v<P>, bool>>
-  bool setEdgeProperty(const T& src, const T& dst, const typename P::PropType& link_property) {
+  bool setEdgeProperty(const T& src,
+                       const T& dst,
+                       const typename P::PropType& link_property) {
     Edge edge(src, dst);
     auto it = edges_.find(edge);
     if (it == edges_.end()) {

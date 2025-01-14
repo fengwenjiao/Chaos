@@ -23,17 +23,20 @@ GlobalTransTopo random_choose_tree(const AdjacencyList& overlay);
  * @param maxPaths: the maximum number of paths
  * @return the model synchronization paths
  */
-std::vector<TransPath> random_choose_paths(AdjacencyList overlay, int target, int maxPaths = 10);
+std::vector<TransPath> random_choose_paths(AdjacencyList overlay,
+                                           int target,
+                                           int maxPaths = 10);
 
-/* brief: Generate  model synchronization paths to target node using dijsktra algorithm
-    Note:
+/* brief: Generate  model synchronization paths to target node using dijsktra
+ algorithm Note:
  * @param overlay: the overlay topology
  * @param target: the target node
  * @return the model synchronization paths
  */
-std::vector<TransPath> dijsktra_paths(AdjacencyList overlay,
-                                      AdjacencyListT<float> weights,
-                                      int target,
-                                      std::vector<float>* path_weights = nullptr);
+std::vector<TransPath> dijsktra_paths(
+    AdjacencyList overlay,
+    AdjacencyListT<float> weights,
+    int target,
+    std::vector<float>* path_weights = nullptr);
 
 }  // namespace constellation::algorithm::basic

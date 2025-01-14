@@ -5,7 +5,8 @@
 namespace constellation {
 class SinglePointConfThinker : public ConstelSimpleThinker {
  private:
-  virtual GlobalModelSyncConf decideModelSyncConf(const StrategyRequest& req) override;
+  virtual GlobalModelSyncConf decideModelSyncConf(
+      const StrategyRequest& req) override;
 };
 
 }  // namespace constellation
