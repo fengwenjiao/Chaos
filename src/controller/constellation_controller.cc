@@ -180,14 +180,13 @@ void ConstelController::RequestHandle(const ps::SimpleData& recved,
       int node_id = std::stoi(body.substr(0, it));
       uint32_t timestamp = std::stoi(body.substr(it + 1));
 
-      bool is_ticked = this->clock_.clockTick();
-      clock_.unlock();
+      auto ticked = this->clock_.clockTick();
       auto local_timestamp = this->clock_.getLocalTimestamp();
 
-      if (is_ticked) {
+      if (ticked) {
         // remove the tick
-        global_transtopo_ = clock_.ticks_.at(local_timestamp).transtopo;
-        this->clock_.removeTick(local_timestamp);
+        global_transtopo_ = ticked->transtopo;
+        clock_.removeTickNow();
       }
       if (timestamp != local_timestamp) {
         LOG(WARNING) << "Controller received timestamp: " << timestamp

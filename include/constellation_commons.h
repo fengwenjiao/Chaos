@@ -291,29 +291,35 @@ struct ScaleClock {
   };
 
   void removeTick(uint32_t timestamp) {
+    std::lock_guard<std::mutex> lk(mu_);
     auto it = ticks_.find(timestamp);
     if (it != ticks_.end()) {
       ticks_.erase(it);
     }
   }
 
-  void setAlarm(Tick tick) {
-    auto timestamp = tick.timestamp;
-    ticks_[timestamp] = std::move(tick);
+  void removeTickNow() {
+    std::lock_guard<std::mutex> lk(mu_);
+    if (ticks_.find(local_timestamp_) != ticks_.end()) {
+      ticks_.erase(local_timestamp_);
+    }
   }
 
-  bool clockTick() {
+  void setAlarm(Tick tick) {
+    std::lock_guard<std::mutex> lk(mu_);
+    auto timestamp = tick.timestamp;
+    ticks_[timestamp] = std::make_shared<Tick>(std::move(tick));
+  }
+
+  std::shared_ptr<Tick> clockTick() {
     // TODO： to be improved
-    mu_.lock();
+    std::lock_guard<std::mutex> lk(mu_);
     local_timestamp_++;
 
     if (ticks_.find(local_timestamp_) != ticks_.end()) {
-      return true;
+      return ticks_[local_timestamp_];
     }
-    return false;
-  }
-  void unlock() {
-    mu_.unlock();
+    return nullptr;
   }
 
   const uint32_t& getLocalTimestamp() const {
@@ -323,7 +329,7 @@ struct ScaleClock {
 
   uint32_t local_timestamp_ = 0;
   mutable std::mutex mu_;  // protect the local_timestamp_
-  std::unordered_map<uint32_t, Tick> ticks_;
+  std::unordered_map<uint32_t, std::shared_ptr<Tick>> ticks_;
 };
 
 static const int SignalBound = 100;

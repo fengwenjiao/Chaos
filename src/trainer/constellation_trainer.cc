@@ -123,8 +123,8 @@ void ConstelTrainer::NotifyReadyAndWait(bool need_sycn_model,
 }
 
 bool ConstelTrainer::BatchEnd(std::vector<int>* keys_to_migrate) {
-  auto timestamp = this->clock_.getLocalTimestamp() + 1;
-  auto is_ticked = this->clock_.clockTick();
+  auto ticked = clock_.clockTick();
+  auto timestamp = clock_.getLocalTimestamp();
   if (isRootNode()) {
     NotifySchedulerUpdateClock(timestamp);
   }
@@ -132,25 +132,21 @@ bool ConstelTrainer::BatchEnd(std::vector<int>* keys_to_migrate) {
     keys_to_migrate->clear();
   }
   model_sync_conf_.Clear();
-  if (!is_ticked) {
+  if (!ticked) {
     // no alarm
-    clock_.unlock();
     return true;
   }
 
   // there is a alarm
-  auto& transtopo = this->clock_.ticks_[timestamp].transtopo;
-  auto& model_sync_conf = this->clock_.ticks_[timestamp].model_sync_conf;
+  auto& transtopo = ticked->transtopo;
+  auto& model_sync_conf = ticked->model_sync_conf;
   int my_id = ps::Postoffice::Get()->GetMyID();
   auto it = transtopo.find(my_id);
-  if (it == transtopo.end()) {
-    clock_.unlock();
-    return false;
-  }
+  CHECK(it != transtopo.end())
+      << "my id: " << my_id << " is not in the transtopo";
   // update Postoffice transtopo
   auto& local_transtopo = it->second;
   this->SetNodeTransTopo(local_transtopo);
-  clock_.unlock();  // TODO: to be improved
 
   if (!model_sync_conf.paths.empty()) {
     PS_VLOG(2) << "BatchEnd Model Sync Conf: "
@@ -174,8 +170,7 @@ bool ConstelTrainer::BatchEnd(std::vector<int>* keys_to_migrate) {
     }
     model_sync_conf_ = std::move(model_sync_conf);
   }
-  this->clock_.removeTick(timestamp);
-
+  clock_.removeTickNow();
   return true;
 }
 
