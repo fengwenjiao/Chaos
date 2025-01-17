@@ -10,6 +10,8 @@
 #include <cstdint>
 #include <deque>
 #include <mutex>
+#include <chrono>
+#include <cmath>
 
 #define DEFAULT_SPECIAL_MEMBERS(Type)           \
   Type() = default;                             \
@@ -311,15 +313,24 @@ struct ScaleClock {
     ticks_[timestamp] = std::make_shared<Tick>(std::move(tick));
   }
 
-  std::shared_ptr<Tick> clockTick() {
+  std::shared_ptr<Tick> clockTick(uint32_t target = 0) {
     // TODO： to be improved
     std::lock_guard<std::mutex> lk(mu_);
-    local_timestamp_++;
+    if (target && local_timestamp_ < target) {
+      local_timestamp_ = target;
+    } else if (target == 0) {
+      local_timestamp_++;
+    }
 
     if (ticks_.find(local_timestamp_) != ticks_.end()) {
       return ticks_[local_timestamp_];
     }
     return nullptr;
+  }
+
+  void setLocalTimestamp(uint32_t timestamp) {
+    std::lock_guard<std::mutex> lk(mu_);
+    local_timestamp_ = timestamp;
   }
 
   const uint32_t& getLocalTimestamp() const {
@@ -332,6 +343,95 @@ struct ScaleClock {
   std::unordered_map<uint32_t, std::shared_ptr<Tick>> ticks_;
 };
 
+struct ClockSignalBody {
+  DEFAULT_SPECIAL_MEMBERS(ClockSignalBody);
+  int node_id;           // the node id
+  uint32_t timestamp;    // the training iteration
+  int64_t batch_dur_ms;  // duration of each batch
+  int64_t rtt{0};        // delay between the node and the controller
+
+  int64_t tp_snd;  // for node record the time point of sending the signal
+
+  std::string debug_string() {
+    std::string s;
+    s += "node id: " + std::to_string(node_id) + " ";
+    s += "timestamp: " + std::to_string(timestamp) + " ";
+    s += "batch_dur_ms: " + std::to_string(batch_dur_ms) + " ";
+    s += "delay: " + std::to_string(rtt) + " ";
+    s += "tp_snd: " + std::to_string(tp_snd) + " ";
+    return s;
+  }
+
+  void set_tp_snd() {
+    tp_snd = get_time_point("us");
+  }
+};
+
+template <typename T>
+class WindowedBuffer {
+ public:
+  WindowedBuffer(size_t window_size) : window_size_(window_size) {}
+
+  void push_back(const T& val) {
+    std::lock_guard<std::mutex> lock(mu_);
+    buffer_.push_back(val);
+    if (buffer_.size() > window_size_) {
+      buffer_.pop_front();
+    }
+  }
+  T get_avg() {
+    std::lock_guard<std::mutex> lock(mu_);
+    if (buffer_.empty()) {
+      return 0;
+    }
+    T sum = 0;
+    for (auto& i : buffer_) {
+      sum += i;
+    }
+    return sum / buffer_.size();
+  }
+
+  T get_std() {
+    std::lock_guard<std::mutex> lock(mu_);
+    if (buffer_.empty()) {
+      return 0;
+    }
+    T avg = get_avg();
+    T sum = 0;
+    for (auto& i : buffer_) {
+      sum += (i - avg) * (i - avg);
+    }
+    return std::sqrt(sum / buffer_.size());
+  }
+
+  T get_min() {
+    std::lock_guard<std::mutex> lock(mu_);
+    if (buffer_.empty()) {
+      return 0;
+    }
+    T min = buffer_.front();
+    for (auto& i : buffer_) {
+      min = std::min(min, i);
+    }
+    return min;
+  }
+
+  std::deque<T> get() {
+    std::lock_guard<std::mutex> lock(mu_);
+    return buffer_;
+  }
+
+  void clear() {
+    std::lock_guard<std::mutex> lock(mu_);
+    buffer_.clear();
+  }
+
+ private:
+  size_t window_size_;
+  std::deque<T> buffer_;
+  mutable std::mutex mu_;
+};
+
 static const int SignalBound = 100;
 
 enum class kControllerSignal {
@@ -339,6 +439,7 @@ enum class kControllerSignal {
   kNodeReadySignal = 102,
   kUpdateTransTopoAnouce = 103,
   kUpdateClockSignal = 104,
+  kQueryTimestamp = 105,
 };
 
 }  // namespace constellation
