@@ -2,6 +2,7 @@
 
 #include "../utils/serilite.hpp"
 #include "engine.hpp"
+#include "time_recorder.h"
 
 #if CONS_NETWORK_AWARE
 #include "clusterRM/smq.h"
@@ -60,6 +61,9 @@ ConstelTrainer::ConstelTrainer() {
   static_cast<ps::SimpleApp*>(this->trainer_)
       ->set_request_handle(
           std::bind(&ConstelTrainer::RequestHandle, this, _1, _2));
+  static_cast<ps::SimpleApp*>(this->trainer_)
+      ->set_response_handle(
+          std::bind(&ConstelTrainer::ResponseHandle, this, _1, _2));
   this->trainer_->set_request_handle(
       std::bind(&ConstelTrainer::DataHandle, this, _1, _2, _3));
 
@@ -77,6 +81,9 @@ ConstelTrainer::ConstelTrainer() {
 #endif
   //  init engine
   InitEngine(2);
+  // time recorder
+  batch_t_ = std::make_shared<TimeRecoder>("ms");
+  rtt_window_ = std::make_shared<WindowedBuffer<int64_t>>(3);
 }
 
 ConstelTrainer::~ConstelTrainer() {
@@ -126,7 +133,8 @@ bool ConstelTrainer::BatchEnd(std::vector<int>* keys_to_migrate) {
   auto ticked = clock_.clockTick();
   auto timestamp = clock_.getLocalTimestamp();
   if (isRootNode()) {
-    NotifySchedulerUpdateClock(timestamp);
+    // ttl and batch time record
+    batch_t_->record();
   }
   if (keys_to_migrate) {
     keys_to_migrate->clear();
@@ -138,6 +146,16 @@ bool ConstelTrainer::BatchEnd(std::vector<int>* keys_to_migrate) {
   }
 
   // there is a alarm
+  // notify the scheduler to update the clock
+  if (isRootNode()) {
+    auto body = ClockSignalBody{myid(),
+                                timestamp,
+                                batch_t_->get_duration(),
+                                rtt_window_->get_avg(),
+                                get_time_point("us")};
+    NotifySchedulerUpdateClock(std::move(body));
+  }
+
   auto& transtopo = ticked->transtopo;
   auto& model_sync_conf = ticked->model_sync_conf;
   int my_id = ps::Postoffice::Get()->GetMyID();
@@ -229,12 +247,11 @@ void ConstelTrainer::MigratePartialSlice(const std::vector<int>& path,
       path[1], kvdata.keys, kvdata.values, kvdata.lens, conf_str, kvdata.cmd);
 }
 
-void ConstelTrainer::NotifySchedulerUpdateClock(uint32_t timestamp) {
+void ConstelTrainer::NotifySchedulerUpdateClock(const ClockSignalBody& body) {
   int head = static_cast<int>(kControllerSignal::kUpdateClockSignal);
-  int my_id = ps::Postoffice::Get()->GetMyID();
-  std::string body = std::to_string(my_id) + "," + std::to_string(timestamp);
+  std::string body_str = serilite::serialize(body).as_string();
   // no need wait
-  trainer_->Request(head, body, ps::kScheduler);
+  trainer_->Request(head, body_str, ps::kScheduler);
 }
 
 void ConstelTrainer::Broadcast(const std::vector<int>& keys,
@@ -495,6 +512,7 @@ void ConstelTrainer::RequestHandle(const ps::SimpleData& recved,
   int sender = recved.sender;
   auto signal = static_cast<kControllerSignal>(recved.head);
   const std::string& body = recved.body;
+  std::string response_body;
   switch (signal) {
     // case : kControllerSignal::xxxx:
     //     break;
@@ -530,11 +548,37 @@ void ConstelTrainer::RequestHandle(const ps::SimpleData& recved,
 
       break;
     }
+    case kControllerSignal::kQueryTimestamp: {
+      ClockSignalBody sig_body;
+      serilite::deserialize(body, sig_body);
+      sig_body.batch_dur_ms = batch_t_->get_duration();
+      sig_body.rtt = rtt_window_->get_avg();
+      sig_body.timestamp = clock_.getLocalTimestamp();
+      response_body = serilite::serialize(sig_body).as_string();
+      break;
+    }
     default:
       LOG(FATAL) << "Unkown signal ";
       break;
   };
-  app->Response(recved);
+  app->Response(recved, response_body);
+}
+
+void ConstelTrainer::ResponseHandle(const ps::SimpleData& recved,
+                                    ps::SimpleApp* app) {
+  int sender = recved.sender;
+  auto signal = static_cast<kControllerSignal>(recved.head);
+  const std::string& body = recved.body;
+  if (signal != kControllerSignal::kUpdateClockSignal) {
+    return;
+  }
+  ClockSignalBody clock_signal_body;
+  serilite::deserialize(body, clock_signal_body);
+  if (clock_signal_body.tp_snd > 0) {
+    auto now = get_time_point("us");
+    auto rtt = now - clock_signal_body.tp_snd;
+    rtt_window_->push_back(rtt);
+  }
 }
 
 void ConstelTrainer::DataHandle(const ps::KVMeta& req_meta,
@@ -628,9 +672,6 @@ void ConstelTrainer::DataHandle(const ps::KVMeta& req_meta,
                        req_data.lens,
                        str,
                        req_meta.cmd);
-        PS_VLOG(2) << "forward the migrate data: "
-                   << model_sync_conf.debug_string()
-                   << " kvpairs: " << " lens: " << req_data.lens[0];
       } else {
         LOG(WARNING) << "ModelSync request is invalid";
       }
