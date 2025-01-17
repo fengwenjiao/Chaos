@@ -29,7 +29,7 @@ trainer = Trainer.Trainer()
 parser = argparse.ArgumentParser(
     description="Train ResNet-18 on CIFAR-10 with specified GPU."
 )
-parser.add_argument("--gpu", type=int, default=0, help="GPU id to use (default: 0)")
+parser.add_argument("--gpu", type=int, default=None, help="GPU id to use (default: 0)")
 parser.add_argument(
     "--subset",
     type=int,
@@ -37,6 +37,11 @@ parser.add_argument(
     help="Number of samples to use for training (default: 1000)",
 )
 args = parser.parse_args()
+
+if args.gpu is None:
+    import random
+
+    args.gpu = random.randint(0, torch.cuda.device_count() - 1)
 
 # 设置设备
 device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
@@ -211,7 +216,7 @@ from utils import model_parameters_summary
 
 # 训练模型
 num_epochs = 100
-glb_batch =  0 
+glb_batch = 0
 for epoch in range(num_epochs):
     model.train()
     running_loss = 0.0
