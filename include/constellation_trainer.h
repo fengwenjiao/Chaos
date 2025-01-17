@@ -73,6 +73,8 @@ static DataHandleType DepairDataHandleType(int cmd) {
   return type;
 };
 
+class TimeRecoder;
+
 class ConstelTrainer {
  public:
   explicit ConstelTrainer();
@@ -212,6 +214,9 @@ class ConstelTrainer {
 
   EngineType* engine_;
 
+  std::shared_ptr<TimeRecoder> batch_t_;
+  std::shared_ptr<WindowedBuffer<int64_t>> rtt_window_;
+
   UpdateBuf* GetUpdateBuf(int key) {
     std::lock_guard<std::mutex> lock(update_buf_mu_);
     return &update_buf_[key];
@@ -236,7 +241,7 @@ class ConstelTrainer {
 
   int SimplePushPullDefault(int key, const CArray& val);
 
-  void NotifySchedulerUpdateClock(uint32_t timestamp);
+  void NotifySchedulerUpdateClock(const ClockSignalBody& body);
 
   void InitEngine(size_t num_thread);
 
@@ -245,6 +250,8 @@ class ConstelTrainer {
                        std::shared_ptr<ReturnOnAgg<EngineTaskData, int>> rt);
 
   void RequestHandle(const ps::SimpleData& recved, ps::SimpleApp* app);
+
+  void ResponseHandle(const ps::SimpleData& recved, ps::SimpleApp* app);
 
   void DataHandle(const ps::KVMeta& req_meta,
                   const ps::KVPairs<char>& req_data,

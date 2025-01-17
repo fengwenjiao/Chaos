@@ -14,6 +14,10 @@ namespace constellation {
 
 class ReadyNodeOverlayManager;
 
+using MainTask = std::function<void()>;
+template <typename T>
+class ThreadSafeQueue;
+
 class ConstelController {
  public:
   ConstelController();
@@ -61,9 +65,18 @@ class ConstelController {
    */
   void SendToTrainer(int head, const std::string& body, int recv_id);
 
+  int findRoot() const;
+
+  uint32_t QueryTimestamp(int id = 0);
+
+  std::shared_ptr<ThreadSafeQueue<MainTask>> main_task_queue_;
+
   std::shared_ptr<ReadyNodeOverlayManager> node_manager_;
 
   ScaleClock clock_;
+
+  std::shared_ptr<WindowedBuffer<int64_t>> rtt_window_;
+  std::shared_ptr<WindowedBuffer<int64_t>> batch_t_window_;
 
   GlobalTransTopo global_transtopo_;
 
