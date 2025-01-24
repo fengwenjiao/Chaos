@@ -1,4 +1,4 @@
-FROM constellation-base:latest
+FROM constellation-base
 
 # install iproute2
 RUN apt update && apt install -y --no-install-recommends iproute2

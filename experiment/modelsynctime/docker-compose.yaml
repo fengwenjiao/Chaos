@@ -1,7 +1,8 @@
-version: '3.8'
-
 x-worker: &worker_defaults
-  image: constellation-dev
+  build:
+    context: ./
+    dockerfile: Dockerfile
+  image: constellation-modelsynctime
   cap_add:
     - NET_ADMIN
   volumes:
@@ -33,7 +34,10 @@ x-worker: &worker_defaults
 
 services:
   master:
-    image: constellation-dev
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    image: constellation-modelsynctime
     cap_add:
       - NET_ADMIN
     container_name: modelsynctime-controller

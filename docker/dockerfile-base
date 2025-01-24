@@ -1,8 +1,8 @@
-FROM pytorch/pytorch:2.2.2-cuda11.8-cudnn8-runtime
+FROM pytorch/pytorch:2.4.1-cuda12.4-cudnn9-runtime
 
 # cmake build tools
 RUN env | grep -i _PROXY
-RUN apt-get update && apt-get install -y --no-install-recommends cmake gcc g++ make libc6-dev ninja-build unzip libzmq3-dev autoconf automake libtool wget
+RUN apt-get update && apt-get install -y --no-install-recommends cmake gcc g++ make libc6-dev ninja-build unzip libzmq3-dev autoconf automake libtool wget libssl-dev
 
 # install protobuf
 WORKDIR /tmp
@@ -21,5 +21,5 @@ RUN rm -rf /tmp/*
 
 # fix for libstdc++ issue. Optional, but may be necessary for some systems
 RUN mv /opt/conda/lib/libstdc++.so.6 /opt/conda/lib/libstdc++.so.6.bak
-ENV PATH=/opt/conda/bin:/usr/local/bin:$PATH
+ENV PATH=/usr/bin:/usr/local/bin:/opt/conda/bin:$PATH
 ENV LD_LIBRARY_PATH=/usr/local/lib:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
