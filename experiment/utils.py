@@ -34,15 +34,17 @@ def _compute_md5(float_list, decimal_places=7):
     return md5_hash
 
 
-def model_parameters_summary(model: torch.nn.Module, decimal=7):
+def model_parameters_summary(model: torch.nn.Module, decimal=7, detail=False):
     """
     Calculate a summary value for the parameters of a PyTorch model.
 
     Args:
         model (torch.nn.Module): The PyTorch model.
+        decimal (int): Number of decimal places for the summary values.
+        detail (bool): Whether to include detailed parameter values in the summary.
 
     Returns:
-        float: The summary value of the model parameters.
+        str: The summary of the model parameters.
     """
     summary_value = 0.0
     summary_list = []
@@ -54,10 +56,13 @@ def model_parameters_summary(model: torch.nn.Module, decimal=7):
         summary_list.append(mean_v)
         summary_value += mean_v
         param_count += 1
-    # to str, keep 6 decimal places
+    # to str, keep specified decimal places
     hash_str = _compute_md5(summary_list, decimal)
-    summary_str = ", ".join([f"{v:.{decimal}f}" for v in summary_list])
-    summary_str = f"hash: {hash_str} \n values: {summary_str}"
+    if detail:
+        summary_str = ", ".join([f"{v:.{decimal}f}" for v in summary_list])
+        summary_str = f"hash: {hash_str} \n values: {summary_str}"
+    else:
+        summary_str = f"hash: {hash_str}"
     return summary_str
 
 

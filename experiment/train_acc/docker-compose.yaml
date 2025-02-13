@@ -1,0 +1,58 @@
+x-worker: &worker_defaults
+  image: constellation:pytorch-2.4.1-cuda12.4-cudnn9-runtime
+  volumes:
+    - ../../:/constellation-rt
+  networks:
+    - constellation
+  depends_on:
+    - master
+  tty: true
+  stdin_open: true
+  environment:
+    # - DMLC_PS_ROOT_URI=trainacc-controller
+    - DMLC_PS_ROOT_URI=master
+    - DMLC_PS_ROOT_PORT=8000
+    - DMLC_ROLE=trainer
+    - PS_VERBOSE=2
+  restart: on-failure
+  runtime: nvidia
+  deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+  working_dir:
+     /constellation-rt/experiment/train_acc
+  command: ["./entry_point.sh"]
+  shm_size: '2gb'
+
+services:
+  master:
+    image: constellation:pytorch-2.4.1-cuda12.4-cudnn9-runtime
+    # container_name: trainacc-controller
+    volumes:
+      - ../..:/constellation-rt
+    networks:
+      - constellation
+    working_dir:
+     /constellation-rt/
+    command: python3 ./experiment/train_acc/test_controller.py
+    tty: true
+    stdin_open: true
+    env_file:
+      - expconfig.env
+    environment:
+      - DMLC_PS_ROOT_URI=0.0.0.0
+      - DMLC_PS_ROOT_PORT=8000
+      - DMLC_ROLE=scheduler
+      - PS_VERBOSE=2
+    ipc: host
+
+  worker:
+    <<: *worker_defaults
+
+networks:
+  constellation:
+    driver: bridge
