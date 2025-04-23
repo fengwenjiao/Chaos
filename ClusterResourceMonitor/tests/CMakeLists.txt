@@ -1,0 +1,7 @@
+file(GLOB tests "*.cc")
+foreach(test ${tests})
+    get_filename_component(test_name ${test} NAME_WE)
+    add_executable(${test_name} ${test})
+    target_link_libraries(${test_name} PRIVATE resource_monitor)
+endforeach()
+target_compile_definitions(resource_monitor PRIVATE DEBUG)

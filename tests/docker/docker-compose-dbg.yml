@@ -1,0 +1,28 @@
+version: '3.8'
+
+x-worker: &worker_defaults
+  image: constellation:0.0.1
+  volumes:
+    - ../../:/constellation-rt
+  networks:
+    - constellation
+  tty: true
+  stdin_open: true
+  environment:
+    - DMLC_PS_ROOT_URI=constellation-test-master
+    - DMLC_PS_ROOT_PORT=8000
+    - DMLC_ROLE=trainer
+    - DEBUG_OVERLAY=1
+    - PS_VERBOSE=1
+  restart: on-failure
+  # --cap-add SYS_ADMIN
+  cap_add:
+    - SYS_ADMIN
+
+services:
+  worker:
+    <<: *worker_defaults
+
+networks:
+  constellation:
+    driver: bridge

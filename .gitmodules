@@ -1,0 +1,9 @@
+[submodule "ps-lite-elastic"]
+	path = ps-lite-elastic
+	url = https://github.com/yezhizi/ps-lite-elastic.git
+[submodule "googletest"]
+	path = googletest
+	url = https://github.com/google/googletest.git
+[submodule "ClusterResourceMonitor/3rdparty/iperf-cmake"]
+	path = ClusterResourceMonitor/3rdparty/iperf-cmake
+	url = https://github.com/yezhizi/iperf-cmake.git
